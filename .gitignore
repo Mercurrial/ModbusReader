@@ -1,0 +1,37 @@
+# ── Python / tooling ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.idea/
+.vscode/
+.claude/
+
+# ── build output (PyInstaller) ───────────────────────────────────
+build/
+dist/
+
+# ── per-machine state written by the app ─────────────────────────
+app_settings.json
+app_settings.json.*
+modbusreader_errors.log*
+.write_probe
+
+# ── local working data (register maps, projects, exports) ────────
+# Device maps and results belong to the user, not to the source tree.
+*.xlsx
+*.csv
+*.mbproj
+*.mbdash
+*.mbsnap
+test.json
+profile.json
+tld_auto.json
+
+# ── design hand-off bundles and dev dumps ────────────────────────
+modbusreader/
+modbusreader_full/
+design_bundle.tar.gz
+gemini_context.txt

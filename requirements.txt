@@ -1,0 +1,13 @@
+# ModbusReader — runtime dependencies.
+# Python 3.10+ (the code uses `X | None` unions); developed on 3.12.
+# Install:  python -m pip install -r requirements.txt
+
+PyQt6>=6.6
+pyqtgraph>=0.13
+pymodbus>=3.6,<4
+pyserial>=3.5
+numpy>=1.26
+openpyxl>=3.1        # XLSX: map import + macro result export
+
+# Dev / tests only:
+pytest>=8

@@ -1,0 +1,4 @@
+* text=auto
+*.py text diff=python
+*.png binary
+*.ico binary
