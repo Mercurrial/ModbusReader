@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QFileDialog, QApplication, QLabel, QLineEdit,
     QStackedWidget, QPushButton, QMenu, QMessageBox,
 )
-from PyQt6.QtCore import Qt, QPropertyAnimation
+from PyQt6.QtCore import Qt, QPropertyAnimation, QTimer
 from PyQt6.QtGui import QShortcut, QKeySequence
 
 from gui_toolbar import MainToolBar
@@ -20,14 +20,17 @@ from settings_manager import load_settings, save_settings
 from profile_manager import load_profile_data, find_overlaps, find_duplicate_names
 from app_context import AppContext
 from gui_table import RegisterTable, COL_ADDR, COL_NAME, mono_font
-from gui_views import ConsoleView, SlaveStubView
+from gui_views import ConsoleView
+from gui_slave import SlaveView
 from gui_scanner import ScannerView
 from gui_sniffer import SnifferView
 from gui_dash import DashboardView
 from gui_snapshot import SnapshotView
 from gui_logger import LoggerView
+from gui_watch import WatchWindow
 from dialogs import themed_info, themed_message
 from qt_utils import later
+import datatypes
 import formats
 import commands
 import icons
@@ -55,7 +58,6 @@ class ModernScadaApp(QMainWindow):
         # Empty path + empty name means "not in a named project yet".
         self.project_path: str        = self.settings.get("last_project_path", "")
         self.project_name: str        = self.settings.get("last_project_name", "")
-        self.tx_counter: int          = 0
         self.error_counter: int       = 0
 
         # Open MemoryViewerDialogs, keyed by address (the table emits
@@ -265,8 +267,18 @@ class ModernScadaApp(QMainWindow):
             self.ctx, lambda: self.profile_data,
             lambda: self.register_table.current_values(fresh_only=True))
         self.content_stack.addWidget(self.logger_view)
-        self.slave_view = SlaveStubView(self.ctx)
+        self.slave_view = SlaveView(self.ctx, lambda: self.profile_data)
         self.content_stack.addWidget(self.slave_view)
+
+        # The watch window floats above the main window (built hidden, so
+        # the picked registers keep their min/max even while it is closed).
+        self.watch_window = WatchWindow(self.ctx, lambda: self.profile_data, self)
+        self.watch_window.write_requested.connect(self.register_table.request_write)
+        self.watch_window.watch_changed.connect(self.register_table.set_watched)
+        self.register_table.set_watched(self.watch_window.watched())
+        rt.value_shown.connect(self.watch_window.on_value)
+        rt.watch_toggle_requested.connect(self._toggle_watch_register)
+        self.dash_view.watch_requested.connect(self._add_watch_register)
 
         self._overlay_page = None   # currently embedded settings/editor page
         self._current_view = "view_table"   # nav id of the visible base page
@@ -279,6 +291,12 @@ class ModernScadaApp(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.apply_theme(self.ctx.theme_tokens())
         self._refresh_link_label()
+        # Line statistics are counted in the core thread; the status bar
+        # samples a snapshot twice a second (cheap: a dict copy under a lock).
+        self.status_bar.stats_popup.reset_requested.connect(self._reset_line_stats)
+        self._stats_timer = QTimer(self)
+        self._stats_timer.timeout.connect(self._refresh_line_stats)
+        self._stats_timer.start(500)
 
     # ===========================================================
     #  REGISTER-MAP HEAD BAR
@@ -421,6 +439,7 @@ class ModernScadaApp(QMainWindow):
             "open_config":  self._open_profile,
             "settings":     self._open_settings,
             "macros":       self._open_macros,
+            "watch":        self._toggle_watch_window,
             "connect":      self._toggle_connection,
             "help":         self._show_help,
             "theme":        self.main_toolbar._toggle_theme,
@@ -464,6 +483,12 @@ class ModernScadaApp(QMainWindow):
         if core.is_running or core.isRunning():
             core.stop()
             core.wait(3000)
+            return
+        # One port, one owner: the slave emulator may be serving this port.
+        busy = self.slave_view.serving_port()
+        if busy and busy.casefold() == str(self.settings.get("port", "")).casefold():
+            themed_info(self, self.ctx.theme, "warning", self.t("slvBusyTitle"),
+                        self.t("slvMasterBusyText").format(port=busy))
             return
         core.setup_connection(self.settings, self.settings.get("slave_id", 10))
         core.update_profile(self.profile_data)
@@ -683,6 +708,29 @@ class ModernScadaApp(QMainWindow):
         if self.main_toolbar._theme != new_theme or self.main_toolbar._accent != new_accent:
             self.main_toolbar.apply_theme(new_theme, new_accent)
 
+    # ── watch window ───────────────────────────────────────────────
+    def _toggle_watch_window(self):
+        w = self.watch_window
+        if w.isVisible():
+            w.hide()
+        else:
+            w.show()
+            w.raise_()
+
+    def _toggle_watch_register(self, addr: int):
+        if self.watch_window.toggle(addr):
+            self._show_watch()
+
+    def _add_watch_register(self, addr: int):
+        self.watch_window.add(addr)
+        self._show_watch()
+
+    def _show_watch(self):
+        """Adding a register is feedback enough to open the window."""
+        if not self.watch_window.isVisible():
+            self.watch_window.show()
+        self.watch_window.raise_()
+
     def _open_macros(self):
         """Open (or raise) the macro automation window."""
         win = getattr(self, "macro_window", None)
@@ -829,6 +877,7 @@ class ModernScadaApp(QMainWindow):
             self.snapshot_view.apply_settings()
             self.logger_view.apply_settings()
             self.slave_view.apply_settings()
+            self.watch_window.apply_settings()
             self.status_bar.apply_theme(self.ctx.theme_tokens())
             win = getattr(self, "macro_window", None)
             if win is not None and hasattr(win, "apply_theme"):
@@ -974,7 +1023,8 @@ class ModernScadaApp(QMainWindow):
         """Ctrl+S saves the document in front of you: the map while its editor
         is open, otherwise the project."""
         page = self._overlay_page
-        if page is not None and hasattr(page, "_save")                 and hasattr(page, "get_profile_data"):
+        if (page is not None and hasattr(page, "_save")
+                and hasattr(page, "get_profile_data")):
             page._save()
             return
         self._save_project()
@@ -1174,7 +1224,9 @@ class ModernScadaApp(QMainWindow):
         self._refresh_profile_label()
         self._update_badge()
         self._refresh_link_label()
-        self.status_bar.set_tooltips(t("sbRxTip"), t("sbErrTip"), t("sbLinkTip"))
+        self.status_bar.set_tooltips(t("statChipTip"), t("sbErrTip"), t("sbLinkTip"))
+        self.status_bar.stats_popup.retranslate(t)
+        self._refresh_line_stats()
 
         # Log tabs
         self.log_panel.retranslate(t)
@@ -1185,6 +1237,7 @@ class ModernScadaApp(QMainWindow):
         self.snapshot_view.retranslate(t)
         self.logger_view.retranslate(t)
         self.slave_view.retranslate(t)
+        self.watch_window.retranslate(t)
 
         if hasattr(self, "trends_manager"):
             self.trends_manager.retranslate(t)
@@ -1322,6 +1375,8 @@ class ModernScadaApp(QMainWindow):
             self.modbus_core.update_profile(regs)
         self._refresh_profile_label()
         self.logger_view.refresh_columns()
+        self.watch_window.refresh_map()
+        self.slave_view.map_changed()
 
     def _refresh_profile_label(self):
         if self.profile_path:
@@ -1345,13 +1400,18 @@ class ModernScadaApp(QMainWindow):
             self._log("SYS", message)
         if not connected:
             self.register_table.mark_all_stale()
+            self.watch_window.set_stale_all()
 
     def _on_data_updated(self, addr: int, val_str: str):
-        # Count every received reading for the status bar, then hand the value
-        # to the table (it formats the cell + emits value_sampled for trends).
-        self.tx_counter += 1
-        self.status_bar.update_tx_rx(self.tx_counter)
+        # The table formats the cell and emits value_sampled for trends.
         self.register_table.update_value(addr, val_str)
+
+    def _refresh_line_stats(self):
+        self.status_bar.set_line_stats(self.modbus_core.stats.snapshot(), self.t)
+
+    def _reset_line_stats(self):
+        self.modbus_core.stats.reset()
+        self._refresh_line_stats()
 
     def _on_log_message(self, level: str, message: str):
         self._log(level, message)
@@ -1394,7 +1454,8 @@ class ModernScadaApp(QMainWindow):
             existing.activateWindow()
             existing.raise_()
             return
-        reg_info     = next((r for r in self.profile_data if r.get("addr") == addr), {})
+        reg_info     = next((r for r in self.profile_data
+                             if isinstance(r, dict) and datatypes.reg_key(r) == addr), {})
         length       = reg_info.get("length", 1)
         # The viewer remembers its layout per map; a project's map has no
         # file of its own, so the project name keys it instead.
@@ -1418,11 +1479,11 @@ class ModernScadaApp(QMainWindow):
 
     def _reg_by_id(self, reg_id: str) -> dict:
         try:
-            addr = int(str(reg_id), 16)
+            key = int(str(reg_id), 16)
         except ValueError:
             return {}
         return next((r for r in self.profile_data
-                     if isinstance(r, dict) and r.get("addr") == addr), {})
+                     if isinstance(r, dict) and datatypes.reg_key(r) == key), {})
 
     def _add_to_trend(self, reg_id: str, reg_name: str):
         # The card shows the register's unit next to the current value; it
@@ -1500,6 +1561,9 @@ class ModernScadaApp(QMainWindow):
         self.settings["win_maximized"] = self.isMaximized()
         self.settings["show_log"] = self.main_toolbar._log_on
         self.settings["last_view"] = self._current_view
+        self.settings["watch_visible"] = self.watch_window.isVisible()
+        if self.watch_window.isVisible():
+            self.watch_window.save_geometry()
         self.settings["open_trends"] = [
             {"id": c.reg_id, "name": c.reg_name, "unit": c.unit,
              "win": c.window_seconds}
@@ -1533,6 +1597,9 @@ class ModernScadaApp(QMainWindow):
         total = sum(self.v_splitter.sizes()) or 730
         self.v_splitter.setSizes([max(200, total - lh), lh])
 
+        if self.settings.get("watch_visible"):
+            later(0, self, self._show_watch)
+
         # Last active view; the default (map) needs no switch.
         last_view = self.settings.get("last_view", "view_table")
         if last_view != "view_table" and last_view in self._view_pages():
@@ -1558,6 +1625,7 @@ class ModernScadaApp(QMainWindow):
         self.dash_view.stop_if_running()      # kill dashboard automation timers
         self.sniffer_view.stop_if_running()
         self.logger_view.stop_if_running()    # flush + close the CSV
+        self.slave_view.stop_if_running()     # release the emulator's port
         if self.modbus_core.is_running or self.modbus_core.isRunning():
             self.modbus_core.stop()
             self.modbus_core.wait(3000)

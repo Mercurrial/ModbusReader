@@ -170,11 +170,15 @@ def test_a_normal_low_address_sheet_is_not_flagged_as_4x():
 
 # ═══════════════ type / access normalisation ═══════════════
 @pytest.mark.parametrize("text,expected", [
-    ("uint16", "SHORT"), ("INT16", "SHORT"), ("word", "SHORT"),
-    ("uint32", "LONG"), ("DWORD", "LONG"), ("int32", "LONG"),
+    # Unsigned names map to the unsigned types (2.1): before they existed,
+    # "uint16" became a signed SHORT and read negative above 32767.
+    ("uint16", "UINT16"), ("INT16", "SHORT"), ("word", "UINT16"),
+    ("uint32", "UINT32"), ("DWORD", "UINT32"), ("int32", "LONG"),
     ("float", "FLOAT"), ("REAL", "FLOAT"), ("float32", "FLOAT"),
-    ("SHORT", "SHORT"), ("FLOAT", "FLOAT"),        # already registry keys
-    ("string", "STR_LEN"), ("строка", "STR_LEN"),
+    ("double", "DOUBLE"), ("LREAL", "DOUBLE"), ("int64", "INT64"),
+    ("BCD", "BCD16"), ("bcd32", "BCD32"), ("bit field", "BITS16"),
+    ("SHORT", "SHORT"), ("FLOAT", "FLOAT"), ("UINT16", "UINT16"),
+    ("string", "STRING"), ("строка", "STRING"),
     ("", "SHORT"), ("нечто", "SHORT"),             # unknown -> default
 ])
 def test_type_aliases(text, expected):
@@ -211,7 +215,7 @@ def test_a_normal_sheet_imports_cleanly():
     regs, problems = mi.build_registers(_rows(), m)
     assert problems == []
     assert [r["addr"] for r in regs] == [16, 18, 20]
-    assert [r["type"] for r in regs] == ["FLOAT", "SHORT", "LONG"]
+    assert [r["type"] for r in regs] == ["FLOAT", "UINT16", "LONG"]
     assert [r["rw"] for r in regs] == ["R", "RW", "R"]
     assert regs[0]["unit"] == "°C"
     assert regs[0]["scale"] == pytest.approx(0.1)
@@ -329,7 +333,7 @@ def test_dialog_guesses_everything_from_a_cp1251_vendor_sheet(tmp_path):
     assert d.current_mapping() == {"addr": 0, "name": 1, "type": 2,
                                    "rw": 3, "unit": 4, "scale": 5}
     assert [r["addr"] for r in d.registers] == [16, 18, 20]
-    assert [r["type"] for r in d.registers] == ["FLOAT", "SHORT", "LONG"]
+    assert [r["type"] for r in d.registers] == ["FLOAT", "UINT16", "LONG"]
     assert d.registers[0]["name"] == "Температура"
 
 

@@ -109,10 +109,17 @@ class MainToolBar(QWidget):
         brand_lo.setContentsMargins(4, 2, 6, 2)
         brand_lo.setSpacing(0)
 
-        mark = QLabel("M")
-        mark.setObjectName("brandMark")
+        # The same mark as the exe / taskbar icon (assets/app.png).
+        mark = QLabel()
+        mark.setObjectName("brandIcon")
         mark.setFixedSize(24, 24)
         mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        logo = icons.app_icon()
+        if logo.isNull():
+            mark.setText("M")
+            mark.setObjectName("brandMark")
+        else:
+            mark.setPixmap(logo.pixmap(QSize(24, 24), self.devicePixelRatioF()))
 
         name_row = QHBoxLayout()
         name_row.setSpacing(3)

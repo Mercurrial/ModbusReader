@@ -18,6 +18,7 @@ from PyQt6.QtGui import QColor
 
 from theme_manager import get_theme
 from i18n import get_translator
+import datatypes
 import icons
 from dialogs import themed_info
 
@@ -170,7 +171,7 @@ class TrendCard(QWidget):
 
         self.lbl_title = ElidingLabel(self.reg_name)
         self.lbl_title.setObjectName("gTitle")
-        self.lbl_title.setToolTip(f"{self.reg_name}  [{self.reg_id}]")
+        self.lbl_title.setToolTip(f"{self.reg_name}  [{datatypes.id_label(self.reg_id)}]")
 
         self.lbl_meta = QLabel(self._meta_text())
         self.lbl_meta.setObjectName("gMeta")
@@ -322,7 +323,7 @@ class TrendCard(QWidget):
     # ──────────────────────────── helpers
 
     def _meta_text(self) -> str:
-        return f"{self.reg_id} · {SEC_LABEL.get(self.window_seconds, str(self.window_seconds) + 's')}"
+        return f"{datatypes.id_label(self.reg_id)} · {SEC_LABEL.get(self.window_seconds, str(self.window_seconds) + 's')}"
 
     @staticmethod
     def _fill_brush(color: str):
@@ -598,7 +599,7 @@ class ChartExpandDialog(QDialog):
         title.setStyleSheet(
             f"color: {self.theme['text_1']}; background: transparent; "
             f"font-size: 16px; font-weight: 700;")
-        meta = QLabel(self._card.reg_id)
+        meta = QLabel(datatypes.id_label(self._card.reg_id))
         meta.setStyleSheet(
             f"color: {self.theme['text_3']}; background: transparent; "
             f"font-family:'JetBrains Mono','Consolas',monospace; font-size: 11px;")

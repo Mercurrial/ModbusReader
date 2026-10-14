@@ -107,6 +107,7 @@ COMMANDS: tuple = (
     # Main action buttons — rendered left-to-right in this order.
     Command("settings", "settings", icon="sliders",  shortcut="Ctrl+,"),
     Command("macros",   "macros",   icon="play",     shortcut="Ctrl+M"),
+    Command("watch",    "watchTitle", icon="watch",  shortcut="F6"),
     Command("connect",  "connect",  icon="plug",     shortcut="F5"),
     Command("help",     "help",     icon="help",     shortcut="F1"),
 

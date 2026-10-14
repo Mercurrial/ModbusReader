@@ -146,6 +146,16 @@ DEFAULT_SETTINGS = {
     "console_history":   [],     # raw-console command history (newest last)
     "console_visible":   True,   # raw-console strip shown under the log
     "open_trends":       [],     # trend cards open at exit: {id,name,unit,win}
+    # Watch window: watched addresses (in order), pin, geometry, open at exit.
+    "watch_list":        [],
+    "watch_on_top":      False,
+    "watch_geom":        None,
+    "watch_visible":     False,
+    # Slave (device emulator): its own port and identity, remembered.
+    "slave_port":        "",
+    "slave_baud":        "",
+    "slave_sid":         None,
+    "slave_delay":       0,
     "last_view":         "view_table",   # nav view active at exit
     # Which views show as labelled tabs; the rest live in the overflow menu.
     "pinned_views":      ["view_table", "view_console",

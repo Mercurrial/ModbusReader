@@ -122,7 +122,7 @@ class _Register:
         return self.read()
 
     def __repr__(self):
-        return f"<reg {self.name} @0x{self.addr:04X} {self.type}>"
+        return f"<reg {self.name} @{datatypes.key_label(self.addr)} {self.type}>"
 
 
 class MacroRunner(QThread):
@@ -153,11 +153,14 @@ class MacroRunner(QThread):
                 continue
             addr_raw = r.get("addr", 0)
             try:
-                addr = int(addr_raw, 0) if isinstance(addr_raw, str) else int(addr_raw)
+                int(addr_raw, 0) if isinstance(addr_raw, str) else int(addr_raw)
             except (TypeError, ValueError):
                 continue                     # unusable row: not addressable
+            # "addr" here is the register KEY (area << 16 | address): a coil
+            # and a holding register at the same number are different rows.
+            addr = datatypes.reg_key(r)
             info = {"addr": addr, "type": dtype,
-                    "name": r.get("name", f"0x{addr:04X}")}
+                    "name": r.get("name", datatypes.key_label(addr))}
             self._by_addr[info["addr"]] = info
             self._by_name[info["name"].strip().lower()] = info
             self._scalars.append(info)
@@ -205,17 +208,16 @@ class MacroRunner(QThread):
             if info is None:
                 if dtype is None:
                     raise KeyError(
-                        f"Регистр 0x{key:04X} не найден в профиле; "
-                        f"укажите тип: reg(0x{key:04X}, 'FLOAT')")
-                return {"addr": key, "type": dtype, "name": f"0x{key:04X}"}
+                        f"Регистр {datatypes.key_label(key)} не найден в профиле; "
+                        f"укажите тип: reg(0x{key & 0xFFFF:04X}, 'FLOAT')")
+                return {"addr": key, "type": dtype, "name": datatypes.key_label(key)}
             return {"addr": info["addr"], "type": dtype or info["type"], "name": info["name"]}
         if isinstance(key, str):
             info = self._by_name.get(key.strip().lower())
             if info is None:
-                # allow "0x1234" style string addresses
-                try:
-                    addr = int(key, 0)
-                except ValueError:
+                # allow "0x1234" / "CO 0x0005" / "IR 16" style addresses
+                addr = datatypes.parse_key(key)
+                if addr is None:
                     raise KeyError(f"Регистр не найден: {key!r}")
                 return self._lookup(addr, dtype)
             return {"addr": info["addr"], "type": dtype or info["type"], "name": info["name"]}
@@ -230,7 +232,7 @@ class MacroRunner(QThread):
     def _write(self, addr, dtype, value, name):
         self._check_stop()
         self.core.request_op("write", addr, dtype, value=value, timeout=self.op_timeout)
-        self.sig_log.emit("SYS", f"write {name} (0x{addr:04X}) = {value}")
+        self.sig_log.emit("SYS", f"write {name} ({datatypes.key_label(addr)}) = {value}")
 
     # ──────────────────────────── script-facing API
 

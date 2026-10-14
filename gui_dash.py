@@ -35,6 +35,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6 import sip
 
+import datatypes
 import formats
 
 import icons
@@ -127,6 +128,7 @@ class DashCard(QWidget):
     wire_moved          = pyqtSignal(QPoint)
     wire_finished       = pyqtSignal(QPoint)
     fired               = pyqtSignal(str, object)     # uid, payload
+    watch_requested     = pyqtSignal(str)             # reg_id
 
     _THRESHOLD = 4
 
@@ -300,7 +302,7 @@ class DashCard(QWidget):
 
     def title_text(self) -> str:
         return (self.cfg.get("title") or self.cfg.get("name")
-                or self.cfg.get("reg_id", ""))
+                or datatypes.id_label(self.cfg.get("reg_id", "")))
 
     # ── interaction ──────────────────────────────────────────────────
     def _canvas(self):
@@ -458,6 +460,10 @@ class DashCard(QWidget):
         act_cut = m.addAction(t("dashCut"))
         m.addSeparator()
         act_del = m.addAction(t("deleteRow"))
+        act_watch = None
+        if self.cfg.get("reg_id"):
+            m.addSeparator()
+            act_watch = m.addAction(t("watchAddTo"))
         chosen = m.exec(global_pos)
         # The menu ran its own event loop; anything armed before it is stale.
         self._cancel_gesture()
@@ -471,6 +477,8 @@ class DashCard(QWidget):
             self.clip_requested.emit(self.cfg["uid"], "cut")
         elif chosen is act_del:
             self.remove_requested.emit(self.cfg["uid"])
+        elif act_watch is not None and chosen is act_watch:
+            self.watch_requested.emit(str(self.cfg["reg_id"]))
 
     def contextMenuEvent(self, e):
         # Right-press is a pan gesture now; the menu is opened from the release
@@ -927,7 +935,7 @@ class DashCard(QWidget):
         val = int(val) if isinstance(val, float) and val.is_integer() else val
         p.drawText(QRectF(0, self.ph - 24, self.pw, 16),
                    Qt.AlignmentFlag.AlignCenter,
-                   f"{self.cfg.get('reg_id', '')} ← {val}")
+                   f"{datatypes.id_label(self.cfg.get('reg_id', ''))} ← {val}")
 
     def _paint_toggle(self, p, c, _alarm):
         on = self.state_on
@@ -1223,6 +1231,7 @@ class DashboardView(QWidget):
     """Free-form canvas of DashCards + the wire graph + run/edit modes."""
 
     write_requested = pyqtSignal(int, str, str)      # addr, dtype, value
+    watch_requested = pyqtSignal(int)                # addr → watch window
 
     def __init__(self, ctx, get_registers, parent=None):
         super().__init__(parent)
@@ -1399,6 +1408,7 @@ class DashboardView(QWidget):
         card.wire_moved.connect(self._on_wire_moved)
         card.wire_finished.connect(self._on_wire_finished)
         card.fired.connect(self.fire)
+        card.watch_requested.connect(self._relay_watch)
         card.set_edit(self.edit)
         card.show()
         self.cards[cfg["uid"]] = card
@@ -2431,6 +2441,12 @@ class DashboardView(QWidget):
             p.setBrush(col)
             p.drawEllipse(QPointF(dot), 4, 4)
 
+    def _relay_watch(self, reg_id: str):
+        try:
+            self.watch_requested.emit(int(str(reg_id), 16))
+        except ValueError:
+            pass
+
     # ── automation runtime ───────────────────────────────────────────
     def fire(self, uid: str, payload=None):
         """A widget was activated (clicked, Enter, or a timer tick): run its own
@@ -2493,7 +2509,7 @@ class DashboardView(QWidget):
         except (TypeError, ValueError):
             return
         reg = next((r for r in (self.get_registers() or [])
-                    if int(r.get("addr", -1)) == addr), None)
+                    if isinstance(r, dict) and datatypes.reg_key(r) == addr), None)
         dtype = (reg or {}).get("type", cfg.get("reg_type", "SHORT"))
         text = str(value)
         if reg is not None and scaling.has_scaling(reg):

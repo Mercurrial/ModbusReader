@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWidgets import QMessageBox
 
 import datalog
+import datatypes
 import icons
 from dialogs import themed_info, themed_message
 from qt_utils import set_state
@@ -211,11 +212,11 @@ class LoggerView(QWidget):
         self.lbl_empty.setVisible(empty)
         self.table.setVisible(not empty)
         self.table.setRowCount(len(self._columns))
-        regs = {int(r["addr"]): r for r in (self.get_registers() or [])
+        regs = {datatypes.reg_key(r): r for r in (self.get_registers() or [])
                 if isinstance(r, dict) and "addr" in r}
         for i, (addr, _title) in enumerate(self._columns):
             reg = regs.get(addr, {})
-            for col, text in enumerate((str(i + 1), f"0x{addr:04X}",
+            for col, text in enumerate((str(i + 1), datatypes.key_label(addr),
                                         str(reg.get("name", "")),
                                         str(reg.get("unit", "")))):
                 it = QTableWidgetItem(text)

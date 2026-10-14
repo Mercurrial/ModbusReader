@@ -20,6 +20,7 @@ memory viewer. Instead it emits *intent* signals that the window routes:
 The window keeps the coordination glue (it owns those services).
 """
 import math
+import re
 import struct
 from dataclasses import dataclass
 
@@ -31,6 +32,7 @@ from PyQt6.QtCore import Qt, QSize, QPoint, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QFont, QPen
 
 import datatypes
+import icons
 import scaling
 from qt_utils import later
 from theme_manager import get_theme
@@ -44,10 +46,14 @@ COL_ACCESS  = 4   # RW / RO
 COL_CURRENT = 5   # current value (read-only)
 COL_NEW     = 6   # new value     (editable for RW)
 
+_INT_LITERAL = re.compile(r"-?\d+")
+
 # Raw numeric value stored in UserRole+1 for view-mode reformatting.
 _ROLE_RAW = Qt.ItemDataRole.UserRole + 1
 # State-dot item: True while the register's TX/RX frames go to the log.
 _ROLE_VERBOSE = Qt.ItemDataRole.UserRole + 2
+# Address cell: the register KEY (area << 16 | addr, see datatypes.AREAS).
+_ROLE_KEY = Qt.ItemDataRole.UserRole + 3
 
 
 # ── dashboard column registry ─────────────────────────────────────
@@ -118,14 +124,22 @@ def format_value(raw: float, mode: str, bits: int = 16, is_float: bool = False) 
     integer part of 21.5 in hex says nothing to anyone."""
     try:
         if mode in ("hex", "bin") and is_float:
-            word = struct.unpack(">I", struct.pack(">f", float(raw)))[0]
-            return f"0x{word:08X}" if mode == "hex" else f"0b{word:032b}"
-        iv = int(raw)
-        mask = (1 << bits) - 1
+            if bits >= 64:
+                word = struct.unpack(">Q", struct.pack(">d", float(raw)))[0]
+                bits = 64
+            else:
+                word = struct.unpack(">I", struct.pack(">f", float(raw)))[0]
+                bits = 32
+        else:
+            word = int(raw) & ((1 << bits) - 1)
         if mode == "hex":
-            return f"0x{iv & mask:0{bits // 4}X}"
+            return f"0x{word:0{bits // 4}X}"
         if mode == "bin":
-            return f"0b{iv & mask:0{bits}b}"
+            # Nibble groups: 16 bare binary digits cannot be read at a glance,
+            # and binary is how a BITS16 status word is shown by default.
+            digits = f"{word:0{bits}b}"
+            return "0b" + " ".join(digits[i:i + 4] for i in range(0, bits, 4))
+        iv = int(raw)
         # dec — smart
         if raw == iv:
             return str(iv)
@@ -193,6 +207,10 @@ class RegisterTable(QTableWidget):
     trend_remove_requested = pyqtSignal(str)              # reg_id
     # A value typed while disconnected: not sent, but the operator is told.
     write_blocked          = pyqtSignal(int, str)         # addr, value
+    # Every reading as SHOWN (scaling/enum/view mode applied) + the
+    # engineering number (None for text) — feeds the watch window.
+    value_shown            = pyqtSignal(int, str, object)
+    watch_toggle_requested = pyqtSignal(int)              # addr
 
     # Guard against re-entrant column sizing (our setColumnWidth re-emits
     # sectionResized). Class-level default covers any resizeEvent that fires
@@ -217,6 +235,7 @@ class RegisterTable(QTableWidget):
         # consumers that must not record a frozen value (the logger) read
         # only these; a disconnect clears the set.
         self._fresh: set[int] = set()
+        self._watched: set[int] = set()
         # Settings-driven display flags (refreshed in apply_settings()).
         self._mono_values = bool(ctx.settings.get("mono_values", True))
         self._highlight = bool(ctx.settings.get("highlight_changes", True))
@@ -371,6 +390,20 @@ class RegisterTable(QTableWidget):
     def set_trended(self, reg_ids):
         self._trended = set(reg_ids)
 
+    def set_watched(self, addrs):
+        self._watched = set(addrs)
+
+    def request_write(self, addr: int, text: str):
+        """Write from outside the grid (the watch window): same scaling/enum
+        conversion and the same not-connected handling as a typed cell."""
+        reg = self._regs_by_addr.get(int(addr))
+        if reg is None:
+            return
+        if not self._connected:
+            self.write_blocked.emit(int(addr), str(text))
+            return
+        self._emit_write(int(addr), reg.get("type", "SHORT"), str(text))
+
     def clear_view_state(self):
         """Forget per-register view modes + verbose flags (on a fresh profile)."""
         self._view_modes.clear()
@@ -392,11 +425,28 @@ class RegisterTable(QTableWidget):
             return self.ctx.t("cellReserved")
         return "—"
 
+    def _row_key(self, row: int):
+        """The register key of *row* (None for a missing row)."""
+        item = self.item(row, COL_ADDR)
+        if item is None:
+            return None
+        key = item.data(_ROLE_KEY)
+        return int(key) if key is not None else None
+
     def _type_shape(self, addr: int) -> tuple:
         """(bit width, is IEEE float) of the register at *addr*."""
         dtype = self._regs_by_addr.get(addr, {}).get("type", "SHORT")
         span = datatypes.FIXED_TYPE_LEN.get(dtype, 1)
-        return (32 if span >= 2 else 16), dtype == "FLOAT"
+        return min(64, 16 * max(1, span)), dtype in ("FLOAT", "DOUBLE")
+
+    def _view_mode(self, addr: int) -> str:
+        """The user's dec/hex/bin choice, else the type's default (a BITS16
+        status word opens in binary)."""
+        reg_id = f"0x{addr:04X}"
+        if reg_id in self._view_modes:
+            return self._view_modes[reg_id]
+        return datatypes.default_view(
+            self._regs_by_addr.get(addr, {}).get("type", "SHORT"))
 
     # ── data ───────────────────────────────────────────────────────
     def populate(self, profile: list[dict]):
@@ -418,17 +468,12 @@ class RegisterTable(QTableWidget):
             self.setRowCount(len(profile))
 
             for row, reg in enumerate(profile):
-                addr = reg.get("addr", 0)
-                if isinstance(addr, str):
-                    try:
-                        addr = int(addr, 0) if addr.strip() else 0
-                    except ValueError:
-                        addr = 0
+                addr       = datatypes.reg_key(reg)        # area-aware identity
                 name       = self._display_name(reg)
                 dtype      = reg.get("type", "SHORT")
                 rw         = reg.get("rw", "R")
                 is_service = datatypes.is_area(dtype)
-                writable   = self._writable(rw) and not is_service
+                writable   = datatypes.is_writable(reg)
 
                 state_item = QTableWidgetItem()
                 state_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
@@ -436,7 +481,11 @@ class RegisterTable(QTableWidget):
                 if not is_service:
                     state_item.setToolTip(dot_tip)
 
-                addr_item = QTableWidgetItem(f"0x{addr:04X}")
+                addr_item = QTableWidgetItem(datatypes.key_label(addr))
+                addr_item.setData(_ROLE_KEY, addr)
+                area = datatypes.area_of(reg)
+                if area.key != datatypes.DEFAULT_AREA:
+                    addr_item.setToolTip(t(area.label_key + "Hint"))
                 addr_item.setFlags(addr_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 addr_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 addr_item.setFont(ident_font)
@@ -626,9 +675,16 @@ class RegisterTable(QTableWidget):
                         ci.setText(scaling.format_value(reg, raw, unit=True))
                         sampled = scaling.to_engineering(reg, raw)
                     else:
-                        mode = self._view_modes.get(f"0x{addr:04X}", "dec")
+                        mode = self._view_mode(addr)
                         bits, is_float = self._type_shape(addr)
-                        ci.setText(format_value(raw, mode, bits, is_float))
+                        if mode == "dec" and _INT_LITERAL.fullmatch(val_str):
+                            # Exact: an INT64 above 2**53 does not survive
+                            # the trip through a float.
+                            ci.setText(val_str)
+                        else:
+                            ci.setText(format_value(raw, mode, bits, is_float))
+                        if reg.get("type") == "BITS16":
+                            ci.setToolTip(self._bits_tip(raw))
                         sampled = raw
                     # highlight_changes: flash the cell when the value changed.
                     if self._highlight and prev is not None and prev != raw:
@@ -637,8 +693,20 @@ class RegisterTable(QTableWidget):
             self.blockSignals(False)
         # NaN / ±inf (a broken sensor) are shown, but never fed to charts:
         # one non-finite sample wrecks a plot's auto-range.
-        if isinstance(sampled, float) and math.isfinite(sampled):
+        finite = isinstance(sampled, float) and math.isfinite(sampled)
+        if finite:
             self.value_sampled.emit(f"0x{addr:04X}", sampled)
+        if addr in self._watched and ci is not None:
+            self.value_shown.emit(addr, ci.text(), sampled if finite else None)
+
+    def _bits_tip(self, raw) -> str:
+        try:
+            word = int(raw) & 0xFFFF
+        except (ValueError, OverflowError):
+            return ""
+        bits = [str(i) for i in range(16) if word >> i & 1]
+        return (self.ctx.t("bitsSet").format(bits=", ".join(bits)) if bits
+                else self.ctx.t("bitsNone"))
 
     def _flash(self, item):
         """Short background pulse on a changed cell (highlight_changes)."""
@@ -711,13 +779,9 @@ class RegisterTable(QTableWidget):
         item = self.item(row, COL_NEW)
         if not item or not item.text().strip() or item.text() == "—":
             return
-        addr_item = self.item(row, COL_ADDR)
+        addr = self._row_key(row)
         type_item = self.item(row, COL_TYPE)
-        if not addr_item or not type_item:
-            return
-        try:
-            addr = int(addr_item.text(), 16)
-        except ValueError:
+        if addr is None or not type_item:
             return
         value = item.text().strip()
         if self._connected:
@@ -741,13 +805,9 @@ class RegisterTable(QTableWidget):
             return
         if col != COL_STATE:
             return
-        addr_item = self.item(row, COL_ADDR)
+        addr = self._row_key(row)
         type_item = self.item(row, COL_TYPE)
-        if not addr_item or not type_item or datatypes.is_area(type_item.text()):
-            return
-        try:
-            addr = int(addr_item.text(), 16)
-        except ValueError:
+        if addr is None or not type_item or datatypes.is_area(type_item.text()):
             return
         state_item = self.item(row, COL_STATE)
         if not state_item:
@@ -765,12 +825,8 @@ class RegisterTable(QTableWidget):
         type_item = self.item(row, COL_TYPE)
         if not type_item or type_item.text() != "MEMORY_AREA":
             return
-        addr_item = self.item(row, COL_ADDR)
-        if not addr_item:
-            return
-        try:
-            addr = int(addr_item.text(), 16)
-        except ValueError:
+        addr = self._row_key(row)
+        if addr is None:
             return
         name_item = self.item(row, COL_NAME)
         self.inspect_requested.emit(addr, name_item.text() if name_item else "Memory")
@@ -784,21 +840,21 @@ class RegisterTable(QTableWidget):
         name_item = self.item(row, COL_NAME)
         type_item = self.item(row, COL_TYPE)
         cur_item  = self.item(row, COL_CURRENT)
-        acc_item  = self.item(row, COL_ACCESS)
         if not addr_item:
             return
         if type_item and datatypes.is_area(type_item.text()):
             return
 
-        reg_id   = addr_item.text()
+        addr_int = self._row_key(row)
+        if addr_int is None:
+            return
+        reg_id   = datatypes.reg_id(addr_int)
+        label    = addr_item.text()
         reg_name = name_item.text() if name_item else f"Reg_{row}"
         cur_val  = cur_item.text() if cur_item else "—"
-        rw       = acc_item.text() if acc_item else "R"
-        try:
-            reg = self._regs_by_addr.get(int(reg_id, 16), {})
-        except ValueError:
-            reg = {}
-        symbolic = scaling.has_scaling(reg) or bool(scaling.get_enum(reg))
+        reg = self._regs_by_addr.get(addr_int, {})
+        symbolic = (scaling.has_scaling(reg) or bool(scaling.get_enum(reg))
+                    or datatypes.is_text(reg.get("type", "")))
 
         menu = QMenu(self)
 
@@ -809,12 +865,19 @@ class RegisterTable(QTableWidget):
             act = menu.addAction(self.t("ctxTrendAdd"))
             act.triggered.connect(lambda: self.trend_add_requested.emit(reg_id, reg_name))
 
+        watched = addr_int in self._watched
+        act_watch = menu.addAction(icons.icon(
+            "watch", self.ctx.theme_tokens()["text_2"], 14),
+            self.t("watchRemoveFrom" if watched else "watchAddTo"))
+        act_watch.triggered.connect(
+            lambda: self.watch_toggle_requested.emit(addr_int))
+
         # dec/hex/bin is about a raw number; an engineering value or an enum
         # label has no meaningful hex form, so the submenu is not offered.
         if not symbolic:
             menu.addSeparator()
             view_menu = menu.addMenu(self.t("ctxViewAs"))
-            mode = self._view_modes.get(reg_id, "dec")
+            mode = self._view_mode(addr_int)
             for label, key in [(self.t("ctxDec"), "dec"), (self.t("ctxHex"), "hex"),
                                (self.t("ctxBin"), "bin")]:
                 a = view_menu.addAction(label)
@@ -825,10 +888,10 @@ class RegisterTable(QTableWidget):
         menu.addSeparator()
         act_cv = menu.addAction(f'{self.t("ctxCopyValue")}   [{cur_val}]')
         act_cv.triggered.connect(lambda: QApplication.clipboard().setText(cur_val))
-        act_ca = menu.addAction(f'{self.t("ctxCopyAddr")}   [{reg_id}]')
-        act_ca.triggered.connect(lambda: QApplication.clipboard().setText(reg_id))
+        act_ca = menu.addAction(f'{self.t("ctxCopyAddr")}   [{label}]')
+        act_ca.triggered.connect(lambda: QApplication.clipboard().setText(label))
 
-        if self._writable(rw):
+        if datatypes.is_writable(reg):
             menu.addSeparator()
             act_w = menu.addAction(self.t("ctxWrite"))
             act_w.triggered.connect(lambda: self._prompt_write(row))
@@ -841,14 +904,13 @@ class RegisterTable(QTableWidget):
         if not addr_item or not type_item:
             return
         dtype = type_item.text()
+        addr = self._row_key(row)
+        if addr is None:
+            return
         val, ok = QInputDialog.getText(
             self, self.t("ctxWrite"),
             self.t("writePrompt").format(addr=addr_item.text(), type=dtype))
         if not ok or not val.strip():
-            return
-        try:
-            addr = int(addr_item.text(), 16)
-        except ValueError:
             return
         if not self._connected:
             self.write_blocked.emit(addr, val.strip())

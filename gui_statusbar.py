@@ -1,13 +1,143 @@
 # gui_statusbar.py
 
 from PyQt6.QtWidgets import (
-    QStatusBar, QLabel, QFrame, QWidget,
+    QStatusBar, QLabel, QFrame, QWidget, QGridLayout, QVBoxLayout,
     QHBoxLayout, QLineEdit, QSizePolicy, QPushButton,
 )
-from PyQt6.QtCore import Qt, QEvent, QSize, pyqtSignal
+from PyQt6.QtCore import Qt, QEvent, QSize, QPoint, pyqtSignal
 from PyQt6.QtGui import QPainter, QColor
 
 import icons
+from qt_utils import set_state
+
+
+def _ms(v) -> str:
+    return "—" if v is None else (f"{v:.0f}" if v >= 10 else f"{v:.1f}")
+
+
+def _elapsed(sec: float) -> str:
+    s = int(max(0, sec))
+    return f"{s // 3600:d}:{(s // 60) % 60:02d}:{s % 60:02d}"
+
+
+class LineStatsChip(QWidget):
+    """Bottom-right line statistics: TX · RX · ERR · average response time.
+    Click opens the full breakdown (LineStatsPopup)."""
+
+    clicked = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("sbStats")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        lo = QHBoxLayout(self)
+        lo.setContentsMargins(8, 0, 8, 0)
+        lo.setSpacing(4)
+        self._vals = {}
+        for key in ("tx", "rx", "err", "rt"):
+            if key != "rt":
+                cap = QLabel(key.upper())
+                cap.setObjectName("sbItem")
+                lo.addWidget(cap)
+            val = QLabel("0" if key != "rt" else "— ms")
+            val.setObjectName("sbVal")
+            lo.addWidget(val)
+            if key != "rt":
+                lo.addSpacing(6)
+            self._vals[key] = val
+
+    def set_stats(self, snap: dict, ms_unit: str = "ms"):
+        self._vals["tx"].setText(str(snap["requests"]))
+        self._vals["rx"].setText(str(snap["responses"]))
+        err = self._vals["err"]
+        err.setText(str(snap["errors"]))
+        set_state(err, "error" if snap["errors"] else "idle")
+        self._vals["rt"].setText(f"{_ms(snap['rt_avg'])} {ms_unit}")
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(e)
+
+
+class LineStatsPopup(QFrame):
+    """The full line-statistics card, popped up above the chip."""
+
+    reset_requested = pyqtSignal()
+
+    # (snapshot key, i18n key, kind)
+    _ROWS = (("requests", "statRequests", "n"), ("responses", "statResponses", "n"),
+             ("timeouts", "statTimeouts", "bad"), ("crc", "statCrc", "bad"),
+             ("exceptions", "statExceptions", "warn"), ("quality", "statQuality", "pct"),
+             ("rt_last", "statRtLast", "ms"), ("rt_avg", "statRtAvg", "ms"),
+             ("rt_min", "statRtMin", "ms"), ("rt_max", "statRtMax", "ms"),
+             ("elapsed", "statElapsed", "time"))
+
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.WindowType.Popup)
+        self.setObjectName("statsCard")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        lo = QVBoxLayout(self)
+        lo.setContentsMargins(16, 14, 16, 12)
+        lo.setSpacing(8)
+        self.lbl_title = QLabel()
+        self.lbl_title.setObjectName("statsTitle")
+        lo.addWidget(self.lbl_title)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(24)
+        grid.setVerticalSpacing(4)
+        self._keys, self._vals = {}, {}
+        for i, (key, _tk, _kind) in enumerate(self._ROWS):
+            k = QLabel()
+            k.setObjectName("statsKey")
+            v = QLabel("—")
+            v.setObjectName("statsVal")
+            v.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            grid.addWidget(k, i, 0)
+            grid.addWidget(v, i, 1)
+            self._keys[key], self._vals[key] = k, v
+        lo.addLayout(grid)
+        self.lbl_hint = QLabel()
+        self.lbl_hint.setObjectName("statsHint")
+        self.lbl_hint.setWordWrap(True)
+        self.lbl_hint.setFixedWidth(300)
+        lo.addWidget(self.lbl_hint)
+        self.btn_reset = QPushButton()
+        self.btn_reset.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_reset.clicked.connect(self.reset_requested.emit)
+        lo.addWidget(self.btn_reset, 0, Qt.AlignmentFlag.AlignRight)
+
+    def retranslate(self, t):
+        self.lbl_title.setText(t("statTitle"))
+        for key, tk, _kind in self._ROWS:
+            self._keys[key].setText(t(tk))
+        self.lbl_hint.setText(t("statHint"))
+        self.btn_reset.setText(t("statReset"))
+        self._ms = t("unitMs")
+
+    def set_stats(self, snap: dict):
+        ms = getattr(self, "_ms", "ms")
+        for key, _tk, kind in self._ROWS:
+            v = snap.get(key)
+            if kind == "ms":
+                text = f"{_ms(v)} {ms}"
+            elif kind == "pct":
+                text = "—" if v is None else f"{v:.1f} %"
+            elif kind == "time":
+                text = _elapsed(v or 0)
+            else:
+                text = str(v)
+            lbl = self._vals[key]
+            lbl.setText(text)
+            if kind in ("bad", "warn"):
+                set_state(lbl, ("error" if kind == "bad" else "warn") if v else "")
+
+    def show_above(self, anchor: QWidget):
+        self.adjustSize()
+        pos = anchor.mapToGlobal(QPoint(anchor.width(), 0))
+        self.move(pos.x() - self.width(), pos.y() - self.height() - 6)
+        self.show()
 
 
 class _ConnectionDot(QWidget):
@@ -182,17 +312,13 @@ class MainStatusBar(QStatusBar):
         self.lbl_params = self._lbl("")
         self.addWidget(self.lbl_params)
 
-        # Right side (permanent). The counter counts READINGS received — it
-        # used to be labelled "Tx", i.e. the opposite direction.
-        self.lbl_tx_rx = self._lbl("RX: 0", "sbVal")
-        self.addPermanentWidget(self.lbl_tx_rx)
-
-        self.addPermanentWidget(self._sep())
-
-        # Muted at zero, red only once there is something to look at.
-        self.lbl_errors = self._lbl("ERR: 0", "sbVal")
-        self.lbl_errors.setProperty("state", "idle")
-        self.addPermanentWidget(self.lbl_errors)
+        # Right side (permanent): what the line is doing — requests sent,
+        # answers received, failed exchanges, average response time. Click
+        # for the breakdown (timeouts / CRC / exceptions, min/max time).
+        self.stats_chip = LineStatsChip()
+        self.addPermanentWidget(self.stats_chip)
+        self.stats_popup = LineStatsPopup(self)
+        self.stats_chip.clicked.connect(self._toggle_stats)
 
         self.addPermanentWidget(self._sep())
 
@@ -205,6 +331,8 @@ class MainStatusBar(QStatusBar):
         self.btn_log.setIconSize(QSize(12, 12))
         self.btn_log.clicked.connect(self.log_toggle_clicked.emit)
         self.addPermanentWidget(self.btn_log)
+        self._log_label = ""
+        self._log_errors = 0
 
     # ──────────────────────────────────────── public API
 
@@ -220,24 +348,42 @@ class MainStatusBar(QStatusBar):
     def set_log_state(self, visible: bool, label: str, icon_color: str):
         """Sync the terminal chip: label + a chevron pointing where a click
         will move the panel (down = collapse, up = expand)."""
-        self.btn_log.setText(f"  {label}")
+        self._log_label = label
+        self._render_log_chip()
         self.btn_log.setIcon(icons.icon(
             "chevron" if visible else "chevron_up", icon_color, 12))
 
-    def update_tx_rx(self, count: int):
-        self.lbl_tx_rx.setText(f"RX: {count}")
-
     def set_error_count(self, count: int):
-        self.lbl_errors.setText(f"ERR: {count}")
-        state = "error" if count else "idle"
-        if self.lbl_errors.property("state") != state:
-            self.lbl_errors.setProperty("state", state)
-            self.lbl_errors.style().unpolish(self.lbl_errors)
-            self.lbl_errors.style().polish(self.lbl_errors)
+        """Errors written to the LOG live on the log chip ("Журнал · 3") —
+        the statistics chip next to it counts failed exchanges on the line,
+        and two "ERR" counters side by side would read as the same thing."""
+        self._log_errors = int(count)
+        self._render_log_chip()
 
-    def set_tooltips(self, rx: str, err: str, link: str):
-        self.lbl_tx_rx.setToolTip(rx)
-        self.lbl_errors.setToolTip(err)
+    def _render_log_chip(self):
+        n = self._log_errors
+        self.btn_log.setText(f"  {self._log_label}" + (f"  · {n}" if n else ""))
+        set_state(self.btn_log, "error" if n else "")
+
+    # ── line statistics ────────────────────────────────────────────
+    def set_line_stats(self, snap: dict, t):
+        self.stats_chip.set_stats(snap, t("unitMs"))
+        if self.stats_popup.isVisible():
+            self.stats_popup.set_stats(snap)
+        self._last_snap = snap
+
+    def _toggle_stats(self):
+        if self.stats_popup.isVisible():
+            self.stats_popup.hide()
+            return
+        snap = getattr(self, "_last_snap", None)
+        if snap is not None:
+            self.stats_popup.set_stats(snap)
+        self.stats_popup.show_above(self.stats_chip)
+
+    def set_tooltips(self, stats: str, log_errors: str, link: str):
+        self.stats_chip.setToolTip(stats)
+        self.btn_log.setToolTip(log_errors)
         self.lbl_params.setToolTip(link)
 
     def apply_theme(self, tokens: dict):

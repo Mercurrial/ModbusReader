@@ -6,13 +6,12 @@ ConsoleView   — the exchange terminal: the SAME log store as the bottom panel
                 plus the raw packet console strip at the bottom. Its
                 RawConsole re-emits send_requested so gui_main routes frames to
                 the core exactly like the bottom-strip console.
-SlaveStubView — placeholder for the future device-simulation (slave) mode.
+(The slave / device-emulator view lives in gui_slave.py.)
 """
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PyQt6.QtWidgets import QWidget, QVBoxLayout
 from PyQt6.QtCore import Qt, pyqtSignal
 
-import icons
 from gui_console import RawConsole
 from gui_log import LogStore, LogView
 
@@ -69,46 +68,3 @@ class ConsoleView(QWidget):
     def retranslate(self, t):
         self.log_view.retranslate(t)
         self.console.retranslate(t)
-
-
-class SlaveStubView(QWidget):
-    """Placeholder page for the planned slave / device-simulation mode."""
-
-    def __init__(self, ctx, parent=None):
-        super().__init__(parent)
-        self.ctx = ctx
-        self.setObjectName("slaveStub")
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-
-        lo = QVBoxLayout(self)
-        lo.addStretch(3)
-
-        self._ico = QLabel()
-        self._ico.setPixmap(icons.pixmap("cpu", ctx.theme_tokens()["text_4"], 52))
-        self._ico.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._ico.setStyleSheet("background: transparent;")
-
-        self.lbl_title = QLabel(ctx.t("slaveStubTitle"))
-        self.lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_title.setObjectName("mhTitle")
-
-        self.lbl_text = QLabel(ctx.t("slaveStubText"))
-        self.lbl_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_text.setWordWrap(True)
-        self.lbl_text.setObjectName("mhCrumb")
-        self.lbl_text.setMaximumWidth(520)
-
-        lo.addWidget(self._ico)
-        lo.addSpacing(10)
-        lo.addWidget(self.lbl_title)
-        lo.addSpacing(6)
-        lo.addWidget(self.lbl_text, 0, Qt.AlignmentFlag.AlignHCenter)
-        lo.addStretch(5)
-
-    def apply_settings(self):
-        self._ico.setPixmap(icons.pixmap(
-            "cpu", self.ctx.theme_tokens()["text_4"], 52))
-
-    def retranslate(self, t):
-        self.lbl_title.setText(t("slaveStubTitle"))
-        self.lbl_text.setText(t("slaveStubText"))

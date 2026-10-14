@@ -45,6 +45,7 @@ FIELDS = (
     ("offset", "impFieldOffset", False),
     ("comment", "impFieldComment", False),
     ("name_en", "impFieldNameEn", False),
+    ("area", "impFieldArea", False),
 )
 FIELD_KEYS = tuple(f[0] for f in FIELDS)
 REQUIRED_FIELDS = tuple(f[0] for f in FIELDS if f[2])
@@ -63,6 +64,8 @@ _HEADER_HINTS = {
     "offset": ("смещение", "offset", "сдвиг", "bias"),
     "comment": ("комментарий", "comment", "примечание", "note", "remark"),
     "name_en": ("name_en", "english", "англ"),
+    "area": ("область", "area", "таблица", "table", "функция", "function",
+             "тип регистра", "register type", "object type"),
 }
 
 # ── address conventions ─────────────────────────────────────────────────
@@ -277,15 +280,39 @@ def apply_addr_mode(value: int, mode: str) -> int:
     return value
 
 
-# Free-text type names seen in the wild → registry keys.
+def area_of_4x(value: int):
+    """The Modbus table a 4x-convention address names: 4xxxx holding, 3xxxx
+    input registers, 1xxxx discrete inputs. Short forms (1…9999) stay holding
+    — sheets that use them mean "register N", not "coil N"."""
+    if value >= 40000:
+        return "holding"
+    if value >= 30000:
+        return "input"
+    if 10001 <= value <= 19999:
+        return "discrete"
+    return "holding"
+
+
+# Free-text type names seen in the wild → registry keys. Until 2.1 the
+# unsigned names had no type of their own and were mapped onto the SIGNED
+# ones, so a "uint16" counter above 32767 imported as a negative SHORT.
 _TYPE_ALIASES = {
-    "uint16": "SHORT", "int16": "SHORT", "word": "SHORT", "u16": "SHORT",
-    "i16": "SHORT", "short": "SHORT", "холдинг": "SHORT", "hold": "SHORT",
-    "uint32": "LONG", "int32": "LONG", "dword": "LONG", "u32": "LONG",
-    "i32": "LONG", "long": "LONG",
+    "int16": "SHORT", "i16": "SHORT", "short": "SHORT", "int": "SHORT",
+    "uint16": "UINT16", "u16": "UINT16", "word": "UINT16", "ushort": "UINT16",
+    "unsigned": "UINT16", "холдинг": "SHORT", "hold": "SHORT",
+    "int32": "LONG", "i32": "LONG", "long": "LONG", "dint": "LONG",
+    "uint32": "UINT32", "u32": "UINT32", "dword": "UINT32", "udint": "UINT32",
+    "ulong": "UINT32",
+    "int64": "INT64", "i64": "INT64", "lint": "INT64", "long long": "INT64",
     "float": "FLOAT", "real": "FLOAT", "float32": "FLOAT", "single": "FLOAT",
+    "double": "DOUBLE", "float64": "DOUBLE", "lreal": "DOUBLE",
+    "bcd": "BCD16", "bcd16": "BCD16", "bcd32": "BCD32",
+    "bits": "BITS16", "bitfield": "BITS16", "bit field": "BITS16",
+    "flags": "BITS16", "uint": "UINT16",
+    "битовое": "BITS16", "биты": "BITS16",
     "byte": "BYTE", "uint8": "BYTE", "u8": "BYTE",
-    "string": "STR_LEN", "str": "STR_LEN", "строка": "STR_LEN",
+    "string": "STRING", "str": "STRING", "строка": "STRING", "ascii": "STRING",
+    "char": "STRING", "text": "STRING",
     "array": "ARR", "массив": "ARR",
 }
 
@@ -360,7 +387,13 @@ def build_registers(rows, mapping, addr_mode="raw", has_header=True,
         if value is None:
             problems.append((n, "impBadAddr", {"value": raw_addr or "—"}))
             continue
-        addr = apply_addr_mode(value, addr_mode)
+        area = datatypes.parse_area(cell(row, "area"))
+        if area is None and addr_mode == "4x":
+            area = area_of_4x(value)
+        if addr_mode == "4x" and 10001 <= value <= 19999:
+            addr = value - 10001                       # 1xxxx block
+        else:
+            addr = apply_addr_mode(value, addr_mode)
         if not 0 <= addr <= 0xFFFF:
             problems.append((n, "impAddrRange", {"value": raw_addr}))
             continue
@@ -383,15 +416,17 @@ def build_registers(rows, mapping, addr_mode="raw", has_header=True,
         offset = _to_float(cell(row, "offset"))
         if offset is not None and offset != 0.0:
             reg["offset"] = offset
+        datatypes.apply_area(reg, area)
+        key = datatypes.reg_key(reg)
 
-        if addr in seen:
+        if key in seen:
             # "dup", not "line": the tuple's first element already carries the
             # CURRENT line, and two different meanings under one key made the
             # message point at itself.
             problems.append((n, "impDuplicateAddr",
-                             {"addr": f"0x{addr:04X}", "dup": seen[addr]}))
+                             {"addr": datatypes.key_label(key), "dup": seen[key]}))
         else:
-            seen[addr] = n
+            seen[key] = n
         registers.append(reg)
 
     if not registers:

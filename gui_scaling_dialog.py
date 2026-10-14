@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
+import datatypes
 from theme_manager import get_theme
 
 
@@ -88,7 +89,7 @@ class ScalingDialog(QDialog):
         title.setStyleSheet(f"color:{c['text_1']}; background:transparent;"
                             f"font-size:16px; font-weight:700;")
         lo.addWidget(title)
-        name = QLabel(f"0x{int(reg.get('addr', 0)):04X} · {reg.get('name', '')}")
+        name = QLabel(f"{datatypes.key_label(datatypes.reg_key(reg))} · {reg.get('name', '')}")
         name.setStyleSheet(f"color:{c['text_3']}; background:transparent;"
                            f"font-size:12px;")
         lo.addWidget(name)

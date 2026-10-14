@@ -61,6 +61,8 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("ModbusReader")
     app.setApplicationVersion(APP_VERSION)
+    import icons
+    app.setWindowIcon(icons.app_icon())    # every window, taskbar included
 
     # Безопасное чтение настроек. load_settings() is CWD-independent (absolute
     # path) and self-healing (falls back to the .bak on a corrupt file), so the

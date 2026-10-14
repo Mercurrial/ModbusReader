@@ -35,6 +35,8 @@ def find_overlaps(registers: list) -> list[str]:
     Returns human-readable conflict strings ("0x0010 «Temp» ∩ 0x0011 «Flow»"),
     empty when the profile is clean. Non-dict rows and rows with non-numeric
     addresses are skipped (they can't be polled anyway)."""
+    # Each Modbus table is its own address space: coil 0x10 and holding 0x10
+    # never overlap. The composite key (area << 16 | addr) sorts per table.
     spans = []
     for reg in registers:
         if not isinstance(reg, dict):
@@ -42,13 +44,15 @@ def find_overlaps(registers: list) -> list[str]:
         addr = reg.get("addr")
         if isinstance(addr, bool) or not isinstance(addr, int):
             continue
-        spans.append((addr, addr + datatypes.addr_span(reg),
+        key = datatypes.reg_key(reg)
+        spans.append((key, key + datatypes.addr_span(reg),
                       str(reg.get("name", f"0x{addr:04X}"))))
     spans.sort()
     out = []
     for (a0, a1, n_a), (b0, b1, n_b) in zip(spans, spans[1:]):
-        if b0 < a1:  # next span starts before the previous one ends
-            out.append(f"0x{a0:04X} «{n_a}» ∩ 0x{b0:04X} «{n_b}»")
+        if b0 < a1 and (a0 >> 16) == (b0 >> 16):
+            out.append(f"{datatypes.key_label(a0)} «{n_a}» ∩ "
+                       f"{datatypes.key_label(b0)} «{n_b}»")
     return out
 
 
@@ -90,6 +94,8 @@ def chained_flags(registers: list) -> list:
     flags = [False] * len(registers)
     for i in range(1, len(registers)):
         prev = registers[i - 1]
+        if datatypes.area_of(prev).key != datatypes.area_of(registers[i]).key:
+            continue                 # another Modbus table: its own anchor
         start = _addr_of(prev)
         end = start + datatypes.addr_span(prev)
         flags[i] = start <= _addr_of(registers[i]) <= end

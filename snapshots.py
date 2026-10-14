@@ -19,6 +19,8 @@ lives and it is fully testable:
 import json
 import time
 
+import datatypes
+
 FORMAT = "modbus-snapshot"
 VERSION = 1
 
@@ -66,7 +68,7 @@ def values_equal(a, b) -> bool:
 def make(registers, values: dict, name: str = "") -> dict:
     """Build a snapshot document.
 
-    *values* maps ``addr -> displayed value``. Registers with no reading are
+    *values* maps ``key -> displayed value`` (key = datatypes.reg_key). Registers with no reading are
     stored with ``None`` rather than skipped, so a later comparison can tell
     "was never read" apart from "is gone from the map"."""
     rows = []
@@ -81,7 +83,11 @@ def make(registers, values: dict, name: str = "") -> dict:
             continue
         entry = {"addr": addr, "name": str(reg.get("name", "")),
                  "type": reg.get("type", "SHORT")}
-        raw = values.get(addr, values.get(str(addr)))
+        area = datatypes.area_of(reg).key
+        if area != datatypes.DEFAULT_AREA:
+            entry["area"] = area             # coils etc.: only when not holding
+        key = datatypes.reg_key(entry)
+        raw = values.get(key, values.get(str(key)))
         entry["value"] = None if raw is None else str(raw)
         if reg.get("unit"):
             entry["unit"] = reg["unit"]
@@ -116,9 +122,11 @@ def load(doc) -> dict:
             addr = int(r.get("addr"))
         except (TypeError, ValueError):
             continue
+        area = datatypes.area_of(r).key
         clean.append({"addr": addr, "name": str(r.get("name", "")),
                       "type": r.get("type", "SHORT"),
                       "value": r.get("value"),
+                      **({"area": area} if area != datatypes.DEFAULT_AREA else {}),
                       **({"unit": r["unit"]} if r.get("unit") else {})})
     out["registers"] = clean
     return out
@@ -136,11 +144,13 @@ def compare(before: dict, after: dict) -> list:
     reported as added/removed — calling that a "change" would be wrong, and
     those are exactly the rows an operator needs to notice after editing a map.
     """
-    a_rows = {r["addr"]: r for r in (before or {}).get("registers", [])}
-    b_rows = {r["addr"]: r for r in (after or {}).get("registers", [])}
+    # Keyed by (table, address): coil 5 and holding 5 are different registers.
+    a_rows = {datatypes.reg_key(r): r for r in (before or {}).get("registers", [])}
+    b_rows = {datatypes.reg_key(r): r for r in (after or {}).get("registers", [])}
 
     out = []
-    for addr, row in b_rows.items():
+    for key, row in b_rows.items():
+        addr = key
         old = a_rows.get(addr)
         if old is None:
             state = ADDED
@@ -150,7 +160,8 @@ def compare(before: dict, after: dict) -> list:
             state = SAME if values_equal(before_value, row.get("value")) \
                 else CHANGED
         out.append({
-            "addr": addr,
+            "addr": addr & 0xFFFF,
+            "key": addr,
             "name": row.get("name") or (old or {}).get("name", ""),
             "type": row.get("type", "SHORT"),
             "unit": row.get("unit", "") or (old or {}).get("unit", ""),
@@ -161,12 +172,12 @@ def compare(before: dict, after: dict) -> list:
     for addr, old in a_rows.items():
         if addr in b_rows:
             continue
-        out.append({"addr": addr, "name": old.get("name", ""),
+        out.append({"addr": addr & 0xFFFF, "key": addr, "name": old.get("name", ""),
                     "type": old.get("type", "SHORT"),
                     "unit": old.get("unit", ""),
                     "before": old.get("value"), "after": None,
                     "state": REMOVED})
-    out.sort(key=lambda r: r["addr"])
+    out.sort(key=lambda r: r["key"])
     return out
 
 

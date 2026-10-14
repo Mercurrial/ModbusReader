@@ -29,7 +29,7 @@ class MemoryViewerDialog(QDialog):
         self.ctx          = ctx
         self.t            = ctx.t if ctx else (lambda k: k)
         self.setWindowTitle(self.t("memTitle").format(
-            name=f"{name} (0x{addr:04X})", words=length))
+            name=f"{name} ({datatypes.key_label(addr)})", words=length))
         self.resize(1100, 650)
 
         self.addr         = addr

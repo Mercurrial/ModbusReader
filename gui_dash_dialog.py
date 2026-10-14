@@ -401,21 +401,21 @@ class WidgetDialog(QDialog):
         spec = dm.kind(self._kind)
         if spec.writes:
             regs = [r for r in self._all_regs
-                    if "W" in str(r.get("rw", "RW")).upper()]
+                    if isinstance(r, dict) and datatypes.is_writable(r)]
         else:
             regs = list(self._all_regs)
         keep = None
         if 0 <= self.combo_reg.currentIndex() < len(self._regs):
-            keep = self._regs[self.combo_reg.currentIndex()].get("addr")
+            keep = datatypes.reg_key(self._regs[self.combo_reg.currentIndex()])
         self._regs = regs
         self.combo_reg.blockSignals(True)
         self.combo_reg.clear()
         for r in regs:
             self.combo_reg.addItem(
-                f"0x{int(r.get('addr', 0)):04X}  ·  {r.get('name', '')}")
+                f"{datatypes.key_label(datatypes.reg_key(r))}  ·  {r.get('name', '')}")
         if keep is not None:
             for i, r in enumerate(regs):
-                if r.get("addr") == keep:
+                if datatypes.reg_key(r) == keep:
                     self.combo_reg.setCurrentIndex(i)
                     break
         self.combo_reg.blockSignals(False)
@@ -457,7 +457,7 @@ class WidgetDialog(QDialog):
     def _prefill_from_cfg(self, cfg: dict):
         rid = cfg.get("reg_id", "")
         for i, r in enumerate(self._regs):
-            if f"0x{int(r.get('addr', 0)):04X}" == rid:
+            if datatypes.reg_id(datatypes.reg_key(r)) == rid:
                 self.combo_reg.setCurrentIndex(i)
                 break
         self.ed_title.setText(cfg.get("title", ""))
@@ -510,7 +510,7 @@ class WidgetDialog(QDialog):
                                 t("dashNoProfileTitle"), t("dashNoProfileText"))
                 return
             reg = self._regs[idx]
-            cfg["reg_id"] = f"0x{int(reg.get('addr', 0)):04X}"
+            cfg["reg_id"] = datatypes.reg_id(datatypes.reg_key(reg))
             cfg["name"] = str(reg.get("name", ""))
             cfg["reg_type"] = str(reg.get("type", "SHORT"))
         if k in dm.RANGE_KINDS:

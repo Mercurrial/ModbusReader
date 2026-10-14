@@ -124,6 +124,9 @@ QLabel#brandMark {{
     max-height: 24px;
     qproperty-alignment: AlignCenter;
 }}
+QLabel#brandIcon {{
+    background: transparent;
+}}
 QLabel#brandName {{
     color: {c["text_1"]};
     font-size: {fs_h2};
@@ -198,6 +201,50 @@ QLabel#sbVal {{
     font-family: "JetBrains Mono", "Consolas", monospace;
     font-size: {fs_small};
     padding: 0 4px;
+}}
+QWidget#sbStats {{
+    background: transparent;
+    border-radius: 6px;
+    min-height: 20px;
+}}
+QWidget#sbStats:hover {{
+    background: {c["bg_3"]};
+}}
+QPushButton#sbTermBtn[state="error"] {{
+    color: {c["error"]};
+    border-color: {c["error"]};
+}}
+QFrame#statsCard {{
+    background: {c["bg_2"]};
+    border: 1px solid {c["line_strong"]};
+    border-radius: 10px;
+}}
+QLabel#statsTitle {{
+    color: {c["text_1"]};
+    font-size: {fs_h2};
+    font-weight: 600;
+    padding-bottom: 4px;
+}}
+QLabel#statsKey {{
+    color: {c["text_3"]};
+    font-size: {fs_small};
+}}
+QLabel#statsVal {{
+    color: {c["text_1"]};
+    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-size: {fs_small};
+}}
+QLabel#statsVal[state="error"] {{
+    color: {c["error"]};
+    font-weight: 600;
+}}
+QLabel#statsVal[state="warn"] {{
+    color: {c["warn"]};
+}}
+QLabel#statsHint {{
+    color: {c["text_4"]};
+    font-size: {fs_small};
+    padding-top: 6px;
 }}
 QLabel#sbVal[state="idle"] {{
     color: {c["text_4"]};
@@ -955,6 +1002,16 @@ QComboBox#stInput:focus,
 QSpinBox#stInput:focus {{
     border: 1px solid {c["accent_soft"]};
     background: {c["bg_0"]};
+}}
+/* Watch window */
+QWidget#watchWin {{
+    background: {c["bg_0"]};
+}}
+QWidget#watchBar {{
+    background: {c["bg_1"]};
+}}
+QPushButton#iconBtn:checked {{
+    background: {c["accent_tint"]};
 }}
 /* "Nothing here yet" copy, shown in place of an empty grid. */
 QLabel#emptyState {{

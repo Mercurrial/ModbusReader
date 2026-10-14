@@ -120,7 +120,7 @@ Connection-loss policy (configurable in settings):
 | File | LOC | Responsibility | Key symbols |
 |---|---|---|---|
 | `main.py` | 63 | Entry point. Reads settings, sets HiDPI, applies stylesheet, shows window. Global excepthook. | `main()` |
-| **`datatypes.py`** | 206 | **Registry of Modbus register data types — single source of truth.** Codecs, decode/encode/format, span, poll/area flags. | `DataType`, `TYPES`, `decode/encode/read_count/is_area/should_poll/is_scalar/addr_span/read_to_str` |
+| **`datatypes.py`** | ~500 | **Registry of Modbus register data types — single source of truth.** Codecs, decode/encode/format, span, poll/area flags; the four Modbus tables (`AREAS`) and the register key. | `DataType`, `TYPES`, `decode/encode/read_count/is_area/should_poll/is_scalar/addr_span/read_to_str`, `AREAS`, `reg_key/split_key/key_label/parse_key/apply_area` |
 | `modbus_core.py` | 383 | The worker thread. Builds its pymodbus client via the `transports` registry (transport-agnostic). Poll loop + write/array/sync-op queues. | `ModbusCore(QThread)`, `request_op()` |
 | **`transports.py`** | 97 | **Transport registry** — `Transport` descriptors + `TRANSPORTS` (serial/TCP). Each owns client construction + a link-description string; ModbusCore names no concrete pymodbus class. | `Transport`, `TRANSPORTS`, `BY_ID`, `get()` |
 | `macro_engine.py` | 263 | Runs a user Python macro in a worker thread with a restricted-builtins namespace + domain API (`reg/read/write/wait/record/log/...`). | `MacroRunner(QThread)`, `_Register` |
@@ -147,6 +147,11 @@ Connection-loss policy (configurable in settings):
 | `memory_viewer.py` | ~330 | Dialog to read a memory area as a 2D grid; multi-endian array parser; themed controls (wide combos, chevron arrows). Takes an `AppContext`. | `MemoryViewerDialog` |
 | `icons.py` | ~135 | SVG icon helper (recolored to theme). `pixmap`/`icon` for widgets; `icon_url()` caches a themed PNG for QSS `image:` (combo/spin chevrons — Qt can't do CSS border-triangles). | `pixmap`, `icon`, `icon_url` |
 | `dialogs.py` | ~55 | `themed_message()` — QMessageBox with an `icons.py` glyph in a semantic colour instead of the native icon; inherits the app QSS. Used for the confirm dialogs. | `themed_message` |
+| `linestats.py` | ~150 | Line statistics: thread-safe counters + response times, outcome classification, the pymodbus RTU-framer CRC probe. | `LineStats`, `classify`, `install_crc_probe` |
+| `gui_watch.py` | ~420 | Watch window: floating list of picked registers (value, min/max, age, write). | `WatchWindow` |
+| `slave_core.py` | ~380 | Slave / device emulator: pure `build_response`, `SlaveStore`, `SlaveServer` thread. | `build_response`, `SlaveStore`, `SlaveServer` |
+| `gui_slave.py` | ~470 | Slave view: port/ID/delay, served map with editable values + access counts, exchange log. | `SlaveView` |
+| `tools/make_icon.py` | ~110 | Generates `assets/app.png` + `assets/app.ico`. | — |
 | `bundle_project.py` | 89 | Dev utility (concatenates sources). Not part of the app. | — |
 
 ---
@@ -332,7 +337,7 @@ order, macro scalar filter, full app instantiation — all headless.
 
 ## 7. How to verify (headless, no .exe)
 
-**The permanent test suite** lives in `tests/` (pytest; 712 tests). Run after
+**The permanent test suite** lives in `tests/` (pytest; 769 tests). Run after
 ANY change:
 ```bash
 .venv/Scripts/python.exe -m pytest
@@ -1039,9 +1044,78 @@ Every finding was reproduced on the running code first; each is pinned by
   `SETTINGS_FILE` at a temp dir for the whole session. The i18n guard also
   checks widget constructors (`QLabel("…")`) and dialog titles.
 
-**Planned (design only, not built):** slave / device-simulation mode — the app as
-a Modbus RTU slave serving a register map (the nav stub page exists; manual RTU
-responder with a pure `build_response()` for headless tests; reuse `datatypes.py`
-codecs; FC 03/04/06/10; one-port-one-owner vs the master poller). See the
-`project-slave-mode` memory for the full sketch. **Do not start it without the
-user.**
+**v2.1.0 (2026-10-13): new types, line statistics, watch window, icon,
+slave mode, Modbus tables.** Pinned by `tests/test_v21_features.py` and
+`tests/test_areas.py` (804 tests in total).
+
+- **Modbus tables** (`datatypes.AREAS`): holding (FC 03/06/16), input
+  registers (FC 04, read-only), coils (FC 01/05, bits) and discrete inputs
+  (FC 02, read-only bits). A register's optional `"area"` field names its
+  table; holding is the default and is NEVER written, so every older map and
+  project is byte-identical and `PROFILE_VERSION` did not change (the
+  "maintain forever" cost is one optional key). `datatypes.apply_area` is the
+  one rule set: a bit table forces `BOOL` ×1, a read-only table forces `R`.
+  **Identity is the KEY** `area.code << 16 | addr` (`reg_key`), so holding
+  keeps `key == addr` and every existing reg_id / trend / dashboard binding /
+  watch list / setting means what it did. Everything that used to key by
+  address now keys by `reg_key`: the table (`_ROLE_KEY` on the address cell —
+  never parse the label), the core's `data_updated`/`request_op`/writes, the
+  watch window, dashboard binding (`reg_id(key)`), macros (`reg("CO 0x0005")`
+  via `parse_key`), snapshots (`area` stored when not holding; `compare` keys
+  by table), logger columns, overlaps/chains (per table). People read keys
+  through `key_label` ("IR 0x0010", "CO 0x0010", "DI 0x0010"; holding has no
+  prefix) and `id_label(reg_id)`. The core picks the pymodbus call per table
+  (`_READERS`), unpacks bits into 0/1 words (`res.registers`), switches a coil
+  with FC 05 and refuses writes to read-only tables before touching the wire.
+  The emulator keys its store the same way: FC 01/02 pack bits LSB-first,
+  FC 05 accepts only FF00/0000, FC 15 checks the byte count, FC 04 serves the
+  input table — or the holding table when the map has no input registers
+  (what many devices do, and what 2.1 previews did). A run may not spill into
+  the next table (`covers`). Import: an "area" column (`parse_area` aliases:
+  coil / CO / 0x / FC1 / катушка …) and, in 4x mode, the block names the
+  table (3xxxx input, 1xxxx discrete; short forms stay holding). The sniffer
+  decodes FC 01/02/05/15. Cross-checked against pymodbus' own framer.
+
+- **Types** (`datatypes.py` + `byteorder.py`): UINT16, BITS16, BCD16, UINT32,
+  BCD32, INT64, DOUBLE, STRING. The guarded historical codecs are untouched;
+  the new ones are separate functions. 64-bit values use `_PERM64`, derived
+  from the 32-bit order NAME (CDAB = the four words reversed). `DataType`
+  gained `text` (STRING: `encode(value, words)` pads with NUL to the field)
+  and `default_view` (BITS16 opens in "bin"). Numbers are parsed by
+  `_int_arg` — never via float, so INT64 > 2**53 stays exact.
+  `reg_read_count(reg)` = fixed span, or a text field's own length (≤ 125);
+  the poll loop and `_read_value` use it. The core writes text NUL-padded to
+  the register's span (looked up in `poll_list` by `_find_reg`).
+- **Line statistics** (`linestats.py`): `LineStats` (thread-safe counters +
+  response times), `classify(res)`, and `install_crc_probe(client, stats)`,
+  which wraps the pymodbus RTU framer's `decode` and flags a COMPLETE frame
+  with a bad CRC — pymodbus otherwise turns noise into a plain timeout. Every
+  exchange goes through `ModbusCore._counted()`; raw console answers are judged
+  by `sniffer_core.frame_crc_ok`. Reset per connection. The status bar shows
+  `LineStatsChip` (sampled every 500 ms) and `LineStatsPopup`; the log's error
+  count moved onto the «Журнал» chip.
+- **Watch window** (`gui_watch.WatchWindow`, F6): a `Qt.Tool` window (above
+  the main window; the pin adds WindowStaysOnTopHint). Fed by
+  `RegisterTable.value_shown(addr, text, number)` — emitted only for watched
+  addresses — so it shows EXACTLY the table text. Writes go back through
+  `RegisterTable.request_write()` (same scaling/enum/not-connected rules).
+  Sources: table context menu (`watch_toggle_requested`) and dashboard card
+  menu (`DashboardView.watch_requested`). Persisted: `watch_list`,
+  `watch_on_top`, `watch_geom`, `watch_visible`.
+- **Icon**: `tools/make_icon.py` paints every size natively into
+  `assets/app.png` + `assets/app.ico` (PNG-in-ICO). `icons.asset_path()` finds
+  assets in source and in the PyInstaller bundle (`sys._MEIPASS`); the specs
+  set `icon=` and ship `assets/` as data. The toolbar logo is the same image.
+- **Slave mode** (`slave_core.py` + `gui_slave.SlaveView`, Ctrl+9) — built
+  to the earlier design: `build_response(request, store, slave_id)` is PURE;
+  `SlaveStore` holds words for every address the map covers (exception 02
+  outside it), with a lock (server thread + GUI); `SlaveServer(QThread)` owns
+  its port, frames by t3.5 silence + `carve_frames`, answers, emits
+  `exchange(info)`. FC 03/04 from the same store, 06 echo, 16 ack;
+  exceptions 01/02/03; bad CRC / other ID / broadcast read → silence;
+  broadcast writes applied, not answered. One port, one owner: the slave
+  view refuses the master's port, `_toggle_connection` refuses the
+  emulator's (`serving_port()`). The served map is a snapshot
+  (`reload_map`, kept values); a map change while running applies at the
+  next start. The master↔slave codec parity is tested end to end through a
+  loop client.

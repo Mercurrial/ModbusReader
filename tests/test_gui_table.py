@@ -86,7 +86,7 @@ def test_view_modes(table):
     table.set_view_mode("0x0005", row, "hex")
     assert table.item(row, COL_CURRENT).text() == "0x002A"
     table.set_view_mode("0x0005", row, "bin")
-    assert table.item(row, COL_CURRENT).text() == "0b0000000000101010"
+    assert table.item(row, COL_CURRENT).text() == "0b0000 0000 0010 1010"
     table.set_view_mode("0x0005", row, "dec")
     assert table.item(row, COL_CURRENT).text() == "42"
 
@@ -135,7 +135,7 @@ def test_mono_values_toggle_applies_font(table):
 def test_format_value_edges():
     assert format_value(255, "hex") == "0x00FF"
     assert format_value(-1, "hex") == "0xFFFF"
-    assert format_value(255, "bin") == "0b0000000011111111"
+    assert format_value(255, "bin") == "0b0000 0000 1111 1111"
     assert format_value(3.5, "dec") == "3.5"
     assert format_value(3.0, "dec") == "3"
     assert format_value(float("inf"), "dec") == "inf"

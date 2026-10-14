@@ -636,9 +636,13 @@ class MacroWindow(QWidget):
 _MACRO_API = [
     ("read(name)",
      "Прочитать один регистр по имени из профиля или по адресу "
-     "(<code>read(0x10)</code>). Возвращает число.",
+     "(<code>read(0x10)</code>; coil, дискретный вход или input-регистр — "
+     "<code>read(\"CO 0x05\")</code>, <code>\"DI 3\"</code>, "
+     "<code>\"IR 0x10\"</code>). Возвращает число.",
      "Read one register by its profile name or by address "
-     "(<code>read(0x10)</code>). Returns a number."),
+     "(<code>read(0x10)</code>; a coil / discrete / input register — "
+     "<code>read(\"CO 0x05\")</code>, <code>\"DI 3\"</code>, "
+     "<code>\"IR 0x10\"</code>). Returns a number."),
     ("write(name, value)",
      "Записать значение в регистр. Регистр должен быть RW.",
      "Write a value to a register. The register must be RW."),

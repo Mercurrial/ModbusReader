@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem, QHeaderView, QAbstractItemView, QFileDialog,
 )
 
+import datatypes
 import icons
 import snapshots as sn
 from dialogs import themed_info
@@ -212,7 +213,7 @@ class SnapshotView(QWidget):
             d = sn.delta(r)
             unit = f" {r['unit']}" if r.get("unit") else ""
             cells = [
-                f"0x{r['addr']:04X}",
+                datatypes.key_label(r.get("key", r["addr"])),
                 r.get("name", ""),
                 "—" if r["before"] is None else f"{r['before']}{unit}",
                 "—" if r["after"] is None else f"{r['after']}{unit}",

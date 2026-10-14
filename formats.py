@@ -81,6 +81,10 @@ def normalize_register(r: dict) -> dict:
     for k in ("name_en", "unit", "default", "comment"):
         if r.get(k):
             reg[k] = r[k]
+    # v2.1: the Modbus table. Written only when not "holding" (the default and
+    # all that existed before), so older files are byte-for-byte unchanged.
+    import datatypes
+    datatypes.apply_area(reg, r.get("area"))
     # v2 additions — engineering scaling + enum map (identity defaults omitted).
     scale = _num(r.get("scale", 1.0), 1.0)
     offset = _num(r.get("offset", 0.0), 0.0)
@@ -218,7 +222,8 @@ def normalize_dashboard(doc, default_name: str = "") -> dict:
 
 
 def detect_dashboard_version(doc) -> int:
-    if isinstance(doc, dict) and isinstance(doc.get("version"), int)             and not isinstance(doc.get("version"), bool):
+    if (isinstance(doc, dict) and isinstance(doc.get("version"), int)
+            and not isinstance(doc.get("version"), bool)):
         return doc["version"]
     return DASHBOARD_VERSION           # bare/legacy shapes are normalized
 

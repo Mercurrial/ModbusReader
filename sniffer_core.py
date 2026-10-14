@@ -106,8 +106,8 @@ def decode_frame(raw: bytes) -> dict:
     """Decode one captured RTU frame into a display dict.
 
     Direction is a heuristic (a passive tap can't know who transmitted): for
-    FC 03/04 an 8-byte frame parses as a request (addr+count) and a
-    5+bytecount frame as a response. Ambiguous frames are labelled by what
+    FC 01-04 an 8-byte frame parses as a request (addr+count) and a
+    bytecount+data frame as a response. Ambiguous frames are labelled by what
     they parse as."""
     info = {
         "raw": raw,
@@ -144,6 +144,34 @@ def decode_frame(raw: bytes) -> dict:
             info["kind"] = "response"
             info["describe"] = ("data " + " ".join(f"{w:04X}" for w in words[:8])
                                 + (" …" if len(words) > 8 else ""))
+        else:
+            info["describe_key"] = "snifOddLength"
+    elif fc in (0x01, 0x02):
+        if len(raw) == 8:                              # addr + count
+            addr, count = int.from_bytes(body[0:2], "big"), int.from_bytes(body[2:4], "big")
+            info["kind"] = "request"
+            info["describe"] = f"addr 0x{addr:04X}, count {count}"
+        elif body and len(body) == 1 + body[0]:        # bytecount + packed bits
+            bits = "".join("1" if (byte >> i) & 1 else "0"
+                           for byte in body[1:] for i in range(8))
+            info["kind"] = "response"
+            info["describe"] = ("bits " + bits[:32] + (" …" if len(bits) > 32 else ""))
+        else:
+            info["describe_key"] = "snifOddLength"
+    elif fc == 0x05 and len(raw) == 8:                 # echo: request == response
+        addr, value = int.from_bytes(body[0:2], "big"), int.from_bytes(body[2:4], "big")
+        info["kind"] = "req/resp"
+        state = {0xFF00: "ON", 0x0000: "OFF"}.get(value, f"0x{value:04X}?")
+        info["describe"] = f"coil 0x{addr:04X} = {state}"
+    elif fc == 0x0F:
+        if len(raw) == 8:                              # response: addr + count
+            addr, count = int.from_bytes(body[0:2], "big"), int.from_bytes(body[2:4], "big")
+            info["kind"] = "response"
+            info["describe"] = f"coils 0x{addr:04X}, count {count}"
+        elif len(body) >= 5 and len(body) == 5 + body[4]:
+            addr, count = int.from_bytes(body[0:2], "big"), int.from_bytes(body[2:4], "big")
+            info["kind"] = "request"
+            info["describe"] = f"coils 0x{addr:04X}, count {count}"
         else:
             info["describe_key"] = "snifOddLength"
     elif fc == 0x06 and len(raw) == 8:                 # echo: request == response

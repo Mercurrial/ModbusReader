@@ -5,6 +5,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from pymodbus.exceptions import ModbusIOException
 
 import datatypes
+import linestats
 import transports
 from i18n import get_translator
 # Byte-order codecs live in datatypes.py now (single source of truth).
@@ -58,6 +59,8 @@ class ModbusCore(QThread):
         self.op_queue = queue.Queue()          # Синхронные операции макросов (высший приоритет)
         self.raw_queue = queue.Queue()         # Сырые кадры из консоли (отправка как есть)
         self.verbose_addrs = set()  # Адреса, для которых логируется опрос в консоль
+        # Every exchange on the line is counted here (status-bar statistics).
+        self.stats = linestats.LineStats()
 
     def _msg(self, key: str, **params) -> str:
         """Translated message for *key* (i18n.STRINGS), filled with params."""
@@ -117,7 +120,8 @@ class ModbusCore(QThread):
     # ==========================================
     # СИНХРОННЫЙ КАНАЛ ДЛЯ МАКРОСОВ
     # ==========================================
-    def request_op(self, kind, addr, dtype, value=None, timeout=5.0, slave=None):
+    def request_op(self, kind, addr, dtype, value=None, timeout=5.0, slave=None,
+                   count=None):
         """Блокирующая операция чтения/записи для потоков макросов/сканера.
 
         Кладёт задачу в op_queue (обрабатывается в потоке ModbusCore с высшим
@@ -129,7 +133,8 @@ class ModbusCore(QThread):
             raise RuntimeError(self._msg("coreNotConnected"))
         result = queue.Queue(maxsize=1)
         self.op_queue.put({"kind": kind, "addr": int(addr), "type": dtype,
-                           "value": value, "slave": slave, "result": result})
+                           "value": value, "slave": slave, "count": count,
+                           "result": result})
         try:
             status, payload = result.get(timeout=timeout)
         except queue.Empty:
@@ -144,7 +149,8 @@ class ModbusCore(QThread):
         try:
             if op["kind"] == "read":
                 value = self._read_value(op["addr"], op["type"],
-                                         slave=op.get("slave"))
+                                         slave=op.get("slave"),
+                                         count=op.get("count"))
                 result.put(("ok", value))
             elif op["kind"] == "write":
                 # A macro must learn that its write was refused — otherwise a
@@ -153,7 +159,7 @@ class ModbusCore(QThread):
                     result.put(("ok", None))
                 else:
                     result.put(("err", self._msg("coreWriteFailedOp",
-                                                 addr=f"0x{int(op['addr']):04X}")))
+                                                 addr=datatypes.key_label(op["addr"]))))
             elif op["kind"] == "probe":
                 result.put(("ok", self._probe(op["addr"], op.get("slave"))))
             else:
@@ -168,7 +174,7 @@ class ModbusCore(QThread):
                       refuses this address/function — счётся найденным);
         'silent'    — no response at all (timeout / IO error)."""
         try:
-            res = self._safe_read(int(addr), 1, slave=slave)
+            res = self._counted_read(int(addr), 1, slave=slave)
         except Exception:
             return "silent"
         if res is None or isinstance(res, ModbusIOException):
@@ -180,18 +186,24 @@ class ModbusCore(QThread):
         fc = getattr(res, "function_code", 0)
         return "exception" if fc and fc >= 0x80 else "silent"
 
-    def _read_value(self, addr, dtype, slave=None):
+    def _read_value(self, addr, dtype, slave=None, count=None):
         """Синхронное чтение одного регистра → число. Также обновляет дашборд
         (только для СВОЕГО устройства — чтение чужого slave при сканировании
         не должно подменять значения в основной таблице)."""
         if not datatypes.is_scalar(dtype):
             raise RuntimeError(self._msg("coreNotReadable", type=dtype))
-        res = self._safe_read(addr, datatypes.read_count(dtype), slave=slave)
+        key = int(addr)
+        area, raw = datatypes.split_key(key)
+        if count is None:
+            reg = self._find_reg(key)
+            count = (datatypes.reg_read_count(reg) if reg
+                     else datatypes.read_count(dtype))
+        res = self._counted_read(raw, count, slave=slave, area=area)
         if not res or res.isError():
-            raise RuntimeError(self._msg("coreNoAnswer", addr=f"0x{addr:04X}"))
+            raise RuntimeError(self._msg("coreNoAnswer", addr=datatypes.key_label(key)))
         value = datatypes.decode(dtype, res.registers)
         if slave is None or int(slave) == self.slave_id:
-            self.data_updated.emit(addr, datatypes.read_to_str(dtype, res.registers))
+            self.data_updated.emit(key, datatypes.read_to_str(dtype, res.registers))
         return value
 
     def _make_client(self):
@@ -214,6 +226,7 @@ class ModbusCore(QThread):
         # would sit on "connecting" forever with nothing in the log.
         try:
             self.client = self._make_client()
+            linestats.install_crc_probe(self.client, self.stats)
             opened = bool(self.client.connect())
         except Exception as e:
             self.client = None
@@ -231,6 +244,7 @@ class ModbusCore(QThread):
             return
 
         self.is_running = True
+        self.stats.reset()                    # statistics are per connection
         self.status_changed.emit(True, self._msg("coreConnected", link=self._describe()))
         self.log_msg.emit("SYS", self._msg("coreLinkUp", sid=self.slave_id))
 
@@ -275,7 +289,8 @@ class ModbusCore(QThread):
             if pl and time.monotonic() >= next_cycle:
                 poll_idx %= len(pl)
                 reg = pl[poll_idx]
-                ok = self._execute_read(reg["addr"], reg["type"])
+                ok = self._execute_read(datatypes.reg_key(reg), reg["type"],
+                                        datatypes.reg_read_count(reg))
                 if ok is None:
                     # Нет ответа / таймаут — считаем подряд идущие сбои.
                     fail_streak += 1
@@ -371,6 +386,7 @@ class ModbusCore(QThread):
             self._close_client()
             try:
                 self.client = self._make_client()
+                linestats.install_crc_probe(self.client, self.stats)
                 if self.client.connect():
                     self.log_msg.emit("SYS", self._msg("coreRestored"))
                     self.status_changed.emit(
@@ -384,11 +400,59 @@ class ModbusCore(QThread):
         self._abort = True
         self.is_running = False
 
-    def _safe_read(self, addr, count, slave=None):
+    # ── counted exchanges (line statistics) ───────────────────────────
+    def _counted(self, fn, *args, **kwargs):
+        """Run one request and record its outcome + response time."""
+        self.stats.begin()
+        t0 = time.monotonic()
+        try:
+            res = fn(*args, **kwargs)
+        except Exception:
+            self.stats.record("crc" if self.stats.crc_flag else "timeout")
+            raise
+        outcome = linestats.classify(res)
+        if outcome == "timeout" and self.stats.crc_flag:
+            outcome = "crc"
+        self.stats.record(outcome, time.monotonic() - t0
+                          if outcome in ("ok", "exception") else None)
+        return res
+
+    def _counted_read(self, addr, count, slave=None, area=None):
+        return self._counted(self._safe_read, addr, count, slave=slave, area=area)
+
+    def _find_reg(self, key):
+        """The register dict with this KEY (area << 16 | addr), or None."""
+        for reg in self.poll_list:
+            if datatypes.reg_key(reg) == int(key):
+                return reg
+        return None
+
+    # The pymodbus call per Modbus table (FC 03 / 04 / 01 / 02).
+    _READERS = {"holding": "read_holding_registers",
+                "input": "read_input_registers",
+                "coil": "read_coils",
+                "discrete": "read_discrete_inputs"}
+
+    def _safe_read(self, addr, count, slave=None, area=None):
         sid = self.slave_id if slave is None else int(slave)
+        area = area or datatypes.AREAS[datatypes.DEFAULT_AREA]
+        fn = getattr(self.client, self._READERS[area.key])
         for key in ['device_id', 'slave', 'unit']:
             try:
-                return self.client.read_holding_registers(address=addr, count=count, **{key: sid})
+                res = fn(address=addr, count=count, **{key: sid})
+            except TypeError:
+                continue
+            if area.bits and res is not None and not getattr(res, "isError", lambda: True)():
+                # Bits come back packed and padded to whole bytes; the rest of
+                # the app reads one 0/1 "word" per coil.
+                res.registers = [1 if b else 0 for b in list(res.bits)[:count]]
+            return res
+        return None
+
+    def _safe_write_coil(self, addr, on: bool):
+        for key in ['device_id', 'slave', 'unit']:
+            try:
+                return self.client.write_coil(address=addr, value=bool(on), **{key: self.slave_id})
             except TypeError:
                 continue
         return None
@@ -425,37 +489,46 @@ class ModbusCore(QThread):
     # Frame logging is cosmetic (a debug view); it must NEVER crash the poll
     # loop, so struct fields are masked to their width — an out-of-spec slave_id
     # (>255, hand-edited settings) or addr (>0xFFFF) can't raise struct.error.
-    def _log_tx_read(self, addr, count):
-        """Логирование TX-фрейма: FC03 Read Holding Registers."""
-        pdu = struct.pack('>BBHH', self.slave_id & 0xFF, 0x03, addr & 0xFFFF, count & 0xFFFF)
+    def _log_tx_read(self, addr, count, fc=0x03):
+        """Логирование TX-фрейма чтения (FC01/02/03/04)."""
+        pdu = struct.pack('>BBHH', self.slave_id & 0xFF, fc & 0xFF, addr & 0xFFFF, count & 0xFFFF)
         frame = pdu + self._crc16(pdu)
-        self.log_msg.emit("TX", f"TX → [{self._hex(frame)}]  FC03 Read {count} reg @ 0x{addr:04X}")
+        what = "bit" if fc in (0x01, 0x02) else "reg"
+        self.log_msg.emit("TX", f"TX → [{self._hex(frame)}]  FC{fc:02X} Read {count} {what} @ 0x{addr:04X}")
 
-    def _log_rx_read(self, registers):
-        """Логирование RX-фрейма: ответ на FC03."""
-        rx = struct.pack('>BBB', self.slave_id & 0xFF, 0x03, (len(registers) * 2) & 0xFF)
-        for r in registers:
-            rx += struct.pack('>H', r & 0xFFFF)
+    def _log_rx_read(self, registers, fc=0x03):
+        """Логирование RX-фрейма: ответ на чтение."""
+        if fc in (0x01, 0x02):               # bits packed LSB-first
+            data = bytearray((len(registers) + 7) // 8)
+            for i, b in enumerate(registers):
+                if b:
+                    data[i // 8] |= 1 << (i % 8)
+            rx = struct.pack('>BBB', self.slave_id & 0xFF, fc, len(data)) + bytes(data)
+            shown = ''.join('1' if b else '0' for b in registers)
+        else:
+            rx = struct.pack('>BBB', self.slave_id & 0xFF, fc, (len(registers) * 2) & 0xFF)
+            for r in registers:
+                rx += struct.pack('>H', r & 0xFFFF)
+            shown = ' '.join(f'{r & 0xFFFF:04X}' for r in registers)
         frame = rx + self._crc16(rx)
-        regs_hex = ' '.join(f'{r & 0xFFFF:04X}' for r in registers)
-        self.log_msg.emit("RX", f"RX ← [{self._hex(frame)}]  Data: [{regs_hex}]")
+        self.log_msg.emit("RX", f"RX ← [{self._hex(frame)}]  Data: [{shown}]")
 
-    def _log_tx_write(self, addr, value):
-        """Логирование TX-фрейма: FC06 Write Single Register."""
-        pdu = struct.pack('>BBHH', self.slave_id & 0xFF, 0x06, addr & 0xFFFF, value & 0xFFFF)
+    def _log_tx_write(self, addr, value, fc=0x06):
+        """Логирование TX-фрейма: FC06 Write Single Register / FC05 Coil."""
+        pdu = struct.pack('>BBHH', self.slave_id & 0xFF, fc, addr & 0xFFFF, value & 0xFFFF)
         frame = pdu + self._crc16(pdu)
-        self.log_msg.emit("TX", f"TX → [{self._hex(frame)}]  FC06 Write 0x{value & 0xFFFF:04X} → 0x{addr:04X}")
+        self.log_msg.emit("TX", f"TX → [{self._hex(frame)}]  FC{fc:02X} Write 0x{value & 0xFFFF:04X} → 0x{addr:04X}")
 
-    def _log_rx_write(self, addr, value):
-        """Логирование RX-фрейма: эхо-ответ на FC06."""
-        pdu = struct.pack('>BBHH', self.slave_id & 0xFF, 0x06, addr & 0xFFFF, value & 0xFFFF)
+    def _log_rx_write(self, addr, value, fc=0x06):
+        """Логирование RX-фрейма: эхо-ответ на FC06 / FC05."""
+        pdu = struct.pack('>BBHH', self.slave_id & 0xFF, fc, addr & 0xFFFF, value & 0xFFFF)
         frame = pdu + self._crc16(pdu)
         self.log_msg.emit("RX", f"RX ← [{self._hex(frame)}]  Echo OK")
 
     # ==========================================
     # ВЫПОЛНЕНИЕ ОПЕРАЦИЙ ЧТЕНИЯ / ЗАПИСИ
     # ==========================================
-    def _execute_read(self, addr, dtype):
+    def _execute_read(self, addr, dtype, count=None):
         """Возвращает: True — валидный ответ; False — Modbus-исключение (связь
         жива, но регистр недоступен); None — нет ответа/таймаут (связь под
         вопросом, учитывается в счётчике потери соединения).
@@ -463,35 +536,42 @@ class ModbusCore(QThread):
         ERR логируется только в verbose-режиме, чтобы не было спама на каждый
         неудачный опрос — потеря связи сообщается одной строкой в run().
         """
-        count = datatypes.read_count(dtype)
-        verbose = addr in self.verbose_addrs
+        key = int(addr)
+        area, raw = datatypes.split_key(key)
+        if count is None:
+            count = datatypes.read_count(dtype)
+        verbose = key in self.verbose_addrs
         if verbose:
-            self._log_tx_read(addr, count)
+            self._log_tx_read(raw, count, area.fc_read)
         try:
-            res = self._safe_read(addr, count)
+            res = self._counted_read(raw, count, area=area)
             if res is None or (hasattr(res, "isError") and res.isError()):
                 if verbose:
-                    self.log_msg.emit("ERR", self._msg("coreReadErr", addr=f"0x{addr:04X}"))
+                    self.log_msg.emit("ERR", self._msg("coreReadErr",
+                                                       addr=datatypes.key_label(key)))
                 # Modbus-исключение (прибор ответил кодом ошибки) → связь жива.
                 if res is not None and not isinstance(res, ModbusIOException):
                     return False
                 return None
             if verbose:
-                self._log_rx_read(res.registers)
-            self.data_updated.emit(addr, datatypes.read_to_str(dtype, res.registers))
+                self._log_rx_read(res.registers, area.fc_read)
+            self.data_updated.emit(key, datatypes.read_to_str(dtype, res.registers))
             return True
         except Exception as e:
             if verbose:
-                self.log_msg.emit("ERR", self._msg("coreTimeout", addr=f"0x{addr:04X}",
-                                                   err=e))
+                self.log_msg.emit("ERR", self._msg("coreTimeout",
+                                                   addr=datatypes.key_label(key), err=e))
             return None
 
     def _execute_chunked_read(self, start_addr, total_length):
-        """Вычитывает большой массив из прибора чанками по 125 слов"""
-        self.log_msg.emit("SYS", self._msg("coreArrayStart", addr=f"0x{start_addr:04X}",
+        """Вычитывает большой массив из прибора чанками по 125 слов.
+        *start_addr* — ключ регистра (область << 16 | адрес)."""
+        area, first = datatypes.split_key(start_addr)
+        self.log_msg.emit("SYS", self._msg("coreArrayStart",
+                                           addr=datatypes.key_label(start_addr),
                                            n=total_length))
         full_buffer = []
-        current_addr = start_addr
+        current_addr = first
         words_left = total_length
 
         MAX_CHUNK = 125  # Лимит Modbus RTU за один запрос
@@ -499,12 +579,12 @@ class ModbusCore(QThread):
         try:
             while words_left > 0:
                 count_to_read = min(words_left, MAX_CHUNK)
-                self._log_tx_read(current_addr, count_to_read)
+                self._log_tx_read(current_addr, count_to_read, area.fc_read)
 
-                res = self._safe_read(current_addr, count_to_read)
+                res = self._counted_read(current_addr, count_to_read, area=area)
 
                 if res and not res.isError():
-                    self._log_rx_read(res.registers)
+                    self._log_rx_read(res.registers, area.fc_read)
                     full_buffer.extend(res.registers)
                     words_left -= count_to_read
                     current_addr += count_to_read
@@ -515,7 +595,8 @@ class ModbusCore(QThread):
                     self.array_read_finished.emit(start_addr, [])  # Отправляем пустой массив как флаг ошибки
                     return
 
-            self.log_msg.emit("SYS", self._msg("coreArrayDone", addr=f"0x{start_addr:04X}",
+            self.log_msg.emit("SYS", self._msg("coreArrayDone",
+                                               addr=datatypes.key_label(start_addr),
                                                n=len(full_buffer)))
             # Отправляем готовый склеенный буфер в GUI
             self.array_read_finished.emit(start_addr, full_buffer)
@@ -537,6 +618,8 @@ class ModbusCore(QThread):
         if sock is None or not hasattr(sock, "in_waiting"):
             self.log_msg.emit("ERR", self._msg("coreRawNoPort"))
             return
+        self.stats.begin()
+        t0 = time.monotonic()
         try:
             sock.reset_input_buffer()
             sock.write(bytes(frame))
@@ -555,15 +638,52 @@ class ModbusCore(QThread):
             if buf:
                 self.log_msg.emit("RX", f"RX ← [{self._hex(bytes(buf))}]  "
                                   + self._msg("coreBytes", n=len(buf)))
+                # Raw frames may be anything — only a reply that is FRAMED
+                # like Modbus (≥ 4 bytes) is judged by its CRC.
+                from sniffer_core import frame_crc_ok
+                good = len(buf) < 4 or frame_crc_ok(bytes(buf))
+                exc = good and len(buf) >= 2 and buf[1] >= 0x80
+                self.stats.record("exception" if exc else ("ok" if good else "crc"),
+                                  last_rx - t0 if good else None)
             else:
+                self.stats.record("timeout")
                 self.log_msg.emit("ERR", self._msg("coreRawNoAnswer"))
         except Exception as e:
+            self.stats.record("timeout")
             self.log_msg.emit("ERR", f"RAW: {e}")
 
     def _execute_write(self, addr, dtype, value_str) -> bool:
-        """Write one value; True only when EVERY word was acknowledged."""
+        """Write one value; True only when EVERY word was acknowledged.
+        *addr* is the register KEY (area << 16 | address)."""
+        key = int(addr)
+        area, addr = datatypes.split_key(key)
+        label = datatypes.key_label(key)
         try:
-            regs = datatypes.encode(dtype, float(str(value_str).replace(",", ".")))
+            if not area.writable:
+                raise RuntimeError(self._msg("coreReadOnlyArea", addr=label))
+            if area.bits:
+                on = datatypes.encode(datatypes.BIT_TYPE, value_str)[0]
+                wire = 0xFF00 if on else 0x0000
+                self._log_tx_write(addr, wire, 0x05)
+                res = self._counted(self._safe_write_coil, addr, bool(on))
+                if res and not res.isError():
+                    self._log_rx_write(addr, wire, 0x05)
+                    self.log_msg.emit("SYS", self._msg("coreWriteOk", addr=label,
+                                                       value=value_str))
+                    return True
+                self.log_msg.emit("ERR", self._msg("coreWriteUnconfirmed", bad=label,
+                                                   addr=label, value=value_str))
+                return False
+            if datatypes.is_text(dtype):
+                # A text field is written NUL-padded to its full length, so
+                # an old longer value cannot survive past the new end.
+                reg = self._find_reg(key)
+                words = (datatypes.addr_span(reg) if reg else
+                         max(1, (len(str(value_str).encode("cp1251", "replace")) + 1) // 2))
+                regs = datatypes.encode(dtype, str(value_str), words)
+            else:
+                # No float() here: an INT64 above 2**53 must arrive exact.
+                regs = datatypes.encode(dtype, str(value_str).strip().replace(",", "."))
             if not regs:
                 raise RuntimeError(self._msg("coreNotWritable", type=dtype))
             # Write each 16-bit word sequentially; pause between words on
@@ -573,7 +693,7 @@ class ModbusCore(QThread):
                 if i:
                     time.sleep(self.interframe)
                 self._log_tx_write(addr + i, word)
-                res = self._safe_write_single(addr + i, word)
+                res = self._counted(self._safe_write_single, addr + i, word)
                 if res and not res.isError():
                     self._log_rx_write(addr + i, word)
                 else:
@@ -583,11 +703,11 @@ class ModbusCore(QThread):
             if failed:
                 bad = ", ".join(f"0x{a:04X}" for a in failed)
                 self.log_msg.emit("ERR", self._msg("coreWriteUnconfirmed", bad=bad,
-                                                   addr=f"0x{addr:04X}", value=value_str))
+                                                   addr=label, value=value_str))
                 return False
-            self.log_msg.emit("SYS", self._msg("coreWriteOk", addr=f"0x{addr:04X}",
+            self.log_msg.emit("SYS", self._msg("coreWriteOk", addr=label,
                                                value=value_str))
             return True
         except Exception as e:
-            self.log_msg.emit("ERR", self._msg("coreWriteErr", addr=f"0x{addr:04X}", err=e))
+            self.log_msg.emit("ERR", self._msg("coreWriteErr", addr=label, err=e))
             return False

@@ -29,6 +29,8 @@ import os
 import time
 from datetime import datetime
 
+import datatypes
+
 DEFAULT_DELIMITER = ";"          # RU locale Excel; "," where the decimal is "."
 DEFAULT_DECIMAL = ","
 BOM = "﻿"
@@ -202,12 +204,13 @@ def columns_for(registers) -> list:
         if not isinstance(reg, dict) or "addr" not in reg:
             continue
         try:
-            addr = int(reg["addr"])
+            int(str(reg["addr"]).strip(), 0)
         except (TypeError, ValueError):
             continue
+        addr = datatypes.reg_key(reg)            # area-aware ("IR 0x0010")
         name = str(reg.get("name", "")).strip()
         unit = str(reg.get("unit", "")).strip()
-        title = f"0x{addr:04X}"
+        title = datatypes.key_label(addr)
         if name:
             title += f" {name}"
         if unit:

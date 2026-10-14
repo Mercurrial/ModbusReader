@@ -74,6 +74,7 @@ def normalize_registers(raw_list: list) -> list:
         }
         if name_en:
             reg["name_en"] = name_en
+        _apply_area(reg, r.get("area"))
         # Engineering scaling / enum (v2) — carried through edits untouched so
         # opening and re-saving a profile never drops them.
         for k in ("scale", "offset", "enum"):
@@ -86,9 +87,12 @@ def normalize_registers(raw_list: list) -> list:
     return out
 
 
+_apply_area = datatypes.apply_area
+
+
 # Column indices.
-COL_GRIP, COL_ADDR, COL_RU, COL_EN, COL_TYPE, COL_LEN, COL_ACC, \
-    COL_UNIT, COL_DEF, COL_COMMENT = range(10)
+COL_GRIP, COL_ADDR, COL_AREA, COL_RU, COL_EN, COL_TYPE, COL_LEN, COL_ACC, \
+    COL_UNIT, COL_DEF, COL_COMMENT = range(11)
 
 
 class ReorderableTable(QTableWidget):
@@ -730,10 +734,11 @@ class ProfileEditorDialog(QDialog):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setStyleSheet(f"QSplitter::handle {{ background: {c['line']}; width: 1px; }}")
 
-        self.table = ReorderableTable(0, 10)
+        self.table = ReorderableTable(0, 11)
         self.table.setHorizontalHeaderLabels([
             "#",
             self.t("address").upper(),
+            self.t("colArea"),
             self.t("nameRu").upper(), self.t("nameEn").upper(),
             self.t("colType"),
             self.t("colSize"),
@@ -748,6 +753,9 @@ class ProfileEditorDialog(QDialog):
         addr_hdr = self.table.horizontalHeaderItem(COL_ADDR)
         if addr_hdr is not None:
             addr_hdr.setToolTip(self.t("colAddrHint"))
+        area_hdr = self.table.horizontalHeaderItem(COL_AREA)
+        if area_hdr is not None:
+            area_hdr.setToolTip(self.t("colAreaHint"))
         self.table.verticalHeader().setVisible(False)
         self.table.setAlternatingRowColors(False)
         self.table.itemChanged.connect(self._on_item_changed)
@@ -764,6 +772,7 @@ class ProfileEditorDialog(QDialog):
         # to fill the remaining space (stretchLastSection).
         hh.setSectionResizeMode(COL_GRIP, fixed)
         hh.setSectionResizeMode(COL_ADDR, interactive)
+        hh.setSectionResizeMode(COL_AREA, interactive)
         hh.setSectionResizeMode(COL_RU, interactive)
         hh.setSectionResizeMode(COL_EN, interactive)
         hh.setSectionResizeMode(COL_TYPE, interactive)
@@ -779,6 +788,7 @@ class ProfileEditorDialog(QDialog):
         self.table.setColumnWidth(
             COL_GRIP, 44 + QFontMetrics(grip_font).horizontalAdvance(" 0000"))
         self.table.setColumnWidth(COL_ADDR, 84)
+        self.table.setColumnWidth(COL_AREA, 116)
         self.table.setColumnWidth(COL_RU, 220)
         self.table.setColumnWidth(COL_EN, 180)
         self.table.setColumnWidth(COL_TYPE, 120)
@@ -908,6 +918,18 @@ class ProfileEditorDialog(QDialog):
         item_en = QTableWidgetItem(name_en)
         item_en.setToolTip(name_en)
 
+        # COL_AREA — the Modbus table (holding / input / coil / discrete).
+        area = datatypes.area_of(reg)
+        cb_area = QComboBox()
+        for a in datatypes.AREAS.values():
+            cb_area.addItem(self.t(a.label_key), a.key)
+            cb_area.setItemData(cb_area.count() - 1, self.t(a.label_key + "Hint"),
+                                Qt.ItemDataRole.ToolTipRole)
+        cb_area.setCurrentIndex(max(0, cb_area.findData(area.key)))
+        cb_area.setToolTip(self.t(area.label_key + "Hint"))
+        cb_area.currentIndexChanged.connect(
+            lambda _i, r=row, cb=cb_area: self._on_area_changed(r, cb.currentData()))
+
         cb_type = QComboBox()
         cb_type.addItems(ALL_TYPES)
         cur_type = reg.get("type", "SHORT")
@@ -923,6 +945,7 @@ class ProfileEditorDialog(QDialog):
         cb_type.view().setMinimumWidth(popup_w)
         cb_type.currentTextChanged.connect(
             lambda val, r=row: self._on_type_changed(r, val))
+        cb_type.setEnabled(not area.bits)          # a coil is one bit, always
 
         # COL_LEN — for variable/area types use a spin box widget so editing
         # never overlaps the painted cell value; for fixed types it's a
@@ -949,6 +972,7 @@ class ProfileEditorDialog(QDialog):
         cb_acc = QComboBox()
         cb_acc.addItems(["R", "W", "RW"])
         cb_acc.setCurrentText(reg.get("rw", "RW"))
+        cb_acc.setEnabled(area.writable)           # input / discrete: R only
         cb_acc.currentTextChanged.connect(
             lambda val, r=row: self._on_access_changed(r, val))
 
@@ -959,6 +983,7 @@ class ProfileEditorDialog(QDialog):
 
         self.table.setItem(row, COL_GRIP, item_num)
         self.table.setItem(row, COL_ADDR, item_addr)
+        self.table.setCellWidget(row, COL_AREA, cb_area)
         self.table.setItem(row, COL_RU, item_ru)
         self.table.setItem(row, COL_EN, item_en)
         self.table.setCellWidget(row, COL_TYPE, cb_type)
@@ -987,6 +1012,28 @@ class ProfileEditorDialog(QDialog):
             reg["length"] = FIXED_TYPE_LEN[val]
         else:
             reg["length"] = max(1, int(reg.get("length", 1) or 1))
+        self._recompute_addresses(flags)
+        self._push_state()
+        self._refresh_ui()
+
+    def _on_area_changed(self, row, area_key):
+        if not (0 <= row < len(self.profile_data)):
+            return
+        flags = chained_flags(self.profile_data)
+        reg = self.profile_data[row]
+        was = datatypes.area_of(reg)
+        _apply_area(reg, area_key)
+        now = datatypes.area_of(reg)
+        if was.bits and not now.bits and reg.get("type") == datatypes.BIT_TYPE:
+            reg["type"] = "SHORT"                  # back to a word table
+            reg["length"] = 1
+        if not was.writable and now.writable and reg.get("rw") == "R":
+            reg["rw"] = "RW"
+        # Each table has its own address space: the moved row keeps its
+        # number, and the next rows of the old table no longer chain to it.
+        flags[row] = False
+        if row + 1 < len(flags):
+            flags[row + 1] = False
         self._recompute_addresses(flags)
         self._push_state()
         self._refresh_ui()
@@ -1023,8 +1070,8 @@ class ProfileEditorDialog(QDialog):
         # First register of a freshly created profile always starts at
         # address 0; subsequent ones continue the running sum.
         new_addr = 0
-        if len(self.profile_data) > 0:
-            last = self.profile_data[-1]
+        last = self.profile_data[-1] if self.profile_data else None
+        if last is not None:
             new_addr = int(last.get("addr", 0)) + type_size(last)
 
         new_reg = {
@@ -1038,6 +1085,8 @@ class ProfileEditorDialog(QDialog):
             "default": "",
             "comment": "",
         }
+        if last is not None:                     # continue the same table
+            _apply_area(new_reg, last.get("area"))
         self.profile_data.append(new_reg)
         self._push_state()
         self._refresh_ui()
@@ -1210,6 +1259,8 @@ class ProfileEditorDialog(QDialog):
             }
             if r.get("name_en"):
                 reg["name_en"] = r["name_en"]
+            if r.get("area") and r["area"] != datatypes.DEFAULT_AREA:
+                reg["area"] = r["area"]
             for k in ("unit", "default", "comment"):
                 if r.get(k):
                     reg[k] = r[k]
