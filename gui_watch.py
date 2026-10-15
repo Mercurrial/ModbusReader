@@ -286,7 +286,7 @@ class WatchWindow(QWidget):
                 dot = self._item()
                 dot.setData(Qt.ItemDataRole.UserRole, self._state(row))
                 self.table.setItem(i, COL_DOT, dot)
-                a = self._item(datatypes.key_label(row.addr))
+                a = self._item(datatypes.key_label(row.addr), Qt.AlignmentFlag.AlignLeft)
                 a.setFont(mono)
                 self.table.setItem(i, COL_ADDR, a)
                 if reg is None:
@@ -307,11 +307,10 @@ class WatchWindow(QWidget):
                     self.table.setItem(i, col, it)
                 self.table.setItem(i, COL_AGE, self._item(self._age_text(row)))
                 writable = reg is not None and datatypes.is_writable(reg)
-                new = self._item("" if writable else "—", editable=writable)
+                # Read-only: an empty cell, not a dash (same rule as the map).
+                new = self._item("", Qt.AlignmentFlag.AlignLeft, editable=writable)
                 if writable:
                     new.setToolTip(t("watchNewTip"))
-                else:
-                    new.setForeground(muted)
                 new.setFont(mono)
                 self.table.setItem(i, COL_NEW, new)
         finally:
@@ -460,6 +459,11 @@ class WatchWindow(QWidget):
         hdr = self.table.horizontalHeaderItem(COL_NEW)
         if hdr is not None:
             hdr.setToolTip(t("watchNewTip"))
+        # Headers sit over their cells: text columns left, readouts centred.
+        for col in (COL_ADDR, COL_NAME, COL_NEW):
+            h = self.table.horizontalHeaderItem(col)
+            if h is not None:
+                h.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self._rebuild()
 
     def save_geometry(self):

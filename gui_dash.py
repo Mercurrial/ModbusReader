@@ -31,7 +31,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
-    QMenu, QLineEdit, QComboBox, QInputDialog, QFileDialog,
+    QMenu, QLineEdit, QComboBox, QFileDialog,
 )
 from PyQt6 import sip
 
@@ -39,9 +39,10 @@ import datatypes
 import formats
 
 import icons
+from gui_widgets import EmptyState, EmptyOverlay
 import scaling
 import dash_model as dm
-from dialogs import themed_info
+from dialogs import themed_info, themed_input
 from gui_dash_dialog import WidgetDialog
 
 STALE_AFTER = 5.0          # s without a sample -> dim the card
@@ -1304,8 +1305,10 @@ class DashboardView(QWidget):
         self.btn_mode.clicked.connect(lambda: self.set_edit(not self.edit))
         bar.addWidget(self.btn_mode)
 
+        # The mode as a small status pill; the how-to sentence that used to
+        # sit here in full lives in its tooltip (and in the F1 guide).
         self.lbl_hint = QLabel("")
-        self.lbl_hint.setObjectName("mhCrumb")
+        self.lbl_hint.setObjectName("modeBadge")
         bar.addWidget(self.lbl_hint)
         bar.addStretch()
         self.lbl_zoom = QLabel("100%")
@@ -1318,6 +1321,11 @@ class DashboardView(QWidget):
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        # A canvas is panned (right-drag) and zoomed (wheel), like every
+        # design surface; permanent scrollbars along an empty board read as
+        # a page that did not fit. The bars keep their ranges for pan_by().
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.canvas = _Canvas(self)
         self.canvas.setMinimumSize(400, 400)
         # Centre a canvas smaller than the viewport, so zooming grows from the
@@ -1326,10 +1334,14 @@ class DashboardView(QWidget):
         self.scroll.setWidget(self.canvas)
         lo.addWidget(self.scroll, 1)
 
-        self.lbl_empty = QLabel(ctx.t("dashEmpty"))
-        self.lbl_empty.setObjectName("mhCrumb")
-        self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lo.addWidget(self.lbl_empty)
+        # An empty board says what a board is for and offers the first step
+        # (it used to be one grey sentence under a black canvas).
+        self.lbl_empty = EmptyState("gauge", ctx.t("dashEmptyTitle"), ctx.t("dashEmpty"))
+        self.lbl_empty.add_action("  " + ctx.t("dashAddWidget"), self._add_widget,
+                                  primary=True)
+        self.lbl_empty.apply_theme(ctx.theme_tokens())
+        self._empty_ov = EmptyOverlay(self.scroll, self.lbl_empty,
+                                      is_empty=lambda: not self.cards)
 
         self._stale_timer = QTimer(self)
         self._stale_timer.setInterval(2000)
@@ -1356,7 +1368,11 @@ class DashboardView(QWidget):
                                       else t("dashModeEdit")))
         self.btn_mode.setIcon(icons.icon(
             "play" if self.edit else "edit", c["text_2"], 14))
-        self.lbl_hint.setText(t("dashHintEdit") if self.edit else t("dashHintRun"))
+        self.lbl_hint.setText(t("dashBadgeEdit") if self.edit else t("dashBadgeRun"))
+        self.lbl_hint.setToolTip(t("dashHintEdit") if self.edit else t("dashHintRun"))
+        self.lbl_hint.setProperty("state", "edit" if self.edit else "run")
+        self.lbl_hint.style().unpolish(self.lbl_hint)
+        self.lbl_hint.style().polish(self.lbl_hint)
         # Always visible: the empty dashboard says «press Add widget», and in
         # run mode that button used to be hidden. Pressing it switches to
         # edit mode first (see _add_widget).
@@ -1610,7 +1626,8 @@ class DashboardView(QWidget):
         self._toast_copied(n)
 
     def _refresh_empty(self):
-        self.lbl_empty.setVisible(not self.cards)
+        if hasattr(self, "_empty_ov"):
+            self._empty_ov.refresh()
 
     # ── dashboard set (a project can hold several screens) ───────────
     def _load_boards(self, settings) -> list:
@@ -1718,9 +1735,10 @@ class DashboardView(QWidget):
             self.import_board()
 
     def _rename_board(self):
-        name, ok = QInputDialog.getText(
-            self, self.ctx.t("dashBoardRename"), self.ctx.t("dashBoardName"),
-            text=self.boards[self.index].get("name", ""))
+        name, ok = themed_input(
+            self, self.ctx.theme, self.ctx.t("dashBoardRename").rstrip("…."),
+            self.ctx.t("dashBoardName"), self.boards[self.index].get("name", ""),
+            ok_label=self.ctx.t("apply"), cancel_label=self.ctx.t("cancel"))
         if ok and name.strip():
             self.boards[self.index]["name"] = name.strip()
             self._persist()
@@ -2613,10 +2631,12 @@ class DashboardView(QWidget):
         for card in self.cards.values():
             card.update()
         self.canvas.update()
+        self.lbl_empty.apply_theme(self.ctx.theme_tokens())
 
     def retranslate(self, t):
         self.btn_add.setText("  " + t("dashAddWidget"))
-        self.lbl_empty.setText(t("dashEmpty"))
+        self.lbl_empty.set_content(t("dashEmptyTitle"), t("dashEmpty"))
+        self.lbl_empty.buttons[0].setText("  " + t("dashAddWidget"))
         self.set_edit(self.edit)
 
     # ── guide (F1 / Справка) ──────────────────────────────────────────

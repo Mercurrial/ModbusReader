@@ -34,8 +34,7 @@ def no_blocking_modals(monkeypatch):
                         boom("getOpenFileName"))
     monkeypatch.setattr("PyQt6.QtWidgets.QFileDialog.getSaveFileName",
                         boom("getSaveFileName"))
-    monkeypatch.setattr("PyQt6.QtWidgets.QInputDialog.getText",
-                        boom("getText"))
+    monkeypatch.setattr("gui_main.themed_input", boom("themed_input"))
 
 
 @pytest.fixture()
@@ -132,7 +131,7 @@ def test_saving_a_named_project_overwrites_without_asking(win, tmp_path,
 
 def test_an_unnamed_project_falls_back_to_save_as(win, tmp_path, monkeypatch):
     target = str(tmp_path / "fresh.mbproj")
-    monkeypatch.setattr("PyQt6.QtWidgets.QInputDialog.getText",
+    monkeypatch.setattr("gui_main.themed_input",
                         lambda *a, **k: ("fresh", True))
     monkeypatch.setattr("PyQt6.QtWidgets.QFileDialog.getSaveFileName",
                         lambda *a, **k: (target, ""))
@@ -144,7 +143,7 @@ def test_an_unnamed_project_falls_back_to_save_as(win, tmp_path, monkeypatch):
 
 def test_saving_records_the_project_as_recent(win, tmp_path, monkeypatch):
     target = str(tmp_path / "r.mbproj")
-    monkeypatch.setattr("PyQt6.QtWidgets.QInputDialog.getText",
+    monkeypatch.setattr("gui_main.themed_input",
                         lambda *a, **k: ("r", True))
     monkeypatch.setattr("PyQt6.QtWidgets.QFileDialog.getSaveFileName",
                         lambda *a, **k: (target, ""))
@@ -155,7 +154,7 @@ def test_saving_records_the_project_as_recent(win, tmp_path, monkeypatch):
 def test_a_failed_save_does_not_claim_the_project_is_saved(win, tmp_path,
                                                            monkeypatch):
     bad = str(tmp_path / "nope" / "deep" / "x.mbproj")
-    monkeypatch.setattr("PyQt6.QtWidgets.QInputDialog.getText",
+    monkeypatch.setattr("gui_main.themed_input",
                         lambda *a, **k: ("x", True))
     monkeypatch.setattr("PyQt6.QtWidgets.QFileDialog.getSaveFileName",
                         lambda *a, **k: (bad, ""))

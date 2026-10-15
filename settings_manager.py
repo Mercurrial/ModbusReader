@@ -157,9 +157,11 @@ DEFAULT_SETTINGS = {
     "slave_sid":         None,
     "slave_delay":       0,
     "last_view":         "view_table",   # nav view active at exit
-    # Which views show as labelled tabs; the rest live in the overflow menu.
+    # 2.0–2.1: which views showed as top-bar tabs. The 2.2 rail shows every
+    # page; the key stays so projects written by older versions round-trip.
     "pinned_views":      ["view_table", "view_console",
                           "view_scanner", "view_sniffer"],
+    "rail_collapsed":    False,   # left rail: icons only
     # Dashboards: a LIST of {name, widgets, links}; dash_index selects the one
     # on screen. (dash_widgets/dash_links are the pre-1.6 single-dashboard
     # keys — still read once and migrated, see gui_dash.load_dashboards.)

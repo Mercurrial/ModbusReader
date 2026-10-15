@@ -143,6 +143,8 @@ class MemoryViewerDialog(QDialog):
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         self.table = QTableWidget()
+        # One channel used to be a 100 px column beside an empty slab.
+        self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.table.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.table.setAlternatingRowColors(True)

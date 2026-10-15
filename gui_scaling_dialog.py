@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 import datatypes
-from theme_manager import get_theme
+from theme_manager import get_theme, _mix
 
 
 def _num(v, default):
@@ -144,7 +144,7 @@ class ScalingDialog(QDialog):
             f"QPushButton {{ color:{c['accent_fg']}; background:{c['accent']};"
             f" border:none; border-radius:7px; font-size:13px;"
             f" font-weight:600; padding:7px 20px; }}"
-            f"QPushButton:hover {{ background:{c['text_1']}; }}")
+            f"QPushButton:hover {{ background:{_mix(c['accent'], c['text_1'], 0.16)}; }}")
         b_ok.clicked.connect(self._accept)
         btns.addWidget(b_cancel)
         btns.addWidget(b_ok)

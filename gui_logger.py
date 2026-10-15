@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWidgets import QMessageBox
 
 import datalog
+from gui_widgets import EmptyState
 import datatypes
 import icons
 from dialogs import themed_info, themed_message
@@ -36,11 +37,16 @@ from qt_utils import set_state
 PREVIEW_ROWS = 200          # rows kept on screen; the file keeps everything
 
 
-def human_size(n: int) -> str:
-    for unit, step in (("GB", 1 << 30), ("MB", 1 << 20), ("KB", 1 << 10)):
+_SIZE_UNITS = {"ru": ("ГБ", "МБ", "КБ", "Б"), "en": ("GB", "MB", "KB", "B")}
+
+
+def human_size(n: int, lang: str = "en") -> str:
+    """Bytes for people, in the UI language ("1.1 МБ" next to Russian)."""
+    gb, mb, kb, b = _SIZE_UNITS.get(lang, _SIZE_UNITS["en"])
+    for unit, step in ((gb, 1 << 30), (mb, 1 << 20), (kb, 1 << 10)):
         if n >= step:
             return f"{n / step:.1f} {unit}"
-    return f"{n} B"
+    return f"{n} {b}"
 
 
 def human_elapsed(seconds: float) -> str:
@@ -118,7 +124,7 @@ class LoggerView(QWidget):
         self.spin_period.setRange(100, 3600000)
         self.spin_period.setSingleStep(100)
         self.spin_period.setValue(1000)
-        self.spin_period.setSuffix(" ms")
+        self.spin_period.setSuffix(self.ctx.t("unitMsSuffix"))
         self.spin_period.setFixedWidth(110)
         self.spin_period.valueChanged.connect(lambda _v: self._update_forecast())
         row2.addWidget(self.spin_period)
@@ -129,7 +135,7 @@ class LoggerView(QWidget):
         self.spin_rotate.setObjectName("stInput")
         self.spin_rotate.setRange(datalog.MIN_ROTATE_MB, datalog.MAX_ROTATE_MB)
         self.spin_rotate.setValue(50)
-        self.spin_rotate.setSuffix(" MB")
+        self.spin_rotate.setSuffix(self.ctx.t("unitMbSuffix"))
         self.spin_rotate.setFixedWidth(100)
         row2.addWidget(self.spin_rotate)
 
@@ -160,6 +166,8 @@ class LoggerView(QWidget):
         lo.addLayout(head)
 
         self.table = QTableWidget(0, 4)
+        self.table.horizontalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.table.setObjectName("scanTable")
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(
@@ -169,10 +177,8 @@ class LoggerView(QWidget):
             QHeaderView.ResizeMode.Stretch)
         lo.addWidget(self.table, 1)
 
-        self.lbl_empty = QLabel()
-        self.lbl_empty.setObjectName("emptyState")
-        self.lbl_empty.setWordWrap(True)
-        self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_empty = EmptyState("logfile", t("noMapTitle"), "")
+        self.lbl_empty.apply_theme(self.ctx.theme_tokens())
         lo.addWidget(self.lbl_empty, 1)
 
         self.lbl_hint = QLabel(t("logHint"))
@@ -220,8 +226,11 @@ class LoggerView(QWidget):
                                         str(reg.get("name", "")),
                                         str(reg.get("unit", "")))):
                 it = QTableWidgetItem(text)
-                if col != 2:
-                    it.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                it.setTextAlignment(Qt.AlignmentFlag.AlignCenter if col == 0
+                                    else Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+                if col == 1:                     # addresses are monospace everywhere
+                    from gui_table import mono_font
+                    it.setFont(mono_font(int(self.ctx.settings.get("font_size", 9))))
                 self.table.setItem(i, col, it)
         self._update_forecast()
 
@@ -236,7 +245,8 @@ class LoggerView(QWidget):
         # and labelled as one.
         bytes_hour = per_hour * (24 + len(self._columns) * 10)
         self.lbl_forecast.setText(self.ctx.t("logForecast").format(
-            n=len(self._columns), rows=per_hour, size=human_size(bytes_hour)))
+            n=len(self._columns), rows=per_hour,
+            size=human_size(bytes_hour, self.ctx.lang)))
 
     # ── lifecycle ─────────────────────────────────────────────────────
     @property
@@ -367,7 +377,7 @@ class LoggerView(QWidget):
             for addr, _title in self._columns]
         for col, text in enumerate(cells):
             it = QTableWidgetItem(text)
-            it.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            it.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             self.table.setItem(0, col, it)
         while self.table.rowCount() > PREVIEW_ROWS:
             self.table.removeRow(self.table.rowCount() - 1)
@@ -409,7 +419,7 @@ class LoggerView(QWidget):
         self.lbl_status.setText(t("logRunning").format(
             rows=self.writer.rows_written,
             parts=self.writer.part,
-            size=human_size(self._file_size()),
+            size=human_size(self._file_size(), self.ctx.lang),
             elapsed=human_elapsed(time.time() - self._started_at),
             name=os.path.basename(self.writer.current_path)))
 
@@ -419,15 +429,19 @@ class LoggerView(QWidget):
             self.stop()
 
     def apply_settings(self):
+        self.lbl_empty.apply_theme(self.ctx.theme_tokens())
         self.btn_browse.setIcon(icons.icon(
             "folder", self.ctx.theme_tokens()["text_2"], 15))
         self.refresh_columns()
 
     def retranslate(self, t):
+        self.lbl_empty.set_content(title=t("noMapTitle"))
         self._set_running(self.running)
         self.lbl_file.setText(t("logFile"))
         self.btn_browse.setToolTip(t("logChoose"))
         self.lbl_every.setText(t("logEvery"))
+        self.spin_period.setSuffix(t("unitMsSuffix"))
+        self.spin_rotate.setSuffix(t("unitMbSuffix"))
         self.lbl_rotate.setText(t("logRotate"))
         self.chk_comma.setText(t("logDecimalComma"))
         self.lbl_hint.setText(t("logHint"))

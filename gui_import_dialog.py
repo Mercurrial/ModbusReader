@@ -208,6 +208,10 @@ class ImportMapDialog(QDialog):
             cb.currentIndexChanged.connect(self._rebuild)
             self.table.setCellWidget(0, i, cb)
             self._pickers.append(cb)
+        # The pickers need a real row: at the data rows' height their text was
+        # sliced off at the baseline.
+        if width:
+            self.table.setRowHeight(0, max(36, self._pickers[0].sizeHint().height() + 8))
 
     def current_mapping(self) -> dict:
         """``{field: column}`` from the pickers. A field assigned twice keeps

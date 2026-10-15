@@ -25,7 +25,7 @@ import icons
 import scaling
 import dash_model as dm
 from gui_widgets import ToggleSwitch
-from theme_manager import get_theme
+from theme_manager import get_theme, _mix
 
 # 5 tiles per row keeps each group to one or two rows: with 14 kinds a 4-wide
 # grid pushed the dialog past 780 px, which does not fit a 768 px laptop.
@@ -341,7 +341,7 @@ class WidgetDialog(QDialog):
             f"QPushButton {{ color:{c['accent_fg']}; background:{c['accent']};"
             f" border:none; border-radius:7px; font-size:13px;"
             f" font-weight:600; padding:7px 20px; }}"
-            f"QPushButton:hover {{ background:{c['text_1']}; }}")
+            f"QPushButton:hover {{ background:{_mix(c['accent'], c['text_1'], 0.16)}; }}")
         b_ok.clicked.connect(self._accept)
         btns.addWidget(b_cancel)
         btns.addWidget(b_ok)

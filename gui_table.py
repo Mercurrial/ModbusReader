@@ -25,7 +25,7 @@ import struct
 from dataclasses import dataclass
 
 from PyQt6.QtWidgets import (
-    QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QInputDialog,
+    QTableWidget, QTableWidgetItem, QHeaderView, QMenu,
     QApplication, QStyledItemDelegate, QAbstractItemView,
 )
 from PyQt6.QtCore import Qt, QSize, QPoint, pyqtSignal
@@ -34,8 +34,8 @@ from PyQt6.QtGui import QBrush, QColor, QPainter, QFont, QPen
 import datatypes
 import icons
 import scaling
+from dialogs import themed_input
 from qt_utils import later
-from theme_manager import get_theme
 
 # ── column indices ────────────────────────────────────────────────
 COL_STATE   = 0   # state dot  (custom delegate)
@@ -96,7 +96,7 @@ _FLEX_COLS = (COL_CURRENT, COL_NEW)
 # is allowed (window genuinely too narrow for the content).
 _MINW = {
     COL_STATE: 24, COL_ADDR: 64, COL_NAME: 130, COL_TYPE: 72,
-    COL_ACCESS: 58, COL_CURRENT: 96, COL_NEW: 96,
+    COL_ACCESS: 58, COL_CURRENT: 110, COL_NEW: 132,
 }
 
 
@@ -249,7 +249,9 @@ class RegisterTable(QTableWidget):
         self.setItemDelegateForColumn(COL_STATE, self._state_delegate)
 
         hdr = self.horizontalHeader()
-        hdr.setDefaultAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+        # Left-aligned, like the cells under them: a header centred over a
+        # left-aligned column points at nothing.
+        hdr.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         hdr.setStretchLastSection(False)
         for c in COLUMNS:
             hdr.setSectionResizeMode(c.index, _RESIZE[c.resize])
@@ -291,6 +293,9 @@ class RegisterTable(QTableWidget):
     def apply_headers(self):
         self.setHorizontalHeaderLabels(
             [self.ctx.t(c.header_key) if c.header_key else "" for c in COLUMNS])
+        acc = self.horizontalHeaderItem(COL_ACCESS)
+        if acc is not None:                  # a two-letter code: centred
+            acc.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
     def _display_name(self, reg: dict) -> str:
         """Register name for the current UI language: the English name when the
@@ -356,6 +361,7 @@ class RegisterTable(QTableWidget):
         self._state_delegate.set_theme(tokens)
         self._highlight = bool(s.get("highlight_changes", True))
         self._flash_brush = QBrush(QColor(tokens["accent_soft"]))
+        self._recolor()
         # mono_values / font size may have changed — re-apply fonts in place.
         mono = bool(s.get("mono_values", True))
         size = self._font_size()
@@ -450,8 +456,6 @@ class RegisterTable(QTableWidget):
 
     # ── data ───────────────────────────────────────────────────────
     def populate(self, profile: list[dict]):
-        c = get_theme(self.ctx.settings.get("theme", "Dark"))
-        muted = QColor(c["text_4"])
         t = self.ctx.t
         size = self._font_size()
         self._font_pt = size
@@ -487,7 +491,7 @@ class RegisterTable(QTableWidget):
                 if area.key != datatypes.DEFAULT_AREA:
                     addr_item.setToolTip(t(area.label_key + "Hint"))
                 addr_item.setFlags(addr_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                addr_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                addr_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 addr_item.setFont(ident_font)
 
                 name_item = QTableWidgetItem(name)
@@ -496,34 +500,29 @@ class RegisterTable(QTableWidget):
 
                 type_item = QTableWidgetItem(dtype)
                 type_item.setFlags(type_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                type_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                type_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
                 access_item = QTableWidgetItem(rw)
                 access_item.setFlags(access_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 access_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 access_item.setFont(ident_font)
-                if not writable:
-                    access_item.setForeground(muted)
 
                 # Values honor the mono_values setting; addr/access stay
                 # monospace (they're identifiers, not data).
                 val_item = QTableWidgetItem(self._placeholder(dtype))
                 val_item.setFlags(val_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                val_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                val_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 val_item.setFont(value_font)
 
+                # Read-only rows leave the cell EMPTY: a dash in every other
+                # row was the loudest thing in the column.
                 new_val_item = QTableWidgetItem("")
-                new_val_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                new_val_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 new_val_item.setFont(value_font)
                 if not writable:
                     new_val_item.setFlags(new_val_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                    new_val_item.setForeground(muted)
-                    new_val_item.setText("—")
-
-                if is_service:
-                    for item in (addr_item, name_item, type_item, access_item,
-                                 val_item, new_val_item):
-                        item.setForeground(muted)
+                else:
+                    new_val_item.setToolTip(t("newValTip"))
 
                 self.setItem(row, COL_STATE,   state_item)
                 self.setItem(row, COL_ADDR,    addr_item)
@@ -536,9 +535,34 @@ class RegisterTable(QTableWidget):
                 if not is_service:
                     self.addr_to_row[addr] = row
                     self._regs_by_addr[addr] = reg
+            self._recolor()
         finally:
             self.blockSignals(False)
         self._fit_to_viewport()
+
+    def _recolor(self):
+        """Text hierarchy of the grid: name and value are what you read
+        (text_1); address and type are reference (text_3); the access code of
+        a row you cannot write, and every cell of a service area, recede
+        (text_4). Re-run on a theme change — colours are baked into items."""
+        tok = self.ctx.theme_tokens()
+        primary, ref, muted = (QColor(tok["text_1"]), QColor(tok["text_3"]),
+                               QColor(tok["text_4"]))
+        was = self.signalsBlocked()
+        self.blockSignals(True)
+        try:
+            for row, reg in enumerate(self._row_regs):
+                service = datatypes.is_area(reg.get("type", "SHORT"))
+                writable = datatypes.is_writable(reg)
+                colors = {COL_ADDR: ref, COL_NAME: primary, COL_TYPE: ref,
+                          COL_ACCESS: ref if writable else muted,
+                          COL_CURRENT: primary, COL_NEW: primary}
+                for col, color in colors.items():
+                    it = self.item(row, col)
+                    if it is not None:
+                        it.setForeground(muted if service else color)
+        finally:
+            self.blockSignals(was)
 
     # ── full-width layout with width-stealing resize ───────────────────
     def _visible_cols(self) -> list[int]:
@@ -556,7 +580,11 @@ class RegisterTable(QTableWidget):
                 self.resizeColumnToContents(idx)
                 self.setColumnWidth(
                     idx, max(_MINW.get(idx, 60), self.columnWidth(idx) + 16))
-            self.setColumnWidth(COL_NAME, max(200, self.columnWidth(COL_NAME)))
+            # A long name may not push the values off-screen: past ~40 % of
+            # the width it elides (the full name is in the tooltip).
+            vp = self.viewport().width()
+            cap = max(220, int(vp * 0.40)) if vp > 0 else 10 ** 6
+            self.setColumnWidth(COL_NAME, min(cap, max(200, self.columnWidth(COL_NAME))))
         finally:
             self._adjusting = False
         self._reflow_columns()
@@ -592,10 +620,16 @@ class RegisterTable(QTableWidget):
             # If the flex columns hit their floor (or none were available), take
             # the remaining overflow out of the dragged column.
             over = sum(self.columnWidth(c) for c in vis) - vp
-            if over > 0 and exclude is not None and exclude in vis:
+            # Overflow comes out of the column being dragged — or, when the
+            # viewport itself shrank (the trends panel opened, the window got
+            # narrower), out of the NAME column, which elides gracefully. A
+            # horizontal scrollbar under a register list is never the answer.
+            victim = exclude if exclude in vis else (
+                COL_NAME if COL_NAME in vis else None)
+            if over > 0 and victim is not None:
                 self.setColumnWidth(
-                    exclude, max(_MINW.get(exclude, 60),
-                                 self.columnWidth(exclude) - over))
+                    victim, max(_MINW.get(victim, 60),
+                                self.columnWidth(victim) - over))
         finally:
             self._adjusting = False
 
@@ -849,7 +883,9 @@ class RegisterTable(QTableWidget):
         if addr_int is None:
             return
         reg_id   = datatypes.reg_id(addr_int)
-        label    = addr_item.text()
+        # NOT "label": the dec/hex/bin loop below reuses that name, and the
+        # copy-address action used to copy the word «Двоичное».
+        addr_label = addr_item.text()
         reg_name = name_item.text() if name_item else f"Reg_{row}"
         cur_val  = cur_item.text() if cur_item else "—"
         reg = self._regs_by_addr.get(addr_int, {})
@@ -857,17 +893,17 @@ class RegisterTable(QTableWidget):
                     or datatypes.is_text(reg.get("type", "")))
 
         menu = QMenu(self)
+        ic = self.ctx.theme_tokens()["text_2"]
 
         if reg_id in self._trended:
-            act = menu.addAction(self.t("ctxTrendRemove"))
+            act = menu.addAction(icons.icon("chart", ic, 14), self.t("ctxTrendRemove"))
             act.triggered.connect(lambda: self.trend_remove_requested.emit(reg_id))
         else:
-            act = menu.addAction(self.t("ctxTrendAdd"))
+            act = menu.addAction(icons.icon("chart", ic, 14), self.t("ctxTrendAdd"))
             act.triggered.connect(lambda: self.trend_add_requested.emit(reg_id, reg_name))
 
         watched = addr_int in self._watched
-        act_watch = menu.addAction(icons.icon(
-            "watch", self.ctx.theme_tokens()["text_2"], 14),
+        act_watch = menu.addAction(icons.icon("watch", ic, 14),
             self.t("watchRemoveFrom" if watched else "watchAddTo"))
         act_watch.triggered.connect(
             lambda: self.watch_toggle_requested.emit(addr_int))
@@ -876,7 +912,7 @@ class RegisterTable(QTableWidget):
         # label has no meaningful hex form, so the submenu is not offered.
         if not symbolic:
             menu.addSeparator()
-            view_menu = menu.addMenu(self.t("ctxViewAs"))
+            view_menu = menu.addMenu(icons.icon("bits", ic, 14), self.t("ctxViewAs"))
             mode = self._view_mode(addr_int)
             for label, key in [(self.t("ctxDec"), "dec"), (self.t("ctxHex"), "hex"),
                                (self.t("ctxBin"), "bin")]:
@@ -886,14 +922,18 @@ class RegisterTable(QTableWidget):
                 a.triggered.connect(lambda _, k=key: self.set_view_mode(reg_id, row, k))
 
         menu.addSeparator()
-        act_cv = menu.addAction(f'{self.t("ctxCopyValue")}   [{cur_val}]')
+        # "label\thint": Qt right-aligns the hint like a shortcut — the text
+        # that will be copied, shown quietly instead of in [brackets].
+        act_cv = menu.addAction(icons.icon("copy", ic, 14),
+                                f'{self.t("ctxCopyValue")}\t{cur_val}')
         act_cv.triggered.connect(lambda: QApplication.clipboard().setText(cur_val))
-        act_ca = menu.addAction(f'{self.t("ctxCopyAddr")}   [{label}]')
-        act_ca.triggered.connect(lambda: QApplication.clipboard().setText(label))
+        act_ca = menu.addAction(icons.icon("copy", ic, 14),
+                                f'{self.t("ctxCopyAddr")}\t{addr_label}')
+        act_ca.triggered.connect(lambda: QApplication.clipboard().setText(addr_label))
 
         if datatypes.is_writable(reg):
             menu.addSeparator()
-            act_w = menu.addAction(self.t("ctxWrite"))
+            act_w = menu.addAction(icons.icon("edit", ic, 14), self.t("ctxWrite"))
             act_w.triggered.connect(lambda: self._prompt_write(row))
 
         menu.exec(self.viewport().mapToGlobal(pos))
@@ -907,9 +947,10 @@ class RegisterTable(QTableWidget):
         addr = self._row_key(row)
         if addr is None:
             return
-        val, ok = QInputDialog.getText(
-            self, self.t("ctxWrite"),
-            self.t("writePrompt").format(addr=addr_item.text(), type=dtype))
+        val, ok = themed_input(
+            self, self.ctx.theme, self.t("ctxWrite").rstrip("…."),
+            self.t("writePrompt").format(addr=addr_item.text(), type=dtype),
+            ok_label=self.t("writeAction"), cancel_label=self.t("cancel"))
         if not ok or not val.strip():
             return
         if not self._connected:

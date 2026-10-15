@@ -13,7 +13,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QSize
 
 import icons
-from gui_widgets import Segmented
+from gui_widgets import EmptyState, EmptyOverlay, Segmented
+from qt_utils import later
 from dialogs import themed_info
 from qt_utils import set_state
 from scanner_engine import ScannerWorker
@@ -99,6 +100,8 @@ class ScannerView(QWidget):
         lo.addWidget(self.progress)
 
         self.table = QTableWidget(0, 3)
+        self.table.horizontalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.table.setObjectName("scanTable")
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -106,6 +109,12 @@ class ScannerView(QWidget):
         hh = self.table.horizontalHeader()
         hh.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         lo.addWidget(self.table, 1)
+        self.empty = EmptyState("radar", t("scanEmptyTitle"), t("scanEmptyBody"))
+        self.empty.add_action("  " + t("scanStart"), self._toggle_scan, primary=True)
+        self.empty.apply_theme(self.ctx.theme_tokens())
+        self._empty_ov = EmptyOverlay(
+            self.table, self.empty,
+            when=lambda: not (self._worker and self._worker.isRunning()))
 
         self.lbl_status = QLabel(t("scanIdle"))
         self.lbl_status.setObjectName("mhCrumb")
@@ -156,6 +165,7 @@ class ScannerView(QWidget):
         self.table.setRowCount(0)
         self.progress.setValue(0)
         self.progress.setVisible(True)
+        later(0, self, self._empty_ov.refresh)   # once the worker is running
         mode = self.seg_mode.value()
         self._worker = ScannerWorker(core, mode, start, end,
                                      slave_id=self.spin_sid.value())
@@ -192,7 +202,7 @@ class ScannerView(QWidget):
         cells = [c0, c1, f"{hit['ms']:.0f} ms"]
         for col, text in enumerate(cells):
             it = QTableWidgetItem(text)
-            it.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            it.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             self.table.setItem(row, col, it)
 
     def _on_finished(self, hits, total, seconds):
@@ -201,6 +211,7 @@ class ScannerView(QWidget):
             "play", self.ctx.theme_tokens()["accent_fg"], 14))
         self.progress.setValue(100)
         self.progress.setVisible(False)     # the result line carries the news
+        later(0, self, self._empty_ov.refresh)
         if self.lbl_status.property("state") == "error":
             return                          # keep the reason it stopped
         self._last_result = (hits, total, seconds)
@@ -216,6 +227,7 @@ class ScannerView(QWidget):
 
     # ── app plumbing ──────────────────────────────────────────────────
     def apply_settings(self):
+        self.empty.apply_theme(self.ctx.theme_tokens())
         running = bool(self._worker and self._worker.isRunning())
         self.btn_start.setIcon(icons.icon(
             "stop" if running else "play",
@@ -226,6 +238,8 @@ class ScannerView(QWidget):
             self._worker and self._worker.isRunning()) else t("scanStart")))
         self.lbl_from.setText(t("scanFrom"))
         self.lbl_to.setText(t("scanTo"))
+        self.empty.set_content(t("scanEmptyTitle"), t("scanEmptyBody"))
+        self.empty.buttons[0].setText("  " + t("scanStart"))
         self.lbl_sid.setText(t("slaveIdLbl"))
         # Never overwrite a live/finished status line with "ready".
         running = bool(self._worker and self._worker.isRunning())

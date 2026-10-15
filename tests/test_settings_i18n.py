@@ -161,6 +161,8 @@ def test_no_hardcoded_ui_strings_in_qt_calls():
                 args = node.args                 # QLabel("…"), QPushButton("…")
             elif call in DIALOGS:
                 args = node.args[1:2]            # the dialog title
+            elif call == "themed_input":
+                args = node.args[2:4]            # title, label
             elif call in ("themed_info", "themed_message"):
                 # (parent, theme, KIND, title, text, …) — the kind is a token
                 args = node.args[3:]

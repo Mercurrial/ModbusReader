@@ -148,6 +148,13 @@ class SettingsDialog(QDialog):
             self._page_scrolls[row].setWidget(self._build_page(self._pages_by_key[key]))
             self._built_pages.add(row)
         self.stack.setCurrentIndex(row)
+        # The selected page's glyph takes the accent — the same signal the
+        # main rail gives its active page.
+        for i, page in enumerate(PAGES):
+            item = self.nav.item(i)
+            if item is not None:
+                item.setIcon(icons.icon(
+                    page.glyph, self.c["accent"] if i == row else self.c["text_3"], 16))
 
     # ── layout helpers ────────────────────────────────────────────
     def _scroll(self, inner: QWidget | None) -> QScrollArea:
@@ -162,10 +169,20 @@ class SettingsDialog(QDialog):
     def _page(self) -> tuple[QWidget, QVBoxLayout]:
         page = QWidget()
         page.setObjectName("stContent")
-        lo = QVBoxLayout(page)
-        lo.setContentsMargins(36, 28, 36, 60)
+        outer = QHBoxLayout(page)
+        outer.setContentsMargins(36, 28, 36, 60)
+        outer.setSpacing(0)
+        # A readable column: a label at the far left and its control 1 000 px
+        # away across a wide monitor is a form nobody can scan.
+        col = QWidget()
+        col.setObjectName("stColumn")
+        col.setMaximumWidth(860)
+        lo = QVBoxLayout(col)
+        lo.setContentsMargins(0, 0, 0, 0)
         lo.setSpacing(0)
         lo.setAlignment(Qt.AlignmentFlag.AlignTop)
+        outer.addWidget(col, 10)
+        outer.addStretch(1)
         return page, lo
 
     def _section(self, parent_lo: QVBoxLayout, title: str, desc: str = "") -> QVBoxLayout:
@@ -204,6 +221,7 @@ class SettingsDialog(QDialog):
             ht.setWordWrap(True)
             label_col.addWidget(ht)
         lw = QWidget()
+        lw.setObjectName("stFieldLabel")      # transparent (see styles.py)
         lw.setLayout(label_col)
         lw.setFixedWidth(240)
 
@@ -296,6 +314,7 @@ class SettingsDialog(QDialog):
             # assigned in deferred chunks — building 300 QFonts synchronously
             # was the visible lag when opening the Appearance tab.
             box = QWidget()
+            box.setObjectName("stFieldLabel")     # a transparent holder
             v = QVBoxLayout(box)
             v.setContentsMargins(0, 0, 0, 0)
             v.setSpacing(8)
@@ -533,15 +552,47 @@ class SettingsDialog(QDialog):
         return row
 
     def _static_about(self, lo: QVBoxLayout):
-        s = self._section(lo, "ModbusReader",
-                           self.L("Инструмент для чтения и отладки Modbus-регистров.",
-                                  "Tool for reading and debugging Modbus registers."))
+        # Identity first, like every About screen: the mark, the name, the
+        # version — then the reference rows.
+        hero = QWidget()
+        hero.setObjectName("stFieldLabel")
+        hl = QHBoxLayout(hero)
+        hl.setContentsMargins(0, 0, 0, 22)
+        hl.setSpacing(18)
+        mark = QLabel()
+        mark.setObjectName("stFieldLabel")
+        logo = icons.app_icon()
+        if not logo.isNull():
+            mark.setPixmap(logo.pixmap(QSize(64, 64), self.devicePixelRatioF()))
+        mark.setFixedSize(64, 64)
+        hl.addWidget(mark, 0, Qt.AlignmentFlag.AlignTop)
+        names = QVBoxLayout()
+        names.setSpacing(2)
+        nm = QLabel("ModbusReader")
+        nm.setObjectName("stSectionTitle")
+        names.addWidget(nm)
+        ver = QLabel(self.L(f"Версия {APP_VERSION} · {RELEASE_DATE}",
+                            f"Version {APP_VERSION} · {RELEASE_DATE}"))
+        ver.setObjectName("stAboutKey")
+        names.addWidget(ver)
+        desc = QLabel(self.L(
+            "Наладка и мониторинг приборов по Modbus RTU — как мастер и как "
+            "эмулятор прибора.",
+            "Commissioning and monitoring of Modbus RTU devices — as a master "
+            "and as a device emulator."))
+        desc.setObjectName("stSectionDesc")
+        desc.setWordWrap(True)
+        names.addSpacing(6)
+        names.addWidget(desc)
+        hl.addLayout(names, 1)
+        lo.addWidget(hero)
+        s = self._section(lo, self.L("Сведения", "Details"))
         import sys
         from PyQt6.QtCore import PYQT_VERSION_STR
         for label, val in [
-            (self.L("Версия", "Version"), f"v{APP_VERSION}"),
-            (self.L("Дата выпуска", "Release date"), RELEASE_DATE),
-            (self.L("Протокол", "Protocol"), "Modbus RTU (FC 03 / 06)"),
+            (self.L("Протокол", "Protocol"),
+             self.L("Modbus RTU · FC 01–06, 15, 16",
+                    "Modbus RTU · FC 01–06, 15, 16")),
             ("Python · PyQt", f"{sys.version.split()[0]} · {PYQT_VERSION_STR}"),
             (self.L("Файл настроек", "Settings file"), _settings_path()),
         ]:

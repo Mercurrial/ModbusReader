@@ -64,7 +64,10 @@ class Segmented(QWidget):
 
 
 class ToggleSwitch(QPushButton):
-    """iOS-style painted toggle (36x20). Green track when on."""
+    """Painted toggle (36x20). The track takes the ACCENT when on, like every
+    other "selected" state in the app (segments, the RU/EN pill) — a green
+    switch next to an accent segmented control was two colours for one
+    meaning."""
 
     def __init__(self, checked: bool = False, theme: dict | None = None, parent=None):
         super().__init__(parent)
@@ -75,8 +78,12 @@ class ToggleSwitch(QPushButton):
         self.setFixedSize(36, 20)
         t = theme or {}
         self._c_off  = QColor(t.get("bg_4", "#363a4b"))
-        self._c_on   = QColor(t.get("ok", "#4db888"))
-        self._c_knob = QColor(t.get("text_1", "#f3f4f7"))
+        self._c_on   = QColor(t.get("accent", "#4db888"))
+        self._c_knob_on = QColor(t.get("accent_fg", "#ffffff"))
+        bg0 = QColor(t.get("bg_0", "#0a0c0f"))
+        # Off knob: white on a light theme, the text colour on a dark one.
+        self._c_knob = (QColor("#ffffff") if bg0.lightnessF() > 0.5
+                        else QColor(t.get("text_1", "#f3f4f7")))
 
     def sizeHint(self) -> QSize:
         return QSize(36, 20)
@@ -92,7 +99,7 @@ class ToggleSwitch(QPushButton):
         p.drawRoundedRect(0, 0, 36, 20, 10, 10)
 
         # Knob
-        knob = QColor("#ffffff") if on else self._c_knob
+        knob = self._c_knob_on if on else self._c_knob
         p.setBrush(knob)
         x = 18 if on else 2
         p.drawEllipse(x, 2, 16, 16)
@@ -237,3 +244,169 @@ class SwatchPicker(QWidget):
 
     def value(self):
         return self._value
+
+
+class EmptyState(QWidget):
+    """"Nothing here yet" — an icon in a soft tile, a title, one or two
+    sentences and (optionally) the action that fills the page.
+
+    Replaces bare black grids: an empty page is where a newcomer decides
+    whether the tool is broken, so it says what the page is for and offers
+    the first step. ``setText`` keeps the old QLabel#emptyState call sites
+    working (it sets the body)."""
+
+    def __init__(self, icon_name: str = "info", title: str = "", body: str = "",
+                 parent=None):
+        super().__init__(parent)
+        from PyQt6.QtWidgets import QVBoxLayout
+        self.setObjectName("emptyPane")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._icon_name = icon_name
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(24, 24, 24, 24)
+        outer.addStretch(2)
+        col = QVBoxLayout()
+        col.setSpacing(8)
+        self.tile = QLabel()
+        self.tile.setObjectName("emptyTile")
+        self.tile.setFixedSize(52, 52)
+        self.tile.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        col.addWidget(self.tile, 0, Qt.AlignmentFlag.AlignHCenter)
+        col.addSpacing(6)
+        self.lbl_title = QLabel(title)
+        self.lbl_title.setObjectName("emptyTitle")
+        self.lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        col.addWidget(self.lbl_title)
+        self.lbl_body = QLabel(body)
+        self.lbl_body.setObjectName("emptyBody")
+        self.lbl_body.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_body.setWordWrap(True)
+        self.lbl_body.setFixedWidth(440)
+        col.addWidget(self.lbl_body, 0, Qt.AlignmentFlag.AlignHCenter)
+        self._fit_body()
+        self._actions = QHBoxLayout()
+        self._actions.setSpacing(8)
+        self._actions.addStretch(1)
+        self._actions_end = QWidget()          # marker; buttons go before it
+        self._actions_end.setFixedSize(0, 0)
+        self._actions.addWidget(self._actions_end)
+        self._actions.addStretch(1)
+        col.addSpacing(14)
+        col.addLayout(self._actions)
+        outer.addLayout(col)
+        outer.addStretch(3)
+        self.buttons: list[QPushButton] = []
+
+    def add_action(self, text: str, callback, primary: bool = False) -> QPushButton:
+        b = QPushButton(text)
+        # Own name for the outline button: pages with a local stylesheet
+        # (the map editor) restyle "btnSecondary" as a ghost button.
+        b.setObjectName("btnPrimary" if primary else "btnOutline")
+        b.setCursor(Qt.CursorShape.PointingHandCursor)
+        b.clicked.connect(callback)
+        self._actions.insertWidget(self._actions.indexOf(self._actions_end), b)
+        self.buttons.append(b)
+        return b
+
+    def set_content(self, title: str = None, body: str = None):
+        if title is not None:
+            self.lbl_title.setText(title)
+            self.lbl_title.setVisible(bool(title))
+        if body is not None:
+            self.lbl_body.setText(body)
+            self._fit_body()
+
+    def _fit_body(self):
+        # A wrapped label inside centring layouts is sized from its one-line
+        # hint and gets clipped; pin the height its width actually needs.
+        self.lbl_body.ensurePolished()
+        self.lbl_body.setFixedHeight(max(0, self.lbl_body.heightForWidth(440)))
+        self.lbl_body.setVisible(bool(self.lbl_body.text()))
+
+    # The final font is only known once the widget is polished — a page with
+    # its own stylesheet (the map editor) restyles the body after __init__,
+    # and a height computed earlier clipped its second line.
+    def showEvent(self, e):
+        super().showEvent(e)
+        self._fit_body()
+
+    def changeEvent(self, e):
+        super().changeEvent(e)
+        from PyQt6.QtCore import QEvent
+        if e.type() in (QEvent.Type.StyleChange, QEvent.Type.FontChange):
+            self._fit_body()
+
+    def setText(self, body: str):             # QLabel-compatible
+        self.set_content(body=body)
+
+    def text(self) -> str:
+        return self.lbl_body.text()
+
+    def apply_theme(self, tokens: dict):
+        import icons
+        self.tile.setPixmap(icons.pixmap(self._icon_name, tokens["text_3"], 24))
+
+
+class EmptyOverlay:
+    """Lays an EmptyState over a scroll area's viewport while the area is
+    empty. For a table, "empty" means no rows and the model's own row signals
+    drive it — a view gets an empty state without touching its fill/clear
+    logic. Anything else passes *is_empty*. *when()* adds a condition (e.g.
+    "not while scanning"); call ``refresh()`` whenever either changes for a
+    reason the overlay cannot see."""
+
+    def __init__(self, area, pane: "EmptyState", is_empty=None, when=None):
+        from PyQt6.QtCore import QObject, QEvent
+
+        self.area, self.pane = area, pane
+        self.is_empty = is_empty or (lambda: area.rowCount() == 0)
+        self.when = when
+        vp = area.viewport()
+        pane.setParent(vp)
+
+        class _Filter(QObject):
+            def eventFilter(_s, obj, ev):
+                if ev.type() == QEvent.Type.Resize:
+                    pane.setGeometry(obj.rect())
+                return False
+
+        self._filter = _Filter(vp)
+        vp.installEventFilter(self._filter)
+        if is_empty is None and hasattr(area, "model"):
+            m = area.model()
+            for sig in (m.rowsInserted, m.rowsRemoved, m.modelReset):
+                sig.connect(lambda *_: self.refresh())
+        self.refresh()
+
+    def refresh(self):
+        from PyQt6 import sip
+        if sip.isdeleted(self.area) or sip.isdeleted(self.pane):
+            return                     # the model's last signals at teardown
+        empty = bool(self.is_empty()) and (self.when() if self.when else True)
+        self.pane.setGeometry(self.area.viewport().rect())
+        self.pane.setVisible(empty)
+        if empty:
+            self.pane.raise_()
+
+
+class DropButton(QPushButton):
+    """A button that opens a menu: its label plus a drawn chevron at the right
+    edge (the "▾" text glyph it replaces came from the font and never matched
+    the stroke icons around it). Reserve the room with QSS padding-right."""
+
+    def __init__(self, text: str = "", parent=None):
+        super().__init__(text, parent)
+        self._chev = "#888888"
+
+    def set_chevron_color(self, color: str):
+        self._chev = color
+        self.update()
+
+    def paintEvent(self, e):
+        super().paintEvent(e)
+        import icons
+        p = QPainter(self)
+        size = 10
+        p.drawPixmap(self.width() - size - 9, (self.height() - size) // 2,
+                     icons.pixmap("chevron", self._chev, size))
+        p.end()

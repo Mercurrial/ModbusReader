@@ -102,7 +102,10 @@ class RawConsole(QWidget):
         lo.addWidget(self.lbl_pkt,    1, 0)
         lo.addWidget(self.edit_pkt,   1, 1)
         lo.addWidget(self.lbl_edited, 1, 2)
-        lo.addWidget(self.btn_send,   1, 3, alignment=Qt.AlignmentFlag.AlignRight)
+        # Spans both rows: it sends whichever line you are on, and centred
+        # between them it no longer hangs off the second row's baseline.
+        lo.addWidget(self.btn_send,   0, 3, 2, 1,
+                     alignment=Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
         lo.setColumnStretch(1, 1)
 
     # ── command row: live CRC + packet sync ────────────────────────

@@ -117,6 +117,27 @@ _PATHS = {
     # slave / device simulator: a device answering (arrow back to the line)
     "reply":      '<rect x="7" y="2.5" width="6.5" height="11" rx="1.2"/>'
                   '<path d="M9 5.5h2.5M9 8h2.5"/><path d="M5.5 8H1.8M3.6 6.2 1.8 8l1.8 1.8"/>',
+    "copy":       '<rect x="5.5" y="5.5" width="8" height="8.5" rx="1.5"/>'
+                  '<path d="M10.5 5.5V3.3a1 1 0 0 0-1-1H3.3a1 1 0 0 0-1 1V9.5a1 1 0 0 0 1 1h2.2"/>',
+    # macros: code brackets
+    "code":       '<path d="M5.2 4.6 1.8 8l3.4 3.4M10.8 4.6 14.2 8l-3.4 3.4M9.1 2.8 6.9 13.2"/>',
+    # compare: two columns with arrows between them
+    "compare":    '<rect x="1.8" y="2.5" width="4.6" height="11" rx="1"/>'
+                  '<rect x="9.6" y="2.5" width="4.6" height="11" rx="1"/>'
+                  '<path d="M6.4 6h3.2M8.4 4.6 9.6 6 8.4 7.4M9.6 10H6.4M7.6 8.6 6.4 10l1.2 1.4"/>',
+    # snapshots: a camera
+    "camera":     '<path d="M2 5.6a1 1 0 0 1 1-1h1.9l1.1-1.6h4l1.1 1.6H13a1 1 0 0 1 1 1V12'
+                  'a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5.6Z"/><circle cx="8" cy="8.7" r="2.3"/>',
+    # logger: a sheet with a recording dot
+    "logfile":    '<path d="M3.5 2.5a1 1 0 0 1 1-1h4.8l3.2 3.2V13.5a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1Z"/>'
+                  '<path d="M9.2 1.5v3.3h3.3M5.6 8h3.2M5.6 10.6h2"/>'
+                  '<circle cx="10.6" cy="11.4" r="1.3" fill="currentColor" stroke="none"/>',
+    # rail collapse / expand
+    "sidebar":    '<rect x="1.8" y="2.5" width="12.4" height="11" rx="1.6"/><path d="M6 2.5v11"/>',
+    # project (a stack of sheets)
+    "project":    '<path d="M2.5 5.5 8 2.6l5.5 2.9L8 8.4 2.5 5.5Z"/>'
+                  '<path d="M2.5 8.2 8 11.1l5.5-2.9M2.5 10.9 8 13.8l5.5-2.9"/>',
+    "dot":        '<circle cx="8" cy="8" r="4.2" fill="currentColor" stroke="none"/>',
     # a condition gate: the pulse forks and only one branch continues
     "gate":       '<path d="M1.5 8h3.2"/><path d="M4.7 4.6h3.1l3 3.4-3 3.4H4.7Z"/>'
                   '<path d="M10.8 8h3.7"/>',

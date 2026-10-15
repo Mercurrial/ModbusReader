@@ -190,22 +190,25 @@ class _SlaveIdEditor(QWidget):
 
         lo = QHBoxLayout(self)
         lo.setContentsMargins(4, 0, 4, 0)
-        lo.setSpacing(3)
+        lo.setSpacing(0)
 
         lbl = QLabel("ID:")
         lbl.setObjectName("sbItem")
 
+        # Left-aligned against its "ID:" — centred in a fixed box it floated
+        # a gap away and read as two unrelated labels.
+        left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         self._lbl_val = QLabel(str(value))
         self._lbl_val.setObjectName("sbVal")
         self._lbl_val.setFixedWidth(36)
-        self._lbl_val.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._lbl_val.setAlignment(left)
 
         self._edit = QLineEdit(str(value))
         self._edit.setObjectName("sbIdInput")
         self._edit.setMaxLength(3)
         self._edit.setFixedWidth(36)
         self._edit.setFixedHeight(18)
-        self._edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._edit.setAlignment(left)
         self._edit.hide()
         self._edit.editingFinished.connect(self._commit)
         self._edit.installEventFilter(self)
@@ -213,6 +216,7 @@ class _SlaveIdEditor(QWidget):
         lo.addWidget(lbl)
         lo.addWidget(self._lbl_val)
         lo.addWidget(self._edit)
+        lo.addStretch(1)                 # spare width goes AFTER the number
 
     def mousePressEvent(self, _):
         if not self._editing:
@@ -307,10 +311,10 @@ class MainStatusBar(QStatusBar):
         self._slave_ed.value_changed.connect(self.slave_id_changed.emit)
         self.addWidget(self._slave_ed)
 
-        self.addWidget(self._sep())
-
+        # The link summary moved to the header bar (2.2); the label stays for
+        # the callers that still feed it, but is not shown twice.
         self.lbl_params = self._lbl("")
-        self.addWidget(self.lbl_params)
+        self.lbl_params.setVisible(False)
 
         # Right side (permanent): what the line is doing — requests sent,
         # answers received, failed exchanges, average response time. Click

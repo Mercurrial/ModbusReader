@@ -10,11 +10,12 @@ button, Enter = the default button.
 
 from PyQt6.QtWidgets import (
     QDialog, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QMessageBox,
+    QLineEdit,
 )
 from PyQt6.QtCore import Qt
 
 import icons
-from theme_manager import get_theme
+from theme_manager import get_theme, _mix
 
 # kind -> (icon name in icons.py, semantic colour token)
 _KINDS = {
@@ -32,7 +33,8 @@ _ROLE_REJECT = QMessageBox.ButtonRole.RejectRole
 class _CardDialog(QDialog):
     """Frameless rounded-card modal (matches OnboardingGuide's card)."""
 
-    def __init__(self, parent, theme_name, kind, title, text, buttons):
+    def __init__(self, parent, theme_name, kind, title, text, buttons,
+                 field: str | None = None):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint
                             | Qt.WindowType.Dialog)
@@ -87,12 +89,27 @@ class _CardDialog(QDialog):
                 f"color:{c['text_2']}; background:transparent; "
                 f"font-size:13px; line-height:145%;")
             lay.addWidget(lbl_body)
+        # Optional one-line input (themed_input): the native QInputDialog
+        # came with a white Windows title bar in the middle of a dark app.
+        self.edit = None
+        if field is not None:
+            self.edit = QLineEdit(field)
+            self.edit.selectAll()
+            self.edit.setStyleSheet(
+                f"QLineEdit {{ background:{c['bg_0']}; color:{c['text_1']};"
+                f" border:1px solid {c['line_strong']}; border-radius:7px;"
+                f" padding:7px 10px; font-size:13px;"
+                f" selection-background-color:{c['accent_soft']}; }}"
+                f"QLineEdit:focus {{ border-color:{c['text_3']}; }}")
+            self.edit.returnPressed.connect(self._accept_default)
+            lay.addWidget(self.edit)
         lay.addSpacing(4)
 
         row = QHBoxLayout()
         row.setSpacing(8)
         row.addStretch()
         self._reject_idx = -1
+        self._default_idx = -1
         for i, (label, role, is_default) in enumerate(buttons):
             b = QPushButton(label)
             b.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -102,8 +119,9 @@ class _CardDialog(QDialog):
                 style = (f"QPushButton {{ color:{c['accent_fg']}; background:{c['accent']};"
                          f" border:none; border-radius:7px; font-size:13px;"
                          f" font-weight:600; padding:7px 20px; }}"
-                         f"QPushButton:hover {{ background:{c['text_1']}; }}")
+                         f"QPushButton:hover {{ background:{_mix(c['accent'], c['text_1'], 0.16)}; }}")
                 b.setDefault(True)
+                self._default_idx = i
             elif role == _ROLE_DESTRUCTIVE:
                 # Bare error-red text on the card background was unreadable.
                 # A tinted fill plus a solid border lifts it clear of bg_2
@@ -129,6 +147,15 @@ class _CardDialog(QDialog):
     def _pick(self, idx):
         self.choice = idx
         self.accept()
+
+    def _accept_default(self):
+        if self._default_idx >= 0:
+            self._pick(self._default_idx)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        if self.edit is not None:
+            self.edit.setFocus()
 
     def reject(self):                       # Esc / programmatic close
         self.choice = self._reject_idx
@@ -161,6 +188,19 @@ def themed_message(parent, theme_name, kind, title, text, buttons):
     dlg = _CardDialog(parent, theme_name, kind, title, text, buttons)
     dlg.exec()
     return dlg.choice
+
+
+def themed_input(parent, theme_name, title, label, text="", ok_label="OK",
+                 cancel_label="Cancel") -> tuple:
+    """One-line text input in the card style. Returns ``(text, accepted)``,
+    the same shape as the Qt getText() it replaces."""
+    dlg = _CardDialog(parent, theme_name, "question", title, label,
+                      [(cancel_label, QMessageBox.ButtonRole.RejectRole, False),
+                       (ok_label, QMessageBox.ButtonRole.AcceptRole, True)],
+                      field=text)
+    dlg.exec()
+    ok = dlg.choice == 1
+    return (dlg.edit.text() if ok else text), ok
 
 
 def themed_info(parent, theme_name, kind, title, text, ok_label="OK"):

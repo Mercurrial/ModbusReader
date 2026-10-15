@@ -14,7 +14,7 @@ To add a setting:
 Nothing in gui_settings.py changes.
 
 Text is an ``i18n.STRINGS`` key resolved by `tr()`; a string that is not a key
-is used literally (brand names, "9600", " ms"). Legacy ``(ru, en)`` tuples are
+is used literally (brand names, "9600", " px"). Legacy ``(ru, en)`` tuples are
 still resolved for backward compatibility.
 """
 
@@ -232,12 +232,12 @@ PAGES: tuple = (
         Section("pollingTitle", "pollingDesc",
                 fields=(
                     _slider("poll_rate", "pollPeriod",
-                            100, 5000, 500, step=100, unit=" ms"),
+                            100, 5000, 500, step=100, unit="unitMsSuffix"),
                     _slider("timeout", "respTimeout",
-                            100, 5000, 1000, step=100, unit=" ms"),
+                            100, 5000, 1000, step=100, unit="unitMsSuffix"),
                     _slider("retry_count", "retryCount", 1, 10, 3),
                     _slider("interframe_delay", "interframeDelay",
-                            0, 500, 50, step=10, unit=" ms"),
+                            0, 500, 50, step=10, unit="unitMsSuffix"),
                 )),
         Section("codecTitle", "codecDesc",
                 fields=(

@@ -39,6 +39,23 @@ for i in range(3600):
 log("Измерение завершено")
 """
 
+# The same example for the English UI (a Russian sample under English menus
+# was the first thing an English-speaking user saw on this page).
+DEFAULT_MACRO_EN = """# Example: a dark-current measurement — 3600 cycles (~1 hour).
+# Available: reg/read/write/wait/record/read_all/log/now/timestamp.
+# Address registers by their map name or by address: write(0x0010, 1).
+
+for i in range(3600):
+    write("Dark current start", 1)     # start a count
+    wait(1)                            # wait one second
+    row = {"#": i, "time": timestamp()}
+    row.update(read_all())             # read every register
+    record(row)                        # add a row to the table
+    log("cycle", i, "done")
+
+log("Measurement finished")
+"""
+
 
 def _mono(size=10) -> QFont:
     f = QFont("JetBrains Mono")
@@ -128,8 +145,16 @@ class CodeEditor(QPlainTextEdit):
 #  MACRO WINDOW
 # ════════════════════════════════════════════════════════════════════
 class MacroWindow(QWidget):
-    def __init__(self, ctx, get_registers, parent=None):
-        super().__init__(parent, Qt.WindowType.Window)
+    """Macro editor + runner. Since 2.2 a PAGE of the main window (a rail
+    entry like every other tool, ``embedded=True``); it can still be built as
+    a stand-alone window."""
+
+    def __init__(self, ctx, get_registers, parent=None, embedded: bool = False):
+        if embedded:
+            super().__init__(parent)
+        else:
+            super().__init__(parent, Qt.WindowType.Window)
+        self.embedded = embedded
         self.ctx = ctx
         self.settings = ctx.settings
         self.core = ctx.core
@@ -149,7 +174,8 @@ class MacroWindow(QWidget):
         self._apply_qss()
 
         last = self.settings.get("last_macro")
-        self.editor.setPlainText(last if last else DEFAULT_MACRO)
+        self.editor.setPlainText(
+            last if last else (DEFAULT_MACRO if self.lang == "ru" else DEFAULT_MACRO_EN))
 
     # ── bilingual helper ──────────────────────────────────────────
     def L(self, ru: str, en: str) -> str:
@@ -179,7 +205,7 @@ class MacroWindow(QWidget):
         bar.setObjectName("mToolbar")
         bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         bl = QHBoxLayout(bar)
-        bl.setContentsMargins(10, 8, 10, 8)
+        bl.setContentsMargins(16, 10, 16, 10)
         bl.setSpacing(6)
 
         self.btn_run  = self._tb_button("play", self.L("Запустить", "Run"), self._run, primary=True)
@@ -208,14 +234,14 @@ class MacroWindow(QWidget):
         # ── splitters: editor | (results / log) ──
         outer = QSplitter(Qt.Orientation.Vertical)
         outer.setObjectName("mSplit")
-        outer.setHandleWidth(4)
+        outer.setHandleWidth(1)
 
         self.editor = CodeEditor(self.c)
         ed_wrap = self._titled(self.L("Скрипт", "Script"), self.editor)
         outer.addWidget(ed_wrap)
 
         lower = QSplitter(Qt.Orientation.Vertical)
-        lower.setHandleWidth(4)
+        lower.setHandleWidth(1)
 
         self.table = QTableWidget(0, 0)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -225,6 +251,15 @@ class MacroWindow(QWidget):
         self.table.setObjectName("mTable")
         self.table.setFont(_mono(9))
         tbl_wrap = self._titled(self.L("Результаты", "Results"), self.table, count_label=True)
+        from gui_widgets import EmptyState, EmptyOverlay
+        self.empty = EmptyState(
+            "table", self.L("Результатов пока нет", "No results yet"),
+            self.L("Каждый вызов record({…}) в скрипте добавляет строку, колонки "
+                   "берутся из ключей. Готовую таблицу можно сохранить в CSV или Excel.",
+                   "Every record({…}) call in the script adds a row; the columns "
+                   "come from its keys. Save the finished table as CSV or Excel."))
+        self.empty.apply_theme(self.c)
+        self._empty_ov = EmptyOverlay(self.table, self.empty)
         lower.addWidget(tbl_wrap)
 
         self.log = QPlainTextEdit()
@@ -264,24 +299,26 @@ class MacroWindow(QWidget):
         c = self.c
         self.setStyleSheet(f"""
         QWidget#macroWin {{ background: {c['bg_0']}; }}
-        QWidget#mToolbar {{ background: {c['bg_1']}; border-bottom: 1px solid {c['line_soft']}; }}
-        QLabel#mSectionTitle {{ color: {c['text_3']}; font-size: 10pt; font-weight: 600;
-            text-transform: uppercase; letter-spacing: 0.5px; }}
-        QLabel#mStatus {{ color: {c['text_3']}; font-size: 9pt; }}
-        QLabel#mRowCount {{ color: {c['text_4']}; font-family: "JetBrains Mono","Consolas",monospace; font-size: 9pt; }}
+        QWidget#mToolbar {{ background: {c['bg_1']}; }}
+        QLabel#mSectionTitle {{ color: {c['text_3']}; font-size: 8pt; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 1px; }}
+        QLabel#mStatus {{ color: {c['text_3']}; }}
+        QLabel#mRowCount {{ color: {c['text_4']}; font-family: "JetBrains Mono","Consolas",monospace; }}
         QPushButton#mBtn, QPushButton#mPrimary {{
-            border: 1px solid {c['line']}; border-radius: 6px; padding: 5px 12px;
-            color: {c['text_2']}; background: {c['bg_2']}; font-size: 9pt; font-weight: 500; }}
+            border: 1px solid transparent; border-radius: 6px; padding: 0 12px;
+            min-height: 30px; max-height: 30px;
+            color: {c['text_2']}; background: transparent; font-weight: 500; }}
         QPushButton#mBtn:hover {{ background: {c['bg_3']}; color: {c['text_1']}; }}
-        QPushButton#mBtn:disabled {{ color: {c['text_4']}; background: {c['bg_1']}; }}
-        QPushButton#mPrimary {{ background: {c['accent']}; color: {c['accent_fg']}; border: none; }}
-        QPushButton#mPrimary:hover {{ background: {c['accent']}; }}
-        QPushButton#mPrimary:disabled {{ background: {c['bg_2']}; color: {c['text_4']}; }}
+        QPushButton#mBtn:disabled {{ color: {c['text_4']}; background: transparent; }}
+        QPushButton#mPrimary {{ background: {c['accent']}; color: {c['accent_fg']}; font-weight: 600; }}
+        QPushButton#mPrimary:hover {{ background: {c['accent']}; border-color: {c['text_1']}; }}
+        QPushButton#mPrimary:disabled {{ background: {c['bg_3']}; color: {c['text_4']}; }}
         QFrame#mSep {{ background: {c['line']}; border: none; }}
-        QPlainTextEdit {{ background: {c['bg_1']}; color: {c['text_1']};
-            border: none; selection-background-color: {c['accent_soft']}; }}
+        QPlainTextEdit {{ background: {c['bg_0']}; color: {c['text_1']};
+            border: none; selection-background-color: {c['accent_soft']};
+            font-family: "JetBrains Mono", "Consolas", monospace; }}
         QPlainTextEdit#mLog {{ background: {c['bg_0']}; color: {c['text_2']}; }}
-        QTableWidget#mTable {{ background: {c['bg_1']}; alternate-background-color: {c['bg_2']};
+        QTableWidget#mTable {{ background: {c['bg_0']}; alternate-background-color: {c['bg_1']};
             gridline-color: {c['line_soft']}; color: {c['text_1']};
             border: none; selection-background-color: {c['accent_soft']}; }}
         QHeaderView::section {{ background: {c['bg_2']}; color: {c['text_3']};
@@ -572,6 +609,7 @@ class MacroWindow(QWidget):
             b.setIcon(icons.icon(name, col, 16))
         self.editor._c = self.c
         self.editor.gutter.update()
+        self.empty.apply_theme(self.c)
 
     def stop_and_wait(self):
         """Stop a running macro and wait for its thread (app shutdown)."""
@@ -580,8 +618,28 @@ class MacroWindow(QWidget):
             self._runner.wait(3000)
 
     # ── lifecycle ─────────────────────────────────────────────────
+    @property
+    def running(self) -> bool:
+        return bool(self._runner and self._runner.isRunning())
+
     def closeEvent(self, event):
-        running = bool(self._runner and self._runner.isRunning())
+        if not self.confirm_close():
+            event.ignore()
+            return
+        self.shutdown()
+        super().closeEvent(event)
+
+    def shutdown(self):
+        """Stop a running macro and keep the script (window / app closing)."""
+        if self.running:
+            self._runner.request_stop()
+            self._runner.wait(3000)
+        self._persist(self.editor.toPlainText())
+
+    def confirm_close(self) -> bool:
+        """Ask before abandoning a running macro or unexported results.
+        True = go ahead and close."""
+        running = self.running
 
         # Warn before closing while a macro is still computing — otherwise the
         # run is silently aborted and any in-progress measurement is lost.
@@ -602,8 +660,7 @@ class MacroWindow(QWidget):
                  (self.L("Отмена", "Cancel"),
                   QMessageBox.ButtonRole.RejectRole, True)])
             if choice != 0:
-                event.ignore()
-                return
+                return False
         # Not running, but results are sitting in the table unexported.
         elif self._records:
             choice = themed_message(
@@ -619,14 +676,8 @@ class MacroWindow(QWidget):
                  (self.L("Отмена", "Cancel"),
                   QMessageBox.ButtonRole.RejectRole, True)])
             if choice != 0:
-                event.ignore()
-                return
-
-        if running:
-            self._runner.request_stop()
-            self._runner.wait(3000)
-        self._persist(self.editor.toPlainText())
-        super().closeEvent(event)
+                return False
+        return True
 
 
 # ════════════════════════════════════════════════════════════════════

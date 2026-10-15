@@ -493,8 +493,9 @@ class ModbusCore(QThread):
         """Логирование TX-фрейма чтения (FC01/02/03/04)."""
         pdu = struct.pack('>BBHH', self.slave_id & 0xFF, fc & 0xFF, addr & 0xFFFF, count & 0xFFFF)
         frame = pdu + self._crc16(pdu)
-        what = "bit" if fc in (0x01, 0x02) else "reg"
-        self.log_msg.emit("TX", f"TX → [{self._hex(frame)}]  FC{fc:02X} Read {count} {what} @ 0x{addr:04X}")
+        what = self._msg("coreUnitBit" if fc in (0x01, 0x02) else "coreUnitReg")
+        self.log_msg.emit("TX", f"→ [{self._hex(frame)}]  " + self._msg(
+            "coreFrameRead", fc=f"{fc:02X}", n=count, what=what, addr=f"0x{addr:04X}"))
 
     def _log_rx_read(self, registers, fc=0x03):
         """Логирование RX-фрейма: ответ на чтение."""
@@ -511,19 +512,22 @@ class ModbusCore(QThread):
                 rx += struct.pack('>H', r & 0xFFFF)
             shown = ' '.join(f'{r & 0xFFFF:04X}' for r in registers)
         frame = rx + self._crc16(rx)
-        self.log_msg.emit("RX", f"RX ← [{self._hex(frame)}]  Data: [{shown}]")
+        self.log_msg.emit("RX", f"← [{self._hex(frame)}]  "
+                          + self._msg("coreFrameData", data=shown))
 
     def _log_tx_write(self, addr, value, fc=0x06):
         """Логирование TX-фрейма: FC06 Write Single Register / FC05 Coil."""
         pdu = struct.pack('>BBHH', self.slave_id & 0xFF, fc, addr & 0xFFFF, value & 0xFFFF)
         frame = pdu + self._crc16(pdu)
-        self.log_msg.emit("TX", f"TX → [{self._hex(frame)}]  FC{fc:02X} Write 0x{value & 0xFFFF:04X} → 0x{addr:04X}")
+        self.log_msg.emit("TX", f"→ [{self._hex(frame)}]  " + self._msg(
+            "coreFrameWrite", fc=f"{fc:02X}", value=f"0x{value & 0xFFFF:04X}",
+            addr=f"0x{addr:04X}"))
 
     def _log_rx_write(self, addr, value, fc=0x06):
         """Логирование RX-фрейма: эхо-ответ на FC06 / FC05."""
         pdu = struct.pack('>BBHH', self.slave_id & 0xFF, fc, addr & 0xFFFF, value & 0xFFFF)
         frame = pdu + self._crc16(pdu)
-        self.log_msg.emit("RX", f"RX ← [{self._hex(frame)}]  Echo OK")
+        self.log_msg.emit("RX", f"← [{self._hex(frame)}]  " + self._msg("coreFrameEcho"))
 
     # ==========================================
     # ВЫПОЛНЕНИЕ ОПЕРАЦИЙ ЧТЕНИЯ / ЗАПИСИ
@@ -612,7 +616,7 @@ class ModbusCore(QThread):
         (client.socket — это pyserial.Serial). Длина ответа неизвестна (кадр
         может быть и мусорным, и чужого протокола), поэтому читаем всё, что
         приходит, пока линия не замолчит на 50 мс или не истечёт timeout."""
-        self.log_msg.emit("TX", f"TX → [{self._hex(frame)}]  RAW "
+        self.log_msg.emit("TX", f"→ [{self._hex(frame)}]  RAW · "
                           + self._msg("coreBytes", n=len(frame)))
         sock = getattr(self.client, "socket", None)
         if sock is None or not hasattr(sock, "in_waiting"):
@@ -636,7 +640,7 @@ class ModbusCore(QThread):
                 else:
                     time.sleep(0.005)
             if buf:
-                self.log_msg.emit("RX", f"RX ← [{self._hex(bytes(buf))}]  "
+                self.log_msg.emit("RX", f"← [{self._hex(bytes(buf))}]  "
                                   + self._msg("coreBytes", n=len(buf)))
                 # Raw frames may be anything — only a reply that is FRAMED
                 # like Modbus (≥ 4 bytes) is judged by its CRC.

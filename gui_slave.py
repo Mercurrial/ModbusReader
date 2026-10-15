@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 
 import datatypes
 import icons
+from gui_widgets import EmptyState
 import transports
 from dialogs import themed_info
 from qt_utils import set_state
@@ -93,7 +94,7 @@ class SlaveView(QWidget):
         self.spin_delay.setObjectName("stInput")
         self.spin_delay.setRange(0, 5000)
         self.spin_delay.setSingleStep(10)
-        self.spin_delay.setSuffix(" ms")
+        self.spin_delay.setSuffix(self.ctx.t("unitMsSuffix"))
         try:
             self.spin_delay.setValue(int(s.get("slave_delay", 0)))
         except (TypeError, ValueError):
@@ -120,7 +121,10 @@ class SlaveView(QWidget):
         lo.addWidget(self.lbl_info)
 
         split = QSplitter(Qt.Orientation.Horizontal)
+
         self.table = QTableWidget(0, 7)
+        self.table.horizontalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.table.setObjectName("scanTable")
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -138,15 +142,16 @@ class SlaveView(QWidget):
         self.log = QTextEdit()
         self.log.setObjectName("txLog")
         self.log.setReadOnly(True)
+        # An empty exchange log is a blank slab without this line.
+        self.log.setPlaceholderText(self.ctx.t("slvLogEmpty"))
         split.addWidget(self.log)
-        split.setStretchFactor(0, 3)
-        split.setStretchFactor(1, 2)
+        split.setStretchFactor(0, 2)
+        split.setStretchFactor(1, 1)
+        split.setSizes([760, 380])
         lo.addWidget(split, 1)
 
-        self.lbl_empty = QLabel()
-        self.lbl_empty.setObjectName("emptyState")
-        self.lbl_empty.setWordWrap(True)
-        self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_empty = EmptyState("cpu", self.ctx.t("noMapTitle"), "")
+        self.lbl_empty.apply_theme(self.ctx.theme_tokens())
         lo.addWidget(self.lbl_empty, 1)
         self._split = split
 
@@ -229,8 +234,9 @@ class SlaveView(QWidget):
                         flags |= Qt.ItemFlag.ItemIsEditable
                         it.setToolTip(t("slvValueTip"))
                     it.setFlags(flags)
-                    if col != COL_NAME:
-                        it.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                    it.setTextAlignment(
+                        Qt.AlignmentFlag.AlignCenter if col in (COL_READS, COL_WRITES)
+                        else Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                     if col in (COL_ADDR, COL_VALUE, COL_READS, COL_WRITES):
                         it.setFont(mono)
                     if not editable and col == COL_VALUE:
@@ -457,14 +463,18 @@ class SlaveView(QWidget):
         super().showEvent(e)
 
     def apply_settings(self):
+        self.lbl_empty.apply_theme(self.ctx.theme_tokens())
         self._paint_icons()
         self._render_table()
 
     def retranslate(self, t):
+        self.lbl_empty.set_content(title=t("noMapTitle"))
         self.lbl_port.setText(t("port"))
         self.lbl_baud.setText(t("baudrate"))
         self.lbl_sid.setText(t("slaveIdLbl"))
         self.lbl_delay.setText(t("slvDelay"))
+        self.log.setPlaceholderText(t("slvLogEmpty"))
+        self.spin_delay.setSuffix(t("unitMsSuffix"))
         self.spin_delay.setToolTip(t("slvDelayTip"))
         self.btn_reload.setText("  " + t("slvReload"))
         self.btn_reload.setToolTip(t("slvReloadTip"))

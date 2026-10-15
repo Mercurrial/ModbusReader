@@ -21,9 +21,9 @@ from PyQt6.QtWidgets import (
 
 import datatypes
 import icons
+from gui_widgets import EmptyState, Segmented
 import snapshots as sn
 from dialogs import themed_info
-from gui_widgets import Segmented
 
 _FILTERS = ("all", sn.CHANGED, sn.ADDED, sn.REMOVED)
 
@@ -55,7 +55,7 @@ class SnapshotView(QWidget):
         self.btn_take = QPushButton("  " + t("snapTake"))
         self.btn_take.setObjectName("btnPrimary")
         self.btn_take.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_take.setIcon(icons.icon("focus", c["accent_fg"], 14))
+        self.btn_take.setIcon(icons.icon("camera", c["accent_fg"], 14))
         self.btn_take.setIconSize(QSize(13, 13))
         self.btn_take.clicked.connect(self.take_snapshot)
         bar.addWidget(self.btn_take)
@@ -78,6 +78,8 @@ class SnapshotView(QWidget):
         self.btn_load.clicked.connect(self.load_snapshot)
         bar.addWidget(self.btn_load)
 
+        self._paint_icons()
+
         bar.addStretch()
         self.seg_filter = Segmented(
             [(k, t(f"snapFilter{k.capitalize()}")) for k in _FILTERS],
@@ -87,6 +89,8 @@ class SnapshotView(QWidget):
         lo.addLayout(bar)
 
         self.table = QTableWidget(0, 6)
+        self.table.horizontalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.table.setObjectName("scanTable")
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(
@@ -99,10 +103,8 @@ class SnapshotView(QWidget):
         # An empty grid — six headings over a black void — does not read as
         # "nothing yet", it reads as broken. When there are no rows, show the
         # next action instead of the skeleton of a table.
-        self.lbl_empty = QLabel()
-        self.lbl_empty.setObjectName("emptyState")
-        self.lbl_empty.setWordWrap(True)
-        self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_empty = EmptyState("camera", t("snapEmptyTitle"), "")
+        self.lbl_empty.apply_theme(self.ctx.theme_tokens())
         lo.addWidget(self.lbl_empty, 1)
 
         self.lbl_status = QLabel(t("snapIdle"))
@@ -209,6 +211,8 @@ class SnapshotView(QWidget):
         self.table.setRowCount(len(rows))
         colour = {sn.CHANGED: c["warn"], sn.ADDED: c["ok"],
                   sn.REMOVED: c["error"], sn.SAME: c["text_3"]}
+        from gui_table import mono_font
+        mono = mono_font(int(self.ctx.settings.get("font_size", 9)))
         for i, r in enumerate(rows):
             d = sn.delta(r)
             unit = f" {r['unit']}" if r.get("unit") else ""
@@ -222,18 +226,28 @@ class SnapshotView(QWidget):
             ]
             for col, text in enumerate(cells):
                 it = QTableWidgetItem(str(text))
-                it.setTextAlignment(Qt.AlignmentFlag.AlignCenter if col != 1
-                                    else Qt.AlignmentFlag.AlignVCenter
-                                    | Qt.AlignmentFlag.AlignLeft)
+                it.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 if col >= 4 or r["state"] != sn.SAME:
                     it.setForeground(QColor(colour[r["state"]]))
+                if col in (0, 2, 3, 4):          # address and numbers: monospace
+                    it.setFont(mono)
                 self.table.setItem(i, col, it)
 
     # ── app plumbing ──────────────────────────────────────────────────
+    def _paint_icons(self):
+        c = self.ctx.theme_tokens()
+        self.btn_take.setIcon(icons.icon("camera", c["accent_fg"], 14))
+        for btn, name in ((self.btn_compare, "compare"), (self.btn_save, "save"),
+                          (self.btn_load, "folder")):
+            btn.setIcon(icons.icon(name, c["text_2"], 14))
+
     def apply_settings(self):
+        self.lbl_empty.apply_theme(self.ctx.theme_tokens())
+        self._paint_icons()
         self._render()
 
     def retranslate(self, t):
+        self.lbl_empty.set_content(title=t("snapEmptyTitle"))
         self.btn_take.setText("  " + t("snapTake"))
         self.btn_compare.setText("  " + t("snapCompare"))
         self.btn_save.setText("  " + t("snapSave"))

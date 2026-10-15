@@ -20,11 +20,11 @@ The descriptor holds only DATA. The actual handler is a bound method that lives
 in the controller (gui_main), which maps ``cmd_id -> callable`` exactly once; this
 module imports nothing from Qt or the GUI, exactly like the other registries.
 
-To add a top-bar action button:
-    1. add ONE ``Command(..., place="button")`` below — display order follows
-       declaration order;
-    2. add ``"cmd_id": self._handler`` to gui_main._command_handler_map().
-The button, its global shortcut and its tooltip all follow automatically.
+To add a page: one ``Command(..., place="view", group=...)`` below plus its
+page in gui_main._view_pages(); to add a header action: one
+``Command(..., place="button")`` plus ``"cmd_id": self._handler`` in
+gui_main._command_handler_map(). The rail entry / button, its global shortcut
+and its tooltip all follow automatically.
 """
 
 from dataclasses import dataclass
@@ -40,16 +40,20 @@ class Command:
     icon      icons.icon name ("" = none). For ``theme`` the toolbar paints a
               dynamic moon/sun glyph instead of this static name.
     shortcut  QKeySequence string ("" = none); shown as the "(…)" tooltip hint.
-    place     how it appears in the top bar:
-                "button" — labelled action button; click dispatches to the
-                           controller via command_triggered(cmd_id).
-                "view"   — navigation button (main view switcher); dispatches
-                           like a button and gets the [active="true"] highlight
-                           when its view is the current one.
-                "menu"   — labelled button that opens a dropdown (toolbar-internal).
-                "icon"   — icon-only right-cluster button (toolbar-internal).
+    place     where it appears:
+                "view"   — a page in the left navigation rail (gui_rail.py);
+                           gets the [active="true"] highlight while shown.
+                "rail"   — a rail entry pinned to the rail's bottom (settings,
+                           help) — the app's own housekeeping, not a page.
+                "button" — action button in the header bar (connect, watch);
+                           click dispatches via command_triggered(cmd_id).
+                "icon"   — icon-only header-bar button (toolbar-internal).
                 "hidden" — no button; shortcut-only (the action lives in a
-                           dropdown, e.g. New/Open inside the Profile menu).
+                           dropdown, e.g. New/Open inside the project menu).
+    group     rail section of a "view": "monitor" — where you watch the
+              device (map, dashboard); "tools" — instruments you pick up for a
+              job (console, scanner, …). Places and tools are separate so the
+              rail reads as two short lists instead of one long one.
     register  register ``shortcut`` as a global QShortcut. ``False`` makes it a
               display-only alias — the Profile button shows "(Ctrl+N)" but Ctrl+N
               itself is owned by the hidden ``new_config`` command.
@@ -60,6 +64,7 @@ class Command:
     shortcut: str = ""
     place: str = "button"
     register: bool = True
+    group: str = ""
 
 
 # ── the registry (top-bar order == declaration order for place=="button") ──
@@ -84,32 +89,36 @@ COMMANDS: tuple = (
     Command("view_map", "viewMap", icon="edit", shortcut="Ctrl+2",
             place="hidden"),
 
-    # Main views — the nav cluster. Which ones show as labelled tabs is the
-    # user's choice (settings["pinned_views"]); the rest live in the toolbar's
-    # overflow menu. The active one gets the highlight either way.
+    # Pages — the left rail, in this order, every one always visible (no
+    # overflow menu: ten entries fit a vertical rail, they never fit a top bar).
     Command("view_table",   "registerMap", icon="table",    shortcut="Ctrl+1",
-            place="view"),
-    Command("view_console", "viewConsole", icon="terminal", shortcut="Ctrl+3",
-            place="view"),
-    Command("view_scanner", "viewScanner", icon="radar",    shortcut="Ctrl+4",
-            place="view"),
-    Command("view_sniffer", "viewSniffer", icon="eye",      shortcut="Ctrl+5",
-            place="view"),
+            place="view", group="monitor"),
     Command("view_dash",    "viewDash",    icon="gauge",    shortcut="Ctrl+6",
-            place="view"),
-    Command("view_snapshot", "viewSnapshot", icon="check",  shortcut="Ctrl+7",
-            place="view"),
-    Command("view_logger",  "viewLogger",  icon="download", shortcut="Ctrl+8",
-            place="view"),
+            place="view", group="monitor"),
+    Command("view_console", "viewConsole", icon="terminal", shortcut="Ctrl+3",
+            place="view", group="tools"),
+    Command("view_scanner", "viewScanner", icon="radar",    shortcut="Ctrl+4",
+            place="view", group="tools"),
+    Command("view_sniffer", "viewSniffer", icon="eye",      shortcut="Ctrl+5",
+            place="view", group="tools"),
+    Command("view_snapshot", "viewSnapshot", icon="camera", shortcut="Ctrl+7",
+            place="view", group="tools"),
+    Command("view_logger",  "viewLogger",  icon="logfile", shortcut="Ctrl+8",
+            place="view", group="tools"),
+    Command("view_macros",  "macros",      icon="code",     shortcut="Ctrl+M",
+            place="view", group="tools"),
     Command("view_slave",   "viewSlave",   icon="cpu",      shortcut="Ctrl+9",
-            place="view"),
+            place="view", group="tools"),
 
-    # Main action buttons — rendered left-to-right in this order.
-    Command("settings", "settings", icon="sliders",  shortcut="Ctrl+,"),
-    Command("macros",   "macros",   icon="play",     shortcut="Ctrl+M"),
+    # Rail footer — the app's own housekeeping.
+    Command("settings", "settings", icon="sliders",  shortcut="Ctrl+,",
+            place="rail"),
+    Command("help",     "help",     icon="help",     shortcut="F1",
+            place="rail"),
+
+    # Header-bar actions — rendered right-to-left of the connection chip.
     Command("watch",    "watchTitle", icon="watch",  shortcut="F6"),
     Command("connect",  "connect",  icon="plug",     shortcut="F5"),
-    Command("help",     "help",     icon="help",     shortcut="F1"),
 
     # Right cluster — icon-only, behavior handled inside the toolbar.
     Command("theme",  "theme",  icon="moon",  shortcut="Ctrl+T", place="icon"),
@@ -121,7 +130,10 @@ COMMANDS: tuple = (
 BY_ID = {c.cmd_id: c for c in COMMANDS}
 # Labelled action buttons the toolbar renders in a loop (in declaration order).
 BUTTONS = tuple(c for c in COMMANDS if c.place == "button")
-# Main-view nav buttons (the switcher cluster, in declaration order).
+# Pages of the left rail (in declaration order) and its footer entries.
 VIEWS = tuple(c for c in COMMANDS if c.place == "view")
+RAIL_FOOTER = tuple(c for c in COMMANDS if c.place == "rail")
+# Rail sections, in display order: (group id, i18n caption key).
+GROUPS = (("monitor", "navGroupMonitor"), ("tools", "navGroupTools"))
 # Commands whose shortcut should be registered as a real global QShortcut.
 SHORTCUTS = tuple(c for c in COMMANDS if c.shortcut and c.register)

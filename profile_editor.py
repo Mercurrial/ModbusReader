@@ -422,7 +422,7 @@ class ProfileEditorDialog(QDialog):
             }}
             QWidget#peToolbar {{
                 background: {c["bg_1"]};
-                border-bottom: 1px solid {c["line"]};
+                border-bottom: 1px solid {c["line_soft"]};
             }}
             QLabel#peTitle {{
                 color: {c["text_1"]};
@@ -440,30 +440,32 @@ class ProfileEditorDialog(QDialog):
                 padding: 2px 2px;
             }}
             QLineEdit#peName:hover {{ border-bottom: 1px solid {c["line"]}; }}
-            QLineEdit#peName:focus {{ border-bottom: 1px solid {c["accent"]}; }}
+            QLineEdit#peName:focus {{ border-bottom: 1px solid {c["text_4"]}; }}
             QFrame#peVSep {{ background: {c["line"]}; border: none; }}
+            /* Same button language as every other page (2.2): one filled
+               accent action, the rest quiet ghost buttons. */
             QPushButton#btnPrimary {{
-                background: transparent;
-                color: {c["text_1"]};
-                border: 1px solid {c["accent"]};
-                border-radius: 4px;
-                padding: 6px 12px;
+                background: {c["accent"]};
+                color: {c["accent_fg"]};
+                border: none;
+                border-radius: 6px;
+                padding: 6px 14px;
                 font-weight: 600;
             }}
             QPushButton#btnPrimary:hover {{
-                background: {c["accent_tint"]};
+                background: {c["accent_soft"]};
                 color: {c["text_1"]};
             }}
             QPushButton#btnSecondary {{
                 background: transparent;
                 color: {c["text_2"]};
-                border: 1px solid {c["line"]};
-                border-radius: 4px;
-                padding: 6px 12px;
+                border: none;
+                border-radius: 6px;
+                padding: 6px 10px;
                 font-weight: 500;
             }}
             QPushButton#btnSecondary:hover {{
-                background: {c["bg_2"]};
+                background: {c["bg_3"]};
                 color: {c["text_1"]};
             }}
             QPushButton#btnGhost {{
@@ -601,7 +603,7 @@ class ProfileEditorDialog(QDialog):
         self.btn_apply = _btn("check", self.t("apply"), self.accept,
                               self.t("applyHint"))
         self.btn_apply.setObjectName("btnPrimary")
-        self.btn_apply.setIcon(icons.icon("check", c["text_1"], 15))
+        self.btn_apply.setIcon(icons.icon("check", c["accent_fg"], 15))
         btn_close = _btn("x", self.t("close"), self.reject, "Esc")
 
         # Stats badges.
@@ -630,7 +632,11 @@ class ProfileEditorDialog(QDialog):
             f.setFixedSize(1, 20)
             return f
 
-        # Row 1 — identity block: title · name · dirty-dot … stats.
+        # Row 1 — identity block: name · dirty-dot … stats. The page title
+        # itself is in the window's header bar since 2.2 ("project / Редактор
+        # карты регистров"); a second copy here was the same words twice.
+        for w in (lbl_title_ico, lbl_title, sep_dot):
+            w.setVisible(False)
         row_top.addWidget(lbl_title_ico)
         row_top.addWidget(lbl_title)
         row_top.addWidget(sep_dot)
@@ -672,57 +678,14 @@ class ProfileEditorDialog(QDialog):
         # ── Body (Stacked: Empty vs Editor) ────────────────────────
         self.stacked = QStackedWidget()
 
-        # Page 0: Empty state
-        empty_page = QWidget()
-        el = QVBoxLayout(empty_page)
-        el.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # A large register-table icon (meaningful: "your register map is empty").
-        empty_icon = QLabel()
-        empty_icon.setPixmap(icons.pixmap("table", c["text_4"], 52))
-        empty_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        empty_lbl = QLabel(self.t("emptyProfile"))
-        empty_lbl.setStyleSheet(f"font-size: {fs + 7}pt; font-weight: 600; color: {c['text_1']};")
-        empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        empty_desc = QLabel(self.t("emptyProfileHint"))
-        empty_desc.setStyleSheet(f"font-size: {fs + 1}pt; color: {c['text_3']};")
-        empty_desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        btn_lo = QHBoxLayout()
-        btn_lo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        btn_add_empty = QPushButton("  " + self.t("addRegister"))
-        btn_add_empty.setObjectName("btnPrimary")
-        btn_add_empty.setIcon(icons.icon("plus", c["text_1"], 15))
-        btn_add_empty.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_add_empty.clicked.connect(self._add_row)
-
-        btn_open_empty = QPushButton("  " + self.t("openJson"))
-        btn_open_empty.setIcon(icons.icon("folder", c["text_2"], 15))
-        btn_open_empty.setObjectName("btnSecondary")
-        btn_open_empty.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_open_empty.clicked.connect(self._open_file)
-
-        btn_import_empty = QPushButton("  " + self.t("impOpen"))
-        btn_import_empty.setIcon(icons.icon("table", c["text_2"], 15))
-        btn_import_empty.setObjectName("btnSecondary")
-        btn_import_empty.clicked.connect(self._import_table)
-
-        btn_lo.addWidget(btn_add_empty)
-        btn_lo.addSpacing(12)
-        btn_lo.addWidget(btn_import_empty)
-        btn_lo.addSpacing(12)
-        btn_lo.addWidget(btn_open_empty)
-
-        el.addWidget(empty_icon)
-        el.addSpacing(16)
-        el.addWidget(empty_lbl)
-        el.addSpacing(16)
-        el.addWidget(empty_desc)
-        el.addSpacing(24)
-        el.addLayout(btn_lo)
+        # Page 0: Empty state — the same component every other page uses.
+        from gui_widgets import EmptyState
+        empty_page = EmptyState("table", self.t("emptyProfile"),
+                                self.t("emptyProfileHint"))
+        empty_page.add_action(self.t("addRegister"), self._add_row, primary=True)
+        empty_page.add_action(self.t("impOpen"), self._import_table)
+        empty_page.add_action(self.t("openJson"), self._open_file)
+        empty_page.apply_theme(c)
 
         self.stacked.addWidget(empty_page)
 

@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 import icons
+from gui_widgets import EmptyState, EmptyOverlay
 import transports
 from dialogs import themed_info
 from qt_utils import set_state
@@ -85,6 +86,8 @@ class SnifferView(QWidget):
         lo.addLayout(bar)
 
         self.table = QTableWidget(0, 6)
+        self.table.horizontalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.table.setObjectName("snifTable")
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -96,6 +99,13 @@ class SnifferView(QWidget):
             self.table.setColumnWidth(col, w)
         hh.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         lo.addWidget(self.table, 1)
+
+        self.empty = EmptyState("eye", t("snifEmptyTitle"), t("snifEmptyBody"))
+        self.empty.add_action("  " + t("snifStart"), self._toggle, primary=True)
+        self.empty.apply_theme(self.ctx.theme_tokens())
+        self._empty_ov = EmptyOverlay(
+            self.table, self.empty,
+            when=lambda: not (self._worker is not None and self._worker.isRunning()))
 
         self.lbl_status = QLabel(t("snifIdle"))
         self.lbl_status.setObjectName("mhCrumb")
@@ -212,10 +222,7 @@ class SnifferView(QWidget):
         ]
         for col, text in enumerate(cells):
             it = QTableWidgetItem(text)
-            it.setTextAlignment(Qt.AlignmentFlag.AlignCenter
-                                if col != 4 else
-                                Qt.AlignmentFlag.AlignVCenter
-                                | Qt.AlignmentFlag.AlignLeft)
+            it.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             it.setToolTip(f.get("hex", ""))
             self.table.setItem(row, col, it)
         crc_item = self.table.item(row, 5)
@@ -234,6 +241,7 @@ class SnifferView(QWidget):
 
     def apply_settings(self):
         c = self.ctx.theme_tokens()
+        self.empty.apply_theme(c)
         running = self._worker is not None and self._worker.isRunning()
         self.btn_clear.setIcon(icons.icon("trash", c["text_2"], 14))
         self.btn_start.setIcon(icons.icon("stop" if running else "play",
@@ -245,6 +253,8 @@ class SnifferView(QWidget):
         self.btn_clear.setText("  " + t("clear"))
         self.lbl_port.setText(t("port"))
         self.lbl_baud.setText(t("baudrate"))
+        self.empty.set_content(t("snifEmptyTitle"), t("snifEmptyBody"))
+        self.empty.buttons[0].setText("  " + t("snifStart"))
         if not running and self.lbl_status.property("state") != "error":
             self.lbl_status.setText(t("snifIdle"))
         self._set_headers()

@@ -11,6 +11,8 @@ from PyQt6.QtCore import Qt, QPropertyAnimation, QTimer
 from PyQt6.QtGui import QShortcut, QKeySequence
 
 from gui_toolbar import MainToolBar
+from gui_rail import NavRail
+from gui_widgets import EmptyState, EmptyOverlay, DropButton
 from gui_statusbar import MainStatusBar
 from gui_trends import TrendsManager
 from gui_settings import SettingsDialog
@@ -28,7 +30,7 @@ from gui_dash import DashboardView
 from gui_snapshot import SnapshotView
 from gui_logger import LoggerView
 from gui_watch import WatchWindow
-from dialogs import themed_info, themed_message
+from dialogs import themed_info, themed_message, themed_input
 from qt_utils import later
 import datatypes
 import formats
@@ -45,7 +47,7 @@ import icons
 class ModernScadaApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("ProTuner - Industrial SCADA")
+        self.setWindowTitle("ModbusReader")
 
         # AppContext owns the cross-cutting services (settings, Modbus core,
         # translator, theme). self.settings / modbus_core / lang / t below are
@@ -87,6 +89,9 @@ class ModernScadaApp(QMainWindow):
         # Reopen the rest of the session exactly as it was closed: trend
         # cards, log-panel height, the active view.
         self._restore_session_state()
+
+        # Start with nothing "typed into": no caret in the search box.
+        later(0, self, self._park_focus)
 
         # Show the interactive guide once, on the very first launch only.
         # The spotlight rectangles need the window laid out, hence the delay.
@@ -157,11 +162,25 @@ class ModernScadaApp(QMainWindow):
         central.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         self.setCentralWidget(central)
 
-        root = QVBoxLayout(central)
+        # Rail on the left (every page), then the work area: header bar over
+        # the page stack. The status bar below spans both (QMainWindow).
+        outer = QHBoxLayout(central)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        self.nav_rail = NavRail(
+            self, theme=self.settings.get("theme", "Dark"),
+            accent=self.settings.get("accent", "neutral"), lang=self.lang,
+            collapsed=bool(self.settings.get("rail_collapsed", False)))
+        outer.addWidget(self.nav_rail)
+        work = QWidget()
+        work.setObjectName("workArea")
+        work.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        outer.addWidget(work, 1)
+        root = QVBoxLayout(work)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Top bar
+        # Header bar
         self.main_toolbar = MainToolBar(
             self,
             initial_slave_id=self.settings.get("slave_id", 10),
@@ -194,6 +213,15 @@ class ModernScadaApp(QMainWindow):
         ra_lo.setSpacing(0)
         ra_lo.addWidget(self._build_main_head())
         ra_lo.addWidget(self.register_table, 1)
+        # No map yet: say what a map is and offer the three ways to get one.
+        t = self.t
+        self.map_empty = EmptyState("table", t("emptyMapTitle"), t("emptyMapBody"))
+        self.map_empty.add_action(t("emptyOpenProject"), lambda: self._open_project(),
+                                  primary=True)
+        self.map_empty.add_action(t("emptyOpenMap"), self._open_profile)
+        self.map_empty.add_action(t("emptyNewMap"), self._create_config)
+        self.map_empty.apply_theme(self.ctx.theme_tokens())
+        self._map_empty_ov = EmptyOverlay(self.register_table, self.map_empty)
 
         self.h_splitter.addWidget(self.register_area)
 
@@ -269,6 +297,14 @@ class ModernScadaApp(QMainWindow):
         self.content_stack.addWidget(self.logger_view)
         self.slave_view = SlaveView(self.ctx, lambda: self.profile_data)
         self.content_stack.addWidget(self.slave_view)
+        # Macros are a page like every other tool (a separate window until
+        # 2.1 — the one exception to how the app worked). A running macro
+        # keeps running when you switch pages; the rail shows it busy.
+        from gui_macros import MacroWindow
+        self.macro_view = MacroWindow(self.ctx, lambda: self.profile_data,
+                                      embedded=True)
+        self.macro_window = self.macro_view          # historical name
+        self.content_stack.addWidget(self.macro_view)
 
         # The watch window floats above the main window (built hidden, so
         # the picked registers keep their min/max even while it is closed).
@@ -322,34 +358,32 @@ class ModernScadaApp(QMainWindow):
         self.mh_badge.setObjectName("mhBadge")
         self.mh_badge.setFont(mono_font())
 
-        lo.addWidget(self.mh_title)
-        lo.addWidget(self.mh_crumb)
-        lo.addWidget(self.mh_badge)
-        # A stretch, not a spacer QWidget: a bare QWidget inherits the global
-        # `QWidget { background: bg_1 }` rule and painted a dark slab across
-        # the bg_0 head bar.
-        lo.addStretch(1)
+        # The page title is in the header bar now; these two stay (hidden)
+        # because the retranslate path still feeds them.
+        self.mh_title.setVisible(False)
+        self.mh_crumb.setVisible(False)
 
-        # Profile dropdown — lives HERE (next to the map it manages), not in
-        # the top bar: create a new map, open a file, or reopen a recent one.
-        # Labelled with the OPEN PROJECT, not with the word "profile". Seeing
-        # the project name in the window is what tells a newcomer that
-        # projects are the thing they are working in.
-        self.btn_profile = QPushButton()
+        # Project dropdown — the project owns the map, the dashboards and the
+        # connection, so it sits at the left of the HEADER bar, on every page
+        # ("plant ▾ / Сканер"). Labelled with the OPEN PROJECT: seeing its
+        # name is what tells a newcomer that projects are the thing they are
+        # working in.
+        self.btn_profile = DropButton()
         self.btn_profile.setObjectName("mhProfile")
+        self.btn_profile.set_chevron_color(self.ctx.theme_tokens()["text_3"])
         self.btn_profile.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_profile.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_profile.setIcon(
-            icons.icon("folder", self.ctx.theme_tokens()["text_2"], 15))
+            icons.icon("project", self.ctx.theme_tokens()["text_2"], 15))
         self.btn_profile.clicked.connect(self._open_profile_menu)
         self._refresh_project_button()
-        lo.addWidget(self.btn_profile)
+        self.main_toolbar.set_project_widget(self.btn_profile)
 
         # Search box
         search_wrap = QWidget()
         search_wrap.setObjectName("searchBox")
         search_wrap.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        search_wrap.setFixedWidth(240)
+        search_wrap.setFixedWidth(300)
         sw_lo = QHBoxLayout(search_wrap)
         sw_lo.setContentsMargins(8, 0, 6, 0)
         sw_lo.setSpacing(6)
@@ -368,6 +402,21 @@ class ModernScadaApp(QMainWindow):
         sw_lo.addWidget(icon)
         sw_lo.addWidget(self.search_input, 1)
         lo.addWidget(search_wrap)
+        lo.addWidget(self.mh_badge)
+        # A stretch, not a spacer QWidget: a bare QWidget inherits the global
+        # `QWidget { background: bg_1 }` rule and paints a slab.
+        lo.addStretch(1)
+
+        # The map's own verb, visible where the map is (it used to hide in
+        # the project dropdown and behind Ctrl+2).
+        self.btn_edit_map = QPushButton()
+        self.btn_edit_map.setObjectName("tbBtn")
+        self.btn_edit_map.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_edit_map.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.btn_edit_map.setIcon(
+            icons.icon("edit", self.ctx.theme_tokens()["text_2"], 15))
+        self.btn_edit_map.clicked.connect(self._open_map_editor)
+        lo.addWidget(self.btn_edit_map)
 
         return head
 
@@ -414,8 +463,10 @@ class ModernScadaApp(QMainWindow):
         # non-command events keep dedicated signals.
         self._command_handlers = self._command_handler_map()
         self.main_toolbar.command_triggered.connect(self._dispatch_command)
-
-        self.main_toolbar.brand_clicked.connect(self._go_to_register_map)
+        self.nav_rail.command_triggered.connect(self._dispatch_command)
+        self.nav_rail.brand_clicked.connect(self._go_to_register_map)
+        self.nav_rail.collapsed_changed.connect(self._on_rail_collapsed)
+        self.main_toolbar.link_clicked.connect(self._open_settings)
         self.main_toolbar.theme_changed.connect(self._on_theme_changed)
         self.main_toolbar.lang_changed.connect(self._on_lang_changed)
         self.main_toolbar.graphs_toggled.connect(self._on_graphs_toggled)
@@ -423,9 +474,6 @@ class ModernScadaApp(QMainWindow):
 
         self.status_bar.slave_id_changed.connect(self._on_slave_id_changed)
         self.status_bar.log_toggle_clicked.connect(self._toggle_log_from_chip)
-        # Smart nav: user's pinned tabs + persistence of changes.
-        self.main_toolbar.set_pinned(self.settings.get("pinned_views"))
-        self.main_toolbar.pins_changed.connect(self._on_pins_changed)
 
     def _command_handler_map(self) -> dict:
         """Bind each command id to its handler — the single place command
@@ -439,6 +487,7 @@ class ModernScadaApp(QMainWindow):
             "open_config":  self._open_profile,
             "settings":     self._open_settings,
             "macros":       self._open_macros,
+            "view_macros":  self._open_macros,
             "watch":        self._toggle_watch_window,
             "connect":      self._toggle_connection,
             "help":         self._show_help,
@@ -504,6 +553,8 @@ class ModernScadaApp(QMainWindow):
             text = (f"{s.get('port', 'COM1')} | {s.get('baudrate', '115200')} | "
                     f"{transports.serial_framing(s)}")
         self.status_bar.lbl_params.setText(text)
+        self.main_toolbar.set_link_text(
+            " · ".join(text.split(" | ")) + f" · ID {s.get('slave_id', 10)}")
 
     _STYLE_KEYS = ("theme", "font_family", "font_size", "accent", "scheme",
                    "contrast")
@@ -518,7 +569,8 @@ class ModernScadaApp(QMainWindow):
                 "view_dash": self.dash_view,
                 "view_snapshot": self.snapshot_view,
                 "view_logger": self.logger_view,
-                "view_slave": self.slave_view}
+                "view_slave": self.slave_view,
+                "view_macros": self.macro_view}
 
     def _switch_view(self, view_id: str):
         """Show one of the persistent nav pages (table / console / slave).
@@ -533,7 +585,24 @@ class ModernScadaApp(QMainWindow):
         page = self._view_pages().get(view_id, self.main_view)
         self.content_stack.setCurrentWidget(page)
         self._current_view = view_id
-        self.main_toolbar.set_active_view(view_id)
+        self._set_nav(view_id)
+        self._park_focus(page)
+
+    def _park_focus(self, page=None):
+        """Give focus to the page itself (the map: its table). Otherwise Qt
+        hands it to the first input on the page, and a page opened with a
+        caret blinking in its first field — under a highlighted border —
+        looks like the app wants something typed there."""
+        page = page or self.content_stack.currentWidget()
+        target = self.register_table if page is self.main_view else page
+        if target.focusPolicy() == Qt.FocusPolicy.NoFocus:
+            target.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        target.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def _set_nav(self, nav_id: str):
+        """The rail highlight and the header title follow the page on screen."""
+        self.nav_rail.set_active_view(nav_id)
+        self.main_toolbar.set_active_view(nav_id)
 
     def _focus_search(self):
         """Ctrl+F: jump to the register search box (Table view)."""
@@ -557,7 +626,7 @@ class ModernScadaApp(QMainWindow):
         self.content_stack.addWidget(widget)
         self.content_stack.setCurrentWidget(widget)
         if nav_id:
-            self.main_toolbar.set_active_view(nav_id)
+            self._set_nav(nav_id)
 
         # Esc closes the overlay immediately, even before the user clicks into
         # it. A WidgetWithChildren-scoped shortcut fires whenever the overlay or
@@ -573,7 +642,7 @@ class ModernScadaApp(QMainWindow):
         self._overlay_page = None
         base = self._view_pages().get(self._current_view, self.main_view)
         self.content_stack.setCurrentWidget(base)
-        self.main_toolbar.set_active_view(self._current_view)
+        self._set_nav(self._current_view)
         if page is not None:
             self.content_stack.removeWidget(page)
             page.deleteLater()
@@ -646,6 +715,7 @@ class ModernScadaApp(QMainWindow):
         alone leaves them on the old palette."""
         theme, accent = values.get("theme", "Dark"), values.get("accent")
         self.main_toolbar.apply_theme(theme, accent)
+        self.nav_rail.apply_theme(theme, accent)
         import theme_manager
         self.status_bar.apply_theme(theme_manager.get_theme(theme, accent))
         self.trends_manager.set_theme(theme)
@@ -707,6 +777,7 @@ class ModernScadaApp(QMainWindow):
         new_accent = self.settings.get("accent", "neutral")
         if self.main_toolbar._theme != new_theme or self.main_toolbar._accent != new_accent:
             self.main_toolbar.apply_theme(new_theme, new_accent)
+        self.nav_rail.apply_theme(new_theme, new_accent)
 
     # ── watch window ───────────────────────────────────────────────
     def _toggle_watch_window(self):
@@ -732,18 +803,10 @@ class ModernScadaApp(QMainWindow):
         self.watch_window.raise_()
 
     def _open_macros(self):
-        """Open (or raise) the macro automation window."""
-        win = getattr(self, "macro_window", None)
-        if win is not None and win.isVisible():
-            win.raise_()
-            win.activateWindow()
-            return
-        from gui_macros import MacroWindow
-        self.macro_window = MacroWindow(
-            self.ctx, lambda: self.profile_data, parent=self)
-        self.macro_window.show()
-        self.macro_window.raise_()
-        self.macro_window.activateWindow()
+        """Show the macros page (Ctrl+M)."""
+        self._switch_view("view_macros")
+        if self._current_view != "view_macros":
+            return                        # an overlay refused to close
         # First-time visitors get the coach-mark tour automatically (#50).
         if not self.settings.get("guide_seen_macros"):
             self.settings["guide_seen_macros"] = True
@@ -787,38 +850,55 @@ class ModernScadaApp(QMainWindow):
                         "A quick tour of the main controls. Use Next, or hit "
                         "Skip — you can reopen this guide anytime with the "
                         "Help button (F1).")},
-            {"target": tb.btn_connect,
+            {"target": self.nav_rail,
+             "title": L("Все экраны — слева", "Every page is on the left"),
+             "body":  L("Сверху — «Мониторинг»: карта регистров и дашборд. "
+                        "Ниже — инструменты: консоль, сканер, сниффер, снимки, "
+                        "логгер, макросы, эмулятор. Зелёная точка у пункта — "
+                        "инструмент работает в фоне. Панель можно свернуть до "
+                        "значков. Горячие клавиши: Ctrl+1…9.",
+                        "Monitor at the top: the register map and the dashboard. "
+                        "Below it the tools: console, scanner, sniffer, "
+                        "snapshots, logger, macros, emulator. A green dot means "
+                        "the tool is working in the background. The panel "
+                        "collapses to icons. Shortcuts: Ctrl+1…9.")},
+            {"target": [tb.btn_link, tb.btn_connect],
              "title": L("Подключение к устройству", "Connect to the device"),
-             "body":  L("Открывает COM-порт и запускает циклический опрос "
-                        "регистров. Параметры порта — в Настройках. "
-                        "Горячая клавиша: F5.",
-                        "Opens the COM port and starts polling the registers. "
-                        "Port parameters live in Settings. Shortcut: F5.")},
+             "body":  L("Слева — с чем программа будет говорить: порт, скорость, "
+                        "формат кадра и адрес прибора (щелчок открывает "
+                        "настройки связи). «Подключить» открывает порт и "
+                        "запускает опрос. Горячая клавиша: F5.",
+                        "On the left, what the app will talk to: port, speed, "
+                        "framing and device address (click to open the link "
+                        "settings). Connect opens the port and starts polling. "
+                        "Shortcut: F5.")},
             {"target": self.btn_profile,
-             "title": L("Профиль регистров", "Register profile"),
-             "body":  L("Выпадающее меню: «Создать новый» открывает редактор "
-                        "карты регистров (имена, адреса, типы данных, доступ), "
-                        "«Открыть существующий» загружает профиль из .json для "
-                        "мониторинга. Горячие клавиши: Ctrl+N / Ctrl+O.",
-                        "Dropdown menu: \"New profile\" opens the register-map "
-                        "editor (names, addresses, data types, access); \"Open "
-                        "existing\" loads a profile from .json for monitoring. "
-                        "Shortcuts: Ctrl+N / Ctrl+O.")},
-            {"target": tb.btn_settings,
+             "title": L("Проект", "Project"),
+             "body":  L("Проект хранит карту регистров, дашборды и параметры "
+                        "связи вместе. Здесь же — открыть или создать отдельную "
+                        "карту (.json). Горячие клавиши: Ctrl+N / Ctrl+O / "
+                        "Ctrl+S.",
+                        "A project keeps the register map, the dashboards and "
+                        "the link settings together. This menu also opens or "
+                        "creates a stand-alone map (.json). Shortcuts: "
+                        "Ctrl+N / Ctrl+O / Ctrl+S.")},
+            {"target": self.nav_rail.btn_settings,
              "title": L("Настройки", "Settings"),
              "body":  L("Параметры подключения, опроса, внешнего вида и языка. "
                         "Горячая клавиша: Ctrl+,",
                         "Connection, polling, appearance and language options. "
                         "Shortcut: Ctrl+,")},
-            {"target": tb.btn_macros,
+            {"target": self.nav_rail.btn_view_macros,
              "title": L("Макросы", "Macros"),
-             "body":  L("Окно автоматизации: пишите Python-скрипты, которые "
-                        "читают и пишут регистры, и экспортируйте результаты. "
-                        "Горячая клавиша: Ctrl+M.",
-                        "Automation window: write Python scripts that read and "
-                        "write registers, then export the results. "
+             "body":  L("Автоматизация: Python-скрипты, которые читают и пишут "
+                        "регистры и собирают таблицу результатов. Запущенный "
+                        "макрос продолжает работать, пока вы на других "
+                        "экранах. Горячая клавиша: Ctrl+M.",
+                        "Automation: Python scripts that read and write "
+                        "registers and build a results table. A running macro "
+                        "keeps going while you are on other pages. "
                         "Shortcut: Ctrl+M.")},
-            {"target": tb.btn_help,
+            {"target": self.nav_rail.btn_help,
              "title": L("Справка", "Help"),
              "body":  L("Эта кнопка открывает гайд снова в любой момент. "
                         "Готово — приятной работы!",
@@ -858,8 +938,12 @@ class ModernScadaApp(QMainWindow):
                 if qss != app.styleSheet():
                     app.setStyleSheet(qss)
                 self.trends_manager.set_theme(theme)
-                self._search_icon_lbl.setPixmap(
-                    icons.pixmap("search", self.ctx.theme_tokens()["text_4"], 14))
+                tok = self.ctx.theme_tokens()
+                self._search_icon_lbl.setPixmap(icons.pixmap("search", tok["text_4"], 14))
+                self.btn_profile.setIcon(icons.icon("project", tok["text_2"], 15))
+                self.btn_profile.set_chevron_color(tok["text_3"])
+                self.btn_edit_map.setIcon(icons.icon("edit", tok["text_2"], 15))
+                self.map_empty.apply_theme(tok)
             self.trends_manager.default_window_sec = self.settings.get("default_window_sec", 30)
             self.trends_manager.history_len = self.settings.get("trend_history", 1200)
 
@@ -931,7 +1015,7 @@ class ModernScadaApp(QMainWindow):
         entry(m, t("projectOpen"), lambda: self._open_project(), "Ctrl+O",
               "folder")
         entry(m, t("projectSave"), self._save_project, "Ctrl+S", "save")
-        entry(m, t("projectSaveAs"), self._save_project_as)
+        entry(m, t("projectSaveAs"), self._save_project_as, icon="download")
 
         projects = [p for p in self.settings.get("recent_projects", [])
                     if p != self.project_path]
@@ -980,8 +1064,18 @@ class ModernScadaApp(QMainWindow):
         if not hasattr(self, "btn_profile"):
             return
         label = self.project_name or self.t("projectNone")
-        self.btn_profile.setText(f"  {label}  ▾")
+        self.btn_profile.setText(f"  {label}")
         self.btn_profile.setToolTip(self.project_path or self.t("projectNoneTip"))
+        self._refresh_window_title()
+
+    def _refresh_window_title(self):
+        """"plant — ModbusReader": the document first, like every desktop
+        app (it is what the taskbar and Alt+Tab show)."""
+        doc = self.project_name or (
+            os.path.splitext(os.path.basename(self.profile_path))[0]
+            if getattr(self, "profile_path", "") else "")
+        app = self.t("appName")
+        self.setWindowTitle(f"{doc} — {app}" if doc else app)
 
     def _push_recent_project(self, path: str):
         from settings_manager import RECENT_MAX
@@ -1044,12 +1138,14 @@ class ModernScadaApp(QMainWindow):
         self._save_project_as()
 
     def _save_project_as(self):
-        from PyQt6.QtWidgets import QInputDialog
         default = (self.project_name
                    or (os.path.splitext(os.path.basename(self.profile_path))[0]
                        if self.profile_path else "project"))
-        name, ok = QInputDialog.getText(self, self.t("projectSaveAs"),
-                                        self.t("projectName"), text=default)
+        name, ok = themed_input(self, self.ctx.theme,
+                                self.t("projectSaveAs").rstrip("…."),
+                                self.t("projectName"), default,
+                                ok_label=self.t("continueAction"),
+                                cancel_label=self.t("cancel"))
         if not ok:
             return
         name = name.strip() or default
@@ -1132,8 +1228,8 @@ class ModernScadaApp(QMainWindow):
         self.dash_view.load_boards(proj.get("dashboards") or [])
         layout = proj.get("layout") or {}
         if layout.get("pinned_views"):
+            # Kept for file compatibility; the rail shows every page.
             self.settings["pinned_views"] = list(layout["pinned_views"])
-            self.main_toolbar.set_pinned(self.settings["pinned_views"])
         self._apply_settings(restyle=False)
         if persist:
             save_settings(self.settings)
@@ -1194,6 +1290,7 @@ class ModernScadaApp(QMainWindow):
         save_settings(self.settings)
         self._apply_settings()
         self.main_toolbar.apply_theme(theme, self.settings.get("accent", "neutral"))
+        self.nav_rail.apply_theme(theme, self.settings.get("accent", "neutral"))
 
     def _on_lang_changed(self, lang: str):
         self.ctx.set_lang(lang)   # updates lang + translator + settings["lang"]
@@ -1202,9 +1299,19 @@ class ModernScadaApp(QMainWindow):
 
     def _retranslate_ui(self):
         t = self.t
-        self.setWindowTitle(t("appName"))
+        self._refresh_window_title()
         self.main_toolbar.retranslate_ui(t)
         self.main_toolbar.set_connect_state(self.modbus_core.is_running, t)
+        self.nav_rail.retranslate_ui(t)
+        if hasattr(self, "map_empty"):
+            self.map_empty.set_content(t("emptyMapTitle"), t("emptyMapBody"))
+            for b, key in zip(self.map_empty.buttons,
+                              ("emptyOpenProject", "emptyOpenMap", "emptyNewMap")):
+                b.setText(t(key))
+        if hasattr(self, "btn_edit_map"):
+            self.btn_edit_map.setText("  " + t("editMap"))
+            self.btn_edit_map.setToolTip(
+                f"{t('editMap')}  ({commands.BY_ID['view_map'].shortcut})")
 
         self.register_table.retranslate()   # headers + register names (ru/en)
 
@@ -1386,6 +1493,7 @@ class ModernScadaApp(QMainWindow):
         else:
             text = self.t("stNoProfile")
         self.status_bar.lbl_config.setText(text)
+        self._refresh_window_title()
 
     # ===========================================================
     #  MODBUS SIGNAL HANDLERS
@@ -1407,6 +1515,7 @@ class ModernScadaApp(QMainWindow):
         self.register_table.update_value(addr, val_str)
 
     def _refresh_line_stats(self):
+        self._refresh_activity()
         self.status_bar.set_line_stats(self.modbus_core.stats.snapshot(), self.t)
 
     def _reset_line_stats(self):
@@ -1606,21 +1715,31 @@ class ModernScadaApp(QMainWindow):
             self._switch_view(last_view)
         self._sync_log_chip()
 
-    def _on_pins_changed(self, pinned: list):
-        self.settings["pinned_views"] = list(pinned)
+    def _on_rail_collapsed(self, collapsed: bool):
+        self.settings["rail_collapsed"] = bool(collapsed)
         save_settings(self.settings)
+
+    def _refresh_activity(self):
+        """Busy dots in the rail: a tool working in the background."""
+        def alive(w):
+            return w is not None and w.isRunning()
+        self.nav_rail.set_busy({
+            "view_scanner": alive(getattr(self.scanner_view, "_worker", None)),
+            "view_sniffer": alive(getattr(self.sniffer_view, "_worker", None)),
+            "view_logger": self.logger_view.running,
+            "view_slave": self.slave_view.running,
+            "view_macros": self.macro_view.running,
+        })
 
     def closeEvent(self, event):
         # The macro window asks before abandoning a running macro or unsaved
         # results; if the operator cancels THERE, the app must stay open too.
         # Before, closing the main window left a running macro thread behind
         # (and the window it belongs to was torn down under it).
-        win = getattr(self, "macro_window", None)
-        if win is not None and win.isVisible() and not win.close():
+        if not self.macro_view.confirm_close():
             event.ignore()
             return
-        if win is not None:
-            win.stop_and_wait()
+        self.macro_view.shutdown()
         self.scanner_view.stop_if_running()
         self.dash_view.stop_if_running()      # kill dashboard automation timers
         self.sniffer_view.stop_if_running()
@@ -1664,7 +1783,7 @@ class ModernScadaApp(QMainWindow):
             dlg.set_source_file(self.profile_path)
         dlg.accepted.connect(lambda: self._on_editor_accepted(dlg))
         dlg.rejected.connect(self._close_overlay)
-        self._show_overlay(dlg)
+        self._show_overlay(dlg, "view_map")
         # First-time visitors get the coach-mark tour automatically (#50).
         if not self.settings.get("guide_seen_editor"):
             self.settings["guide_seen_editor"] = True

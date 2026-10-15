@@ -1,7 +1,7 @@
 # styles.py
 
 import icons
-from theme_manager import get_theme
+from theme_manager import get_theme, _mix
 
 def get_stylesheet(theme_name: str = "Dark", font_family: str = "Inter, Segoe UI, system-ui, sans-serif", font_size: int = 9, accent: str | None = None) -> str:
     """Returns the complete QSS stylesheet based on the current theme and settings."""
@@ -12,6 +12,15 @@ def get_stylesheet(theme_name: str = "Dark", font_family: str = "Inter, Segoe UI
     fs_small = f"{max(7, font_size - 1)}pt"
     fs_h1 = f"{font_size + 5}pt"
     fs_h2 = f"{font_size + 1}pt"
+    fs_h3 = f"{font_size + 3}pt"
+    # Hover of a filled accent button: a step toward the text colour, not a
+    # jump to it (the old hover flashed a white slab on a coloured button).
+    accent_hover = _mix(c["accent"], c["text_1"], 0.16)
+    # Focus ring: neutral, not the accent. With a red-family accent (rose,
+    # coral) an accent ring around a freshly focused field read as a
+    # validation error. Neutral text_4 is still plainly visible on every
+    # scheme and contrast level.
+    focus_ring = c["text_4"]
 
     return f"""
 
@@ -37,14 +46,128 @@ QLabel {{
     background: transparent;
 }}
 
-/* ─── TOP BAR ────────────────────────────────────────────────────── */
-/* No bottom rule. The bar is bg_1 and the content below it is bg_0, so the
-   edge is already there — adding a line on top of a tonal step just draws
-   the same boundary twice, and the second copy is the one that looks cheap. */
+/* ─── FRAME: rail | header / page ────────────────────────────────── */
+/* Chrome (rail, header, status bar) is bg_1; data surfaces are bg_0. The
+   rail and the header meet in one L-shaped frame; a whisper line (line_soft,
+   which the contrast layer keeps dim) marks where the page begins, because
+   the tool pages below are bg_1 too and a pure tonal step does not exist
+   there. */
+QWidget#workArea {{
+    background: {c["bg_1"]};
+}}
 QWidget#topBar {{
     background: {c["bg_1"]};
-    min-height: 48px;
-    max-height: 48px;
+    border-bottom: 1px solid {c["line_soft"]};
+    min-height: 52px;
+    max-height: 52px;
+}}
+QLabel#hdrTitle {{
+    color: {c["text_1"]};
+    font-size: {fs_h2};
+    font-weight: 600;
+    padding-left: 2px;
+}}
+QLabel#hdrSep {{
+    color: {c["text_4"]};
+    font-size: {fs_h2};
+    padding: 0 6px;
+}}
+/* What the app talks to — "COM3 · 115200 · 8N1 · ID 10". */
+QPushButton#linkChip {{
+    background: transparent;
+    border: 1px solid {c["line"]};
+    border-radius: 6px;
+    padding: 0 12px 0 10px;
+    color: {c["text_3"]};
+    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-size: {fs_small};
+    min-height: 30px;
+    max-height: 30px;
+}}
+QPushButton#linkChip:hover {{
+    background: {c["bg_2"]};
+    color: {c["text_1"]};
+    border-color: {c["line_strong"]};
+}}
+QPushButton#linkChip[connected="true"] {{
+    color: {c["text_1"]};
+    border-color: {c["ok_soft"]};
+}}
+/* THE primary action of the window. */
+QPushButton#btnConnect {{
+    background: {c["accent"]};
+    color: {c["accent_fg"]};
+    border: none;
+    border-radius: 6px;
+    padding: 0 16px 0 12px;
+    font-weight: 600;
+    min-height: 30px;
+    max-height: 30px;
+}}
+QPushButton#btnConnect:hover {{
+    background: {accent_hover};
+}}
+QPushButton#btnConnect[connected="true"] {{
+    background: {c["ok_tint"]};
+    color: {c["ok"]};
+    border: 1px solid {c["ok_soft"]};
+}}
+QPushButton#btnConnect[connected="true"]:hover {{
+    background: {c["ok_soft"]};
+    color: {c["text_1"]};
+}}
+
+/* ─── NAVIGATION RAIL ────────────────────────────────────────────── */
+QWidget#navRail {{
+    background: {c["bg_1"]};
+    border-right: 1px solid {c["line_soft"]};
+}}
+QWidget#railBrand {{
+    background: transparent;
+    border-radius: 8px;
+}}
+QWidget#railBrand:hover {{
+    background: {c["bg_2"]};
+}}
+QLabel#railCaption {{
+    color: {c["text_4"]};
+    font-size: {fs_small};
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 8px 10px 4px 10px;
+}}
+QLabel#railCaption[collapsed="true"] {{
+    padding: 0;
+    min-height: 8px;
+    max-height: 8px;
+}}
+QPushButton#railBtn {{
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    padding: 0 10px;
+    text-align: left;
+    color: {c["text_2"]};
+    font-size: {fs};
+    min-height: 34px;
+    max-height: 34px;
+}}
+QPushButton#railBtn:hover {{
+    background: {c["bg_2"]};
+    color: {c["text_1"]};
+}}
+QPushButton#railBtn:pressed {{
+    background: {c["bg_3"]};
+}}
+QPushButton#railBtn[active="true"] {{
+    background: {c["bg_3"]};
+    color: {c["text_1"]};
+    font-weight: 600;
+}}
+QPushButton#railBtn[collapsed="true"] {{
+    padding: 0;
+    text-align: center;
 }}
 
 QPushButton#tbBtn {{
@@ -66,22 +189,9 @@ QPushButton#tbBtn:hover {{
 QPushButton#tbBtn:pressed {{
     background: {c["bg_4"]};
 }}
-/* Current view / open overlay — the nav highlight. */
-QPushButton#tbBtn[active="true"] {{
-    background: {c["bg_3"]};
-    color: {c["text_1"]};
-    border-bottom: 2px solid {c["accent"]};
-    border-radius: 6px 6px 0 0;
-    font-weight: 600;
-}}
-/* Connected state: the Connect button reads green at a glance. */
-QPushButton#tbBtn[connected="true"] {{
-    color: {c["ok"]};
-    background: {c["ok_tint"]};
-}}
-QPushButton#tbBtn[connected="true"]:hover {{
-    background: {c["ok_soft"]};
-    color: {c["text_1"]};
+QPushButton#tbBtn:disabled {{
+    color: {c["text_4"]};
+    background: transparent;
 }}
 
 QPushButton#iconBtn {{
@@ -89,12 +199,6 @@ QPushButton#iconBtn {{
     border: none;
     border-radius: 6px;
     color: {c["text_3"]};
-}}
-/* ⋯ overflow carries the highlight when the active view is unpinned. */
-QPushButton#iconBtn[active="true"] {{
-    background: {c["bg_3"]};
-    border-bottom: 2px solid {c["accent"]};
-    border-radius: 6px 6px 0 0;
 }}
 QPushButton#iconBtn:hover {{
     background: {c["bg_3"]};
@@ -130,7 +234,7 @@ QLabel#brandIcon {{
 QLabel#brandName {{
     color: {c["text_1"]};
     font-size: {fs_h2};
-    font-weight: 600;
+    font-weight: 700;
 }}
 QLabel#brandVer {{
     color: {c["text_4"]};
@@ -168,7 +272,7 @@ QPushButton#segBtn:hover {{
 /* ─── STATUS BAR ─────────────────────────────────────────────────── */
 QStatusBar {{
     background: {c["bg_1"]};
-    border-top: 1px solid {c["line"]};
+    border-top: 1px solid {c["line_soft"]};
     color: {c["text_3"]};
     font-size: {fs_small};
     max-height: 26px;
@@ -179,7 +283,7 @@ QStatusBar::item {{
 }}
 QPushButton#sbTermBtn {{
     background: transparent;
-    border: 1px solid {c["line"]};
+    border: none;
     border-radius: 6px;
     padding: 1px 10px;
     color: {c["text_2"]};
@@ -210,9 +314,10 @@ QWidget#sbStats {{
 QWidget#sbStats:hover {{
     background: {c["bg_3"]};
 }}
+/* Log errors: the count is coloured, the chip is not a red alarm box. */
 QPushButton#sbTermBtn[state="error"] {{
     color: {c["error"]};
-    border-color: {c["error"]};
+    background: {c["error_tint"]};
 }}
 QFrame#statsCard {{
     background: {c["bg_2"]};
@@ -298,7 +403,7 @@ QWidget#registerArea {{
 /* Also unruled — see #topBar. The table's own header row starts on bg_1
    immediately below, which is the boundary. */
 QWidget#mainHead {{
-    background: {c["bg_0"]};
+    background: {c["bg_1"]};
 }}
 QLabel#mhTitle {{
     color: {c["text_1"]};
@@ -319,37 +424,37 @@ QLabel#mhCrumb[state="ok"] {{
 }}
 QLabel#mhBadge {{
     color: {c["text_3"]};
-    background: {c["bg_2"]};
-    border: 1px solid {c["line_soft"]};
-    border-radius: 4px;
-    padding: 3px 7px;
+    background: transparent;
+    border: none;
+    padding: 3px 4px;
     font-size: {fs_small};
 }}
 QWidget#searchBox {{
-    background: {c["bg_2"]};
-    border: 1px solid {c["line_soft"]};
-    border-radius: 6px;
-    min-height: 26px;
-    max-height: 26px;
-}}
-QWidget#searchBox:focus-within {{
-    border: 1px solid {c["accent_soft"]};
     background: {c["bg_0"]};
-}}
-/* Head-bar profile dropdown (register-map view). */
-QPushButton#mhProfile {{
-    background: {c["bg_2"]};
     border: 1px solid {c["line"]};
     border-radius: 6px;
-    padding: 0 12px;
-    color: {c["text_1"]};
-    font-size: {fs};
     min-height: 30px;
     max-height: 30px;
 }}
+QWidget#searchBox:focus-within {{
+    border: 1px solid {focus_ring};
+    background: {c["bg_0"]};
+}}
+/* Project dropdown — the first crumb of the header ("plant ▾ / Сканер"). */
+QPushButton#mhProfile {{
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 0 26px 0 8px;
+    color: {c["text_2"]};
+    font-size: {fs_h2};
+    font-weight: 500;
+    min-height: 32px;
+    max-height: 32px;
+}}
 QPushButton#mhProfile:hover {{
-    background: {c["bg_3"]};
-    border-color: {c["line_strong"]};
+    background: {c["bg_2"]};
+    color: {c["text_1"]};
 }}
 QLabel#searchIcon {{
     background: transparent;
@@ -394,12 +499,13 @@ QHeaderView {{
 }}
 QHeaderView::section {{
     background: {c["bg_1"]};
-    color: {c["text_4"]};
+    color: {c["text_3"]};
     border: none;
-    border-bottom: 1px solid {c["line_soft"]};
-    padding: 6px 8px;
+    border-bottom: 1px solid {c["line"]};
+    padding: 7px 8px;
     font-size: {fs_small};
-    font-weight: 500;
+    font-weight: 600;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
 }}
 QHeaderView::section:horizontal {{
@@ -423,7 +529,7 @@ QTableView QTableCornerButton::section {{
    typed text on top of the old one (unreadable double-draw). */
 QTableWidget QLineEdit {{
     background: {c["bg_2"]};
-    border: 1px solid {c["accent"]};
+    border: 1px solid {focus_ring};
     padding: 0 5px;
     margin: 0;
     color: {c["text_1"]};
@@ -465,7 +571,7 @@ QLineEdit#consoleInput {{
     selection-background-color: {c["accent_soft"]};
 }}
 QLineEdit#consoleInput:focus {{
-    border-color: {c["accent"]};
+    border-color: {focus_ring};
 }}
 QLineEdit#consoleInput[invalid="true"] {{
     border-color: {c["error"]};
@@ -475,14 +581,15 @@ QPushButton#consoleSend {{
     background: {c["accent"]};
     color: {c["accent_fg"]};
     border: none;
-    border-radius: 4px;
-    padding: 3px 14px;
+    border-radius: 6px;
+    padding: 0 18px;
     font-weight: 600;
-    font-size: {fs_small};
+    font-size: {fs};
+    min-height: 30px;
+    max-height: 30px;
 }}
 QPushButton#consoleSend:hover {{
-    background: {c["accent_soft"]};
-    color: {c["text_1"]};
+    background: {accent_hover};
 }}
 
 /* ─── LOG PANEL ──────────────────────────────────────────────────── */
@@ -522,12 +629,10 @@ QPushButton#logTab {{
 QPushButton#logTab[active="true"] {{
     color: {c["text_1"]};
     border-bottom: 2px solid {c["accent"]};
-    background: {c["bg_2"]};
     font-weight: 600;
 }}
 QPushButton#logTab:hover {{
-    color: {c["text_2"]};
-    background: {c["bg_2"]};
+    color: {c["text_1"]};
 }}
 
 /* ─── TREND PANEL ────────────────────────────────────────────────── */
@@ -546,7 +651,10 @@ QLabel#trendsZoneTitle {{
 QWidget#trendCard {{
     background: {c["bg_2"]};
     border: 1px solid {c["line_soft"]};
-    border-radius: 8px;
+    border-radius: 10px;
+}}
+QWidget#trendCard:hover {{
+    border: 1px solid {c["line"]};
 }}
 QWidget#trendCard[dragging="true"] {{
     border: 1px solid {c["accent"]};
@@ -555,36 +663,71 @@ QWidget#trendCard[dragging="true"] {{
 QLabel#gTitle {{
     color: {c["text_1"]};
     font-size: {fs};
-    font-weight: 500;
+    font-weight: 600;
+}}
+/* THE number of the card: large, monospace, the live reading. */
+QLabel#gValue {{
+    color: {c["text_1"]};
+    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-size: {font_size + 9}pt;
+    font-weight: 600;
+}}
+QLabel#gValue[state="stale"] {{
+    color: {c["text_4"]};
+}}
+QLabel#gValue[state="waiting"] {{
+    color: {c["text_4"]};
+}}
+QLabel#gUnit {{
+    color: {c["text_3"]};
+    font-size: {fs_h2};
+}}
+QLabel#gDelta {{
+    color: {c["text_3"]};
+    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-size: {fs_small};
+}}
+QLabel#gDelta[state="stale"] {{
+    color: {c["warn"]};
+    font-family: {font_family};
+}}
+QLabel#gDelta[state="paused"] {{
+    color: {c["accent"]};
+    font-family: {font_family};
+    font-weight: 600;
 }}
 QLabel#gMeta {{
     color: {c["text_4"]};
     font-family: "JetBrains Mono", "Consolas", monospace;
     font-size: {fs_small};
 }}
+QLabel#gStatLbl {{
+    color: {c["text_4"]};
+    font-size: {fs_small};
+}}
+QLabel#gStatVal {{
+    color: {c["text_2"]};
+    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-size: {fs_small};
+}}
+QLabel#gWait {{
+    color: {c["text_4"]};
+    background: transparent;
+    font-size: {fs};
+}}
+QLabel#gGrip {{
+    background: transparent;
+}}
 QPushButton#gIconBtn {{
     background: transparent;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
 }}
 QPushButton#gIconBtn:hover {{
     background: {c["bg_3"]};
 }}
-QLabel#gStatLbl {{
-    color: {c["text_4"]};
-    font-size: {fs_small};
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}}
-QLabel#gStatVal {{
-    color: {c["text_1"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
-    font-size: {fs_h2};
-    font-weight: 500;
-}}
 QWidget#gFoot {{
     background: transparent;
-    border-top: 1px solid {c["line_soft"]};
 }}
 QWidget#twSeg {{
     background: {c["bg_1"]};
@@ -680,8 +823,9 @@ QDoubleSpinBox {{
 QLineEdit:focus,
 QTextEdit:focus,
 QComboBox:focus,
-QSpinBox:focus {{
-    border: 1px solid {c["accent"]};
+QSpinBox:focus,
+QDoubleSpinBox:focus {{
+    border: 1px solid {focus_ring};
 }}
 QComboBox::drop-down {{
     subcontrol-origin: padding;
@@ -751,12 +895,23 @@ QPushButton:pressed {{
 }}
 QPushButton#btnPrimary {{
     background: {c["accent"]};
-    border: none;
+    border: 1px solid {c["accent"]};
     color: {c["accent_fg"]};
     font-weight: 600;
 }}
 QPushButton#btnPrimary:hover {{
-    background: {c["text_1"]};
+    background: {accent_hover};
+    border-color: {accent_hover};
+}}
+QPushButton#btnSecondary, QPushButton#btnOutline {{
+    background: {c["bg_2"]};
+    border: 1px solid {c["line"]};
+    color: {c["text_1"]};
+    font-weight: 500;
+}}
+QPushButton#btnSecondary:hover, QPushButton#btnOutline:hover {{
+    background: {c["bg_3"]};
+    border-color: {c["line_strong"]};
 }}
 QPushButton:disabled {{
     color: {c["text_4"]};
@@ -793,7 +948,7 @@ QMessageBox QPushButton:default {{
     font-weight: 600;
 }}
 QMessageBox QPushButton:default:hover {{
-    background: {c["text_1"]};
+    background: {accent_hover};
 }}
 QCheckBox {{
     color: {c["text_2"]};
@@ -880,9 +1035,8 @@ QListWidget#stSide::item:hover {{
     color: {c["text_1"]};
 }}
 QListWidget#stSide::item:selected {{
-    background: {c["accent_tint"]};
+    background: {c["bg_3"]};
     color: {c["text_1"]};
-    border-left: 2px solid {c["accent"]};
 }}
 QWidget#stContent {{
     background: {c["bg_0"]};
@@ -906,7 +1060,11 @@ QLabel#stSectionDesc {{
     font-size: {fs_small};
     padding-bottom: 12px;
 }}
+QWidget#stColumn, QWidget#stFieldLabel {{
+    background: transparent;
+}}
 QWidget#stField {{
+    background: transparent;
     border-top: 1px solid {c["line_soft"]};
 }}
 QLabel#stFieldName {{
@@ -1000,7 +1158,7 @@ QSpinBox#stInput {{
 QLineEdit#stInput:focus,
 QComboBox#stInput:focus,
 QSpinBox#stInput:focus {{
-    border: 1px solid {c["accent_soft"]};
+    border: 1px solid {focus_ring};
     background: {c["bg_0"]};
 }}
 /* Watch window */
@@ -1012,6 +1170,25 @@ QWidget#watchBar {{
 }}
 QPushButton#iconBtn:checked {{
     background: {c["accent_tint"]};
+}}
+/* Empty states (gui_widgets.EmptyState): a tile, a title, a sentence, the
+   first step. Transparent — it floats over the empty grid or canvas. */
+QWidget#emptyPane {{
+    background: transparent;
+}}
+QLabel#emptyTile {{
+    background: {c["bg_2"]};
+    border: 1px solid {c["line_soft"]};
+    border-radius: 14px;
+}}
+QLabel#emptyTitle {{
+    color: {c["text_1"]};
+    font-size: {fs_h3};
+    font-weight: 600;
+}}
+QLabel#emptyBody {{
+    color: {c["text_3"]};
+    font-size: {fs};
 }}
 /* "Nothing here yet" copy, shown in place of an empty grid. */
 QLabel#emptyState {{
@@ -1031,6 +1208,19 @@ QProgressBar#scanProgress::chunk {{
     background: {c["accent"]};
     border-radius: 3px;
 }}
+/* Dashboard mode pill: running (green) / editing (amber). */
+QLabel#modeBadge {{
+    border-radius: 10px;
+    padding: 2px 10px;
+    font-size: {fs_small};
+    font-weight: 600;
+    color: {c["ok"]};
+    background: {c["ok_tint"]};
+}}
+QLabel#modeBadge[state="edit"] {{
+    color: {c["warn"]};
+    background: {c["warn_tint"]};
+}}
 QWidget#dashCanvas {{
     background: {c["bg_0"]};
 }}
@@ -1043,7 +1233,7 @@ QLineEdit#dashInput {{
     font-family: "JetBrains Mono", "Consolas", monospace;
 }}
 QLineEdit#dashInput:focus {{
-    border: 1px solid {c["accent"]};
+    border: 1px solid {focus_ring};
     background: {c["bg_0"]};
 }}
 QPushButton#dashCardX {{
@@ -1069,6 +1259,7 @@ QLabel#stFontPreview {{
 /* Shortcuts / About rows */
 QWidget#stShortcutRow,
 QWidget#stAboutRow {{
+    background: transparent;
     border-bottom: 1px solid {c["line_soft"]};
 }}
 QLabel#stShortcutLbl {{

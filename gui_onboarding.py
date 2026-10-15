@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QRect, QPoint, QEvent, pyqtSignal
 from PyQt6.QtGui import QPainter, QColor, QPen
 
-from theme_manager import get_theme
+from theme_manager import get_theme, _mix
 
 
 class OnboardingGuide(QWidget):
@@ -129,7 +129,7 @@ class OnboardingGuide(QWidget):
             QPushButton {{ color:{c['accent_fg']}; background:{c['accent']};
                            border:none; border-radius:7px; font-size:13px;
                            font-weight:600; padding:7px 20px; }}
-            QPushButton:hover {{ background:{c['text_1']}; }}
+            QPushButton:hover {{ background:{_mix(c['accent'], c['text_1'], 0.16)}; }}
         """)
         self.btn_next.clicked.connect(self._next)
 

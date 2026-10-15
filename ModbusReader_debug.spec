@@ -1,5 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+import sys
 from PyInstaller.utils.hooks import collect_submodules
+
+sys.path.insert(0, os.path.abspath(SPECPATH))
+from tools.version_resource import version_info  # Explorer → Properties → Details
 
 hiddenimports = ['openpyxl', 'PyQt6.QtSvg']
 hiddenimports += collect_submodules('pymodbus')
@@ -20,10 +25,16 @@ a = Analysis(
     optimize=0,
 )
 pyz = PYZ(a.pure)
+# Start-up splash: a one-file exe unpacks for seconds before Python runs;
+# this image is on screen from the first instant (main.py closes it).
+splash = Splash('assets/splash.png', binaries=a.binaries, datas=a.datas,
+                text_pos=None, minify_script=True, always_on_top=False)
 
 exe = EXE(
     pyz,
     a.scripts,
+    splash,
+    splash.binaries,
     a.binaries,
     a.datas,
     [],
@@ -41,4 +52,5 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon='assets/app.ico',
+    version=version_info('ModbusReader_debug.exe'),
 )

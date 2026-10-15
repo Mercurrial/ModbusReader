@@ -52,6 +52,16 @@ def my_excepthook(exc_type, value, tback):
 sys.excepthook = my_excepthook
 
 
+def _close_splash():
+    """Close the PyInstaller start-up splash (one-file builds only; the
+    module does not exist when running from source)."""
+    try:
+        import pyi_splash  # type: ignore
+        pyi_splash.close()
+    except Exception:
+        pass
+
+
 def main():
     # Настройка HighDPI (PassThrough) для четкого промышленного интерфейса на любых мониторах
     QApplication.setHighDpiScaleFactorRoundingPolicy(
@@ -97,6 +107,7 @@ def main():
         window = ModernScadaApp()
         window.show()
     except Exception as e:
+        _close_splash()
         text = "".join(traceback.format_exception(type(e), e, e.__traceback__))
         print("FATAL ERROR during GUI initialization:\n" + text, file=sys.stderr)
         _write_error_log(text)
@@ -107,6 +118,7 @@ def main():
             f"Не удалось запустить ModbusReader / ModbusReader failed to start:\n\n"
             f"{type(e).__name__}: {e}\n\n{error_log_path()}")
         sys.exit(1)
+    _close_splash()                      # the window is up: drop the splash
     sys.exit(app.exec())
 
 

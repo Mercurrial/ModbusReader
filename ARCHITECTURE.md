@@ -60,12 +60,16 @@ main.py
   └─ ModernScadaApp (gui_main.py)  ← the main window (~1400 lines; shrinking)
         ├─ AppContext (app_context.py)           — shared services: settings,
         │                                          core, translator, theme
-        ├─ MainToolBar (gui_toolbar.py)          — emits action_* signals
+        ├─ NavRail (gui_rail.py)                 — every page, left edge
+        ├─ MainToolBar (gui_toolbar.py)          — header: project / page,
+        │                                          link chip, Connect
         ├─ RegisterTable (gui_table.py)          — the dashboard grid (MVC view)
         ├─ TrendsManager (gui_trends.py)         — live charts
         ├─ LogPanel (gui_log.py)                 — transaction log
         ├─ MainStatusBar (gui_statusbar.py)
-        └─ embedded overlays: SettingsDialog, ProfileEditorDialog, MacroWindow
+        ├─ pages (content_stack): map, dashboard, console, scanner, sniffer,
+        │   snapshots, logger, macros (MacroWindow, embedded), slave
+        └─ embedded overlays: SettingsDialog, ProfileEditorDialog
 ```
 
 **Application context (`app_context.py`):** `AppContext` owns the cross-cutting
@@ -137,11 +141,12 @@ Connection-loss policy (configurable in settings):
 | **`theme_manager.py`** | 170 | **Theme/accent registry.** `THEMES` dict of color-token palettes (dark/light) + `ACCENT_PALETTES` overrides; `get_theme()` is a copy-returning lookup. | `THEMES`, `get_theme()`, `ACCENT_PALETTES`, `DEFAULT_THEME` |
 | `styles.py` | 806 | Builds the QSS stylesheet from theme tokens + font + accent. | `get_stylesheet()` |
 | `i18n.py` | 246 | **Translation registry.** `STRINGS` dict, `get_translator(lang)` → `t(key)`. | `STRINGS`, `get_translator`, `SUPPORTED_LANGUAGES` |
-| **`commands.py`** | 87 | **Command registry** — `Command` descriptors + `COMMANDS` for top-bar actions (id, label key, icon, shortcut, placement). Drives toolbar buttons, shortcuts and tooltips. | `Command`, `COMMANDS`, `BY_ID`, `BUTTONS`, `SHORTCUTS` |
-| `gui_toolbar.py` | 349 | Top toolbar widget — builds action buttons from the `commands` registry; emits `command_triggered(cmd_id)`. | `MainToolBar`, `command_triggered` |
+| **`commands.py`** | ~140 | **Command registry** — `Command` descriptors + `COMMANDS` (id, label key, icon, shortcut, placement, rail group). Drives the rail, the header buttons, shortcuts and tooltips. | `Command`, `COMMANDS`, `BY_ID`, `VIEWS`, `RAIL_FOOTER`, `GROUPS`, `BUTTONS`, `SHORTCUTS` |
+| `gui_rail.py` | ~240 | Left navigation rail: every page in two groups (monitor / tools), settings + help at the bottom, collapsible, busy dots. | `NavRail`, `command_triggered`, `set_active_view`, `set_busy`, `set_collapsed` |
+| `gui_toolbar.py` | ~290 | Header bar: project crumb + page title, link chip, Connect (the primary action), watch / language / theme / layout. | `MainToolBar`, `command_triggered`, `link_clicked`, `set_link_text` |
 | `gui_trends.py` | 894 | Live trend cards + fullscreen chart dialog (pyqtgraph). `TrendsManager` takes an `AppContext`. | `TrendsManager`, `TrendCard`, `ChartExpandDialog` |
-| `gui_macros.py` | 697 | Macro editor window: code editor + run/stop + results table + export + help. Takes an `AppContext`. | `MacroWindow`, `CodeEditor` |
-| `gui_widgets.py` | 236 | Reusable design widgets. | `Segmented`, `ToggleSwitch`, `LabeledSlider`, `SwatchPicker` |
+| `gui_macros.py` | ~790 | Macro page: code editor + run/stop + results table + export + help. Takes an `AppContext`; `embedded=True` since 2.2 (a page, not a window). | `MacroWindow`, `CodeEditor` |
+| `gui_widgets.py` | ~360 | Reusable design widgets, incl. empty states. | `Segmented`, `ToggleSwitch`, `LabeledSlider`, `SwatchPicker`, `EmptyState`, `EmptyOverlay` |
 | `gui_statusbar.py` | 189 | Status bar: connection dot + editable slave-id. | `MainStatusBar`, `_SlaveIdEditor` |
 | `gui_onboarding.py` | 267 | First-run coach-mark guide overlay. | `OnboardingGuide` |
 | `memory_viewer.py` | ~330 | Dialog to read a memory area as a 2D grid; multi-endian array parser; themed controls (wide combos, chevron arrows). Takes an `AppContext`. | `MemoryViewerDialog` |
@@ -237,9 +242,11 @@ Bilingual labels are `(ru, en)` tuples resolved by `tr()`. Informational pages
 
 ### 4.5 Commands / shortcuts — `commands.py`  ✅
 
-`Command` fields: `cmd_id, label_key, icon, shortcut, place, register`. `place ∈
-{button, menu, icon, hidden}`; `register=False` makes a shortcut a display-only
-alias (the Profile button shows `Ctrl+N` but the hidden `new_config` owns it).
+`Command` fields: `cmd_id, label_key, icon, shortcut, place, register, group`.
+`place ∈ {view, rail, button, icon, hidden}` — `view` = a page in the left rail
+(in rail section `group` ∈ `GROUPS`: monitor / tools), `rail` = the rail footer
+(settings, help), `button` = header-bar action (watch, connect); `register=False`
+makes a shortcut a display-only alias.
 
 The old triangle (toolbar `action_*` signals + a `SHORTCUTS` dict for tooltips +
 a separate `_setup_shortcuts` list for bindings) collapsed into one registry plus
@@ -254,16 +261,17 @@ one handler map:
 - tooltips ("label (shortcut)") derive from the descriptor's `label_key` +
   `shortcut`.
 
-**Add a top-bar action** → add ONE `Command(..., place="button")` to `COMMANDS`
-(display order = declaration order) + one `cmd_id: self._handler` line in
-`_command_handler_map()`. Button, global shortcut and tooltip all follow.
+**Add a page** → ONE `Command(..., place="view", group=...)` + its widget in
+`_view_pages()`. **Add a header action** → ONE `Command(..., place="button")` +
+one `cmd_id: self._handler` line in `_command_handler_map()`. Entry, global
+shortcut and tooltip all follow.
 
 Derived views (recomputed at import): `BY_ID`, `BUTTONS` (the rendered action
 buttons), `SHORTCUTS` (commands whose shortcut is registered globally).
 
-Parameterized / non-command toolbar events keep dedicated signals:
-`action_open_recent(path)`, `brand_clicked`, `theme_changed`, `lang_changed`,
-`graphs_toggled`, `log_toggled`.
+Parameterized / non-command events keep dedicated signals: rail
+`brand_clicked` / `collapsed_changed`; header `link_clicked`, `theme_changed`,
+`lang_changed`, `graphs_toggled`, `log_toggled`.
 
 ### 4.6 Transports — `transports.py`  ✅
 
@@ -441,7 +449,7 @@ undo/drag).
   onboarding-guide style (no native title bar). ALL native
   QMessageBox.critical/warning/information calls migrated to
   `themed_message`/`themed_info` — zero native chrome anywhere.
-- **Nav switcher**: `commands.py` gained `place="view"` commands
+- **Nav switcher** (superseded by the 2.2 rail): `commands.py` gained `place="view"` commands
   (`view_table`/`view_map`/`view_console`/`view_slave`, Ctrl+1..4) and a derived
   `VIEWS` tuple. The toolbar renders the cluster; the active view (or open
   settings/editor overlay) carries `[active="true"]` (QSS accent underline).
@@ -1043,6 +1051,69 @@ Every finding was reproduced on the running code first; each is pinned by
 - Tests never touch the developer's real settings: `conftest` points
   `SETTINGS_FILE` at a temp dir for the whole session. The i18n guard also
   checks widget constructors (`QLabel("…")`) and dialog titles.
+
+**v2.2.0 (2026-10-15): the window redesigned as a professional tool.**
+Pinned by `tests/test_nav_views.py` (rail, header, macros page).
+
+- **Frame**: `NavRail` (left, every page always visible, two groups: monitor =
+  map + dashboard, tools = console … emulator; settings + help in the footer;
+  collapsible to icons, `settings["rail_collapsed"]`; a green busy dot on a
+  tool that works in the background, sampled by the 500 ms stats timer in
+  `_refresh_activity`) + `MainToolBar` as a HEADER bar ("project ▾ / page",
+  the link chip "COM3 · 115200 · 8N1 · ID 10" → settings, Connect as the one
+  accent-filled primary button, then watch / RU|EN / theme / layout). The ⋯
+  overflow and `pinned_views` are gone from the UI (the key stays in settings
+  and projects for round-trips). `_set_nav(id)` keeps the rail highlight and
+  the header title together; overlays pass their nav id ("view_map" lights
+  the map page and titles the editor).
+- **Macros are a page** (`MacroWindow(embedded=True)`, `view_macros`, Ctrl+M).
+  A running macro survives page switches; `confirm_close()` / `shutdown()`
+  carry the old close prompts to window close.
+- **Project dropdown** moved from the map head bar to the header (it owns the
+  map, the boards AND the link). The map head bar is now the page toolbar:
+  search, count, "Edit map".
+- **Empty states** (`gui_widgets.EmptyState`: tile + title + sentence +
+  first action; `EmptyOverlay` lays it over a table/scroll viewport while it
+  is empty, driven by the model's row signals) on the map (open project / open
+  map / create map), scanner, sniffer, dashboard; snapshot / logger / emulator
+  swapped their grey sentence for it (`setText` stays compatible).
+- **Visual system**: chrome (rail, header, status bar) bg_1 with whisper
+  `line_soft` edges, data bg_0; one button language (accent-filled primary,
+  quiet ghost secondaries; hover = `_mix(accent, text_1, .16)`, no white
+  flash); grid text hierarchy (`RegisterTable._recolor`: name/value text_1,
+  address/type text_3, non-writable access text_4 — re-run on theme change);
+  every data table left-aligned (centred cells in wide columns read as a
+  toy); read-only rows leave "New value" EMPTY instead of a dash; a long name
+  elides before the values leave the screen (`_reflow_columns` takes viewport
+  overflow out of NAME); settings form capped at a 860 px column; the macro
+  editor is finally monospace (the global font rule overrode `setFont`).
+- **Trend card** (`gui_trends.TrendCard`, rebuilt): big current value
+  (`#gValue`), delta over the window, min/max/avg in one line — all with ONE
+  precision from `decimals_for(window)` and `fmt_value()` (thin-space
+  thousands, exponent only < 1e-4 or ≥ 1e9; the expanded view uses the same);
+  Y ticks at the window's real min/mid/max inside an 18 % pad (ticks at the
+  exact range edges were clipped); gradient fill (`_gradient_brush`,
+  ObjectBoundingMode) + dot with halo; y-only grid on cards
+  (`_apply_grid(vertical=False)`); states waiting / live / stale (no sample
+  for `STALE_AFTER` = 5 s, checked by a 1 s timer — value and line fade) /
+  paused, shown through `[state]` QSS properties; grip appears on hover in
+  the series-colour dot's slot; explicit expand button.
+- **Polish rules** (`tests/test_polish_v22.py`): no native-chrome dialogs —
+  text input is `dialogs.themed_input` (card style, returns the
+  `(text, ok)` shape of Qt's getText); the focus ring is NEUTRAL
+  (`focus_ring = text_4` in styles.py — an accent ring read as an error with
+  red-family accents); `_park_focus()` gives focus to the page on every
+  switch and at start-up (else Qt drops it into the first field); every
+  user-visible unit and frame description comes from i18n (`unitMsSuffix`,
+  `unitMbSuffix`, `unitMin`, `coreFrame*`, `gui_trends.win_label`,
+  `gui_logger.human_size(n, lang)`); menus that open menus use
+  `gui_widgets.DropButton` (a drawn chevron, never a "▾" glyph); the window
+  title is "<document> — ModbusReader" (`_refresh_window_title`).
+- **Build**: `tools/version_resource.py` gives both exes a Windows version
+  resource generated from version.py; `tools/make_splash.py` →
+  `assets/splash.png`, shown by PyInstaller's `Splash` target while the
+  one-file exe unpacks and closed by `main._close_splash()` once the window is
+  up. Both take effect on the next build.
 
 **v2.1.0 (2026-10-13): new types, line statistics, watch window, icon,
 slave mode, Modbus tables.** Pinned by `tests/test_v21_features.py` and

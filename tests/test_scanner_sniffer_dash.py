@@ -219,19 +219,17 @@ def test_dash_stale_marking(dash):
     assert card.stale is False
 
 
-# ── toolbar smart pins ──────────────────────────────────────────────────
-def test_toolbar_pins_and_overflow():
+# ── header bar ──────────────────────────────────────────────────────────
+def test_header_bar_title_and_connect():
+    """The 2.2 header: the page title follows the page; Connect is the
+    primary button and flips with the link."""
     from gui_toolbar import MainToolBar
     tb = MainToolBar(None)
-    assert tb._pinned == ["view_table", "view_console",
-                          "view_scanner", "view_sniffer"]
-    assert tb.btn_more.isVisibleTo(tb)
-    # active unpinned view highlights the overflow button
-    tb.set_active_view("view_dash")
-    assert tb.btn_more.property("active") == "true"
-    tb.set_active_view("view_table")
-    assert tb.btn_more.property("active") == "false"
-    # view_table can never be unpinned
-    tb.set_pinned(["view_console"])
-    assert tb._pinned[0] == "view_table"
+    tb.set_active_view("view_scanner")
+    assert tb.lbl_title.text() == tb.t("viewScanner")
+    tb.set_connect_state(True)
+    assert tb.btn_connect.property("connected") == "true"
+    assert tb.btn_link.property("connected") == "true"
+    tb.set_connect_state(False)
+    assert tb.btn_connect.property("connected") == "false"
     tb.deleteLater()
