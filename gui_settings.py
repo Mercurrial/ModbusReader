@@ -645,10 +645,11 @@ class SettingsDialog(QDialog):
         self._about_license(lo)
 
     def _about_license(self, lo: QVBoxLayout):
-        """GPL: a program that talks to the user shows its licence, the
-        absence of warranty and where the source is."""
-        from version import LICENSE_ID, SOURCE_URL
-        s = self._section(lo, self.L("Лицензия", "Licence"))
+        """«Проект»: the licence, the absence of warranty and where the
+        source is (GPL asks a program that talks to the user to say so), and
+        the one quiet place that mentions support — no pop-ups, ever."""
+        from version import DONATE_URL, LICENSE_ID, SOURCE_URL
+        s = self._section(lo, self.L("Проект", "Project"))
         lic_file = _license_path()
         lic_url = (QUrl.fromLocalFile(lic_file).toString() if lic_file
                    else f"{SOURCE_URL}/blob/main/LICENSE")
@@ -657,6 +658,8 @@ class SettingsDialog(QDialog):
             (self.L("Текст лицензии", "Licence text"), LICENSE_ID, lic_url),
             (self.L("Исходный код", "Source code"),
              SOURCE_URL.removeprefix("https://"), SOURCE_URL),
+            (self.L("Поддержать проект", "Support the project"),
+             DONATE_URL.removeprefix("https://"), DONATE_URL),
         ]:
             row = QWidget()
             row.setObjectName("stAboutRow")

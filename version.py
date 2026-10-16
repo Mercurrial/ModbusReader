@@ -14,3 +14,7 @@ SOURCE_URL = f"https://github.com/{UPDATE_REPO}"
 # GNU GPL v3 or later (LICENSE). Not a free choice: PyQt6 is GPL-3.0-only and
 # ships inside every build. THIRD_PARTY_LICENSES.md lists the rest.
 LICENSE_ID = "GPL-3.0-or-later"
+
+# Voluntary support (DonationAlerts). Shown in README, the GitHub «Sponsor»
+# button (.github/FUNDING.yml) and one row in About — nowhere else.
+DONATE_URL = "https://dalink.to/mercurrial"

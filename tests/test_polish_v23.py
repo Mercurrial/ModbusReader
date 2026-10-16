@@ -168,6 +168,14 @@ def test_about_shows_licence_and_source(tmp_path, monkeypatch):
                  if lb.openExternalLinks()]
         assert any("GPL-3.0-or-later" in t for t in links)
         assert any(SOURCE_URL in t for t in links)
+        from version import DONATE_URL
+        assert any(DONATE_URL in t for t in links)
+        # the same link drives the GitHub «Sponsor» button
+        import os
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        funding = open(os.path.join(root, ".github", "FUNDING.yml"),
+                       encoding="utf-8").read()
+        assert DONATE_URL in funding
     finally:
         w._close_overlay()
         w._closing_for_update = True

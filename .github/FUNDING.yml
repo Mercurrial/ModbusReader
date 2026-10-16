@@ -1,0 +1,3 @@
+# The «Sponsor» button on the repository page. GitHub Sponsors does not pay
+# out in Russia, so the link goes to the DonationAlerts page.
+custom: ["https://dalink.to/mercurrial"]

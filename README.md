@@ -118,6 +118,13 @@ exe (Свойства → Подробно) берутся из `version.py` а�
 Descriptor+Registry, потоковая модель (COM-портом владеет один поток
 `ModbusCore`). История изменений — [CHANGELOG.md](CHANGELOG.md).
 
+## Поддержать проект
+
+ModbusReader бесплатен и таким останется. Если программа экономит вам время,
+можно поддержать разработку: **[dalink.to/mercurrial](https://dalink.to/mercurrial)**.
+Не меньше помогают сообщения об ошибках, идеи и карты регистров приборов —
+через [Issues](https://github.com/Mercurrial/ModbusReader/issues).
+
 ## Лицензия
 
 ModbusReader — свободная программа: её можно использовать (в том числе в
