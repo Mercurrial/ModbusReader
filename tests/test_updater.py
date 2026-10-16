@@ -456,3 +456,23 @@ def test_about_page_has_the_check_button(win, monkeypatch):
     win.update_ctl.status_changed.emit("XYZ")
     assert dlg.lbl_update.text() == "XYZ"
     win._close_overlay()
+
+
+# ── calendar versions (tools/release.py) ───────────────────────────
+def test_next_calendar_version():
+    import datetime
+    import importlib.util
+    import os
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "tools", "release.py")
+    spec = importlib.util.spec_from_file_location("release_tool", path)
+    rel = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rel)
+    oct16 = datetime.date(2026, 10, 16)
+    assert rel.next_version("2.2.0", oct16) == "26.10.0"        # leaving SemVer
+    assert rel.next_version("26.10.0", oct16) == "26.10.1"      # same month
+    assert rel.next_version("26.10.4", datetime.date(2026, 11, 2)) == "26.11.0"
+    assert rel.next_version("26.12.3", datetime.date(2027, 1, 5)) == "27.1.0"
+    # the updater sees every step as newer
+    chain = ["2.2.0", "26.10.0", "26.10.1", "26.11.0", "27.1.0"]
+    assert all(updater.is_newer(b, a) for a, b in zip(chain, chain[1:]))

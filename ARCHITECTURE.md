@@ -1115,6 +1115,77 @@ Pinned by `tests/test_nav_views.py` (rail, header, macros page).
   one-file exe unpacks and closed by `main._close_splash()` once the window is
   up. Both take effect on the next build.
 
+**26.10.0 (2026-10-16): self-update, installer, open source, zoomed review.**
+
+- **Versions are calendar versions from here on**, `YY.MM.N` (26.10.0 = the
+  first release of October 2026, then 26.10.1, 26.11.0 …). The 2.x numbers
+  meant nothing to a user and every release bumped the minor anyway; the date
+  says how old a copy is. The number only grows (26 > 2), which is all
+  `updater.is_newer` compares. One source: `version.py`;
+  `tools/release.py` computes the next number and writes version.py, the
+  CHANGELOG heading («## Не выпущено» → «## X — date») and README; tags are
+  `vYY.MM.N`, annotated, on the release commit.
+- **Commits** are one change each with a type prefix (`ui:`, `feat:`,
+  `fix:`, `docs:`, `tools:`, `release:`) — no more one commit per release.
+Pinned by `tests/test_polish_v23.py`; `tools/ui_snapshots.py OUT
+[--settings dist/app_settings.json] [--theme] [--lang]` photographs every
+page, menu, dialog and settings page headless for the next review.
+
+- **Tables**: `gui_widgets.RowNumberHeader` replaces the vertical header
+  wherever row numbers show (map, memory viewer) — it paints the row's zebra
+  colour under the number (parity counted over VISIBLE rows, as Qt does), and
+  the QSS vertical section is transparent. Header text aligns with its cells
+  (left over left, centred only over centred cells).
+- **QLabel indent**: any QSS padding/border turns on Qt's automatic indent
+  (half an "x") — global `QLabel { qproperty-indent: 0; }` so text starts at
+  the padding edge. Layouts set ON a widget get the style's ~9 px default
+  margins — zero them explicitly (bit the settings rows). QSS `margin` on a
+  layout-managed QWidget does nothing — use `addSpacing`.
+- **QTextEdit placeholder** is clipped to the empty document's height: keep
+  placeholders to one short line.
+- **Watch window** rebuilt as a frameless translucent Tool window with its own
+  card, drag bar (`startSystemMove`), size grip and `WatchRowWidget` rows.
+- **Editor**: name + counts on top, table tools below, Save/Apply/Close in a
+  footer; JSON preview behind a toggle (`settings["editor_json"]`); the two
+  name columns take the spare width until the user drags one. Drag snapshots
+  are cleaned explicitly in `_end_drag` — `QAbstractAnimation.stop()` does not
+  emit `finished`.
+- **Esc** in overlays: QDialog handles it with focus inside; the main window's
+  `keyPressEvent` rejects the overlay otherwise, and `changeEvent` puts focus
+  back into the overlay on re-activation (Alt+Tab).
+- **Self-update** (`updater.py` logic, `gui_update.py` UI; pinned by
+  `tests/test_updater.py`). Feed: GitHub `releases/latest` of
+  `version.UPDATE_REPO`, read ANONYMOUSLY (a private repo answers 404 =
+  `not_found`). `install_kind()`: "source" (never checks by itself — the
+  tests and a dev checkout stay offline), "installed" (`unins*.exe` beside
+  the exe → the `ModbusReader-Setup-*` asset), "portable" (the asset with the
+  running exe's name, else `ModbusReader.exe`). Every download must match the
+  asset's GitHub `digest` (SHA-256), size and `MZ` header — no digest, no
+  install; a verified earlier download is reused; old ones are deleted at
+  start-up. Hand-over WITHOUT a script interpreter (a hidden PowerShell was
+  refused intermittently by the dev machine's protection, and .cmd files are
+  read in the OEM code page): portable — the new exe runs as
+  `--finish-update --wait <pids> --target <old exe>` (main.py, before Qt):
+  waits on the old process AND the one-file bootloader (`app_pids`), copies
+  itself to `<old>.new`, `os.replace` with retries, starts it; failure starts
+  the old exe. Installed — the installer runs with `/SILENT … /WAITPID=<pid>`;
+  its `[Code] InitializeSetup` waits, `[Run]` (no skipifsilent) relaunches.
+  Children get `updater.child_env()` (no `_MEI` paths,
+  `PYINSTALLER_RESET_ENVIRONMENT=1`). `ModernScadaApp.quit_for_update()` asks
+  everything a close would ask BEFORE starting the new copy and keeps the
+  window if the start fails; after it, the close is not cancellable.
+  Settings: `update_auto`, `update_skip` (a skipped version is not offered
+  automatically), `update_last_check`.
+- **Installer**: `ModbusReader_setup.spec` (one folder) +
+  `installer/ModbusReader.iss` (UTF-8 WITH BOM — Russian messages), built by
+  `tools/build_installer.py` (finds ISCC of Inno Setup 6/7). Per user
+  (`PrivilegesRequired=lowest`, `{autopf}` = %LOCALAPPDATA%\Programs), fixed
+  AppId, `[InstallDelete] {app}\_internal` so no stale modules survive an
+  upgrade, `.mbproj` association under HKA, desktop icon task. An installed
+  copy keeps settings in %APPDATA%\ModbusReader
+  (`settings_manager.is_installed_dir`). `main._file_argument` opens a
+  double-clicked .mbproj.
+
 **v2.1.0 (2026-10-13): new types, line statistics, watch window, icon,
 slave mode, Modbus tables.** Pinned by `tests/test_v21_features.py` and
 `tests/test_areas.py` (804 tests in total).

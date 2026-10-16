@@ -1,0 +1,96 @@
+# tools/release.py
+"""Prepare a release: pick the version, write it everywhere it appears.
+
+    python tools/release.py            # the next calendar version for today
+    python tools/release.py 26.11.0    # an explicit one
+    python tools/release.py --show     # current and next, change nothing
+
+Versions are CALENDAR versions, YY.MM.N: 26.10.0 is the first release of
+October 2026, 26.10.1 the next one that month, 26.11.0 the first in November.
+The number says how fresh a copy is; it only ever grows (26.x > the 2.x of
+the semantic-version era), which is all the updater compares.
+
+Writes version.py (APP_VERSION, RELEASE_DATE), the CHANGELOG heading of the
+upcoming release ("## Не выпущено · …" → "## 26.10.0 — 2026-10-16 · …";
+re-running for the same version refreshes the date) and the README line.
+It does not commit, tag or publish — it prints those steps.
+"""
+import datetime
+import os
+import re
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+
+_VERSION_RE = re.compile(r"^\d{2}\.(?:[1-9]|1[0-2])\.\d+$")
+
+
+def parse(v: str) -> tuple:
+    return tuple(int(x) for x in v.split("."))
+
+
+def next_version(current: str, today: datetime.date) -> str:
+    """The first release of a month is YY.MM.0; each further one in the same
+    month adds one to the last number."""
+    yy, mm = today.year % 100, today.month
+    cur = parse(current) if re.fullmatch(r"\d+\.\d+\.\d+", current) else (0, 0, 0)
+    if cur[:2] == (yy, mm):
+        return f"{yy}.{mm}.{cur[2] + 1}"
+    return f"{yy}.{mm}.0"
+
+
+def _sub_once(pattern: str, repl: str, text: str, what: str) -> str:
+    new, n = re.subn(pattern, repl, text, count=1, flags=re.M)
+    if n != 1:
+        sys.exit(f"release: could not find {what}")
+    return new
+
+
+def apply(version: str, date: str):
+    p = os.path.join(ROOT, "version.py")
+    s = open(p, encoding="utf-8").read()
+    s = _sub_once(r'^APP_VERSION = ".*"$', f'APP_VERSION = "{version}"', s, "APP_VERSION")
+    s = _sub_once(r'^RELEASE_DATE = ".*"$', f'RELEASE_DATE = "{date}"', s, "RELEASE_DATE")
+    open(p, "w", encoding="utf-8", newline="\n").write(s)
+
+    p = os.path.join(ROOT, "CHANGELOG.md")
+    s = open(p, encoding="utf-8").read()
+    head = re.compile(r"^## (?:Не выпущено|" + re.escape(version)
+                      + r" — \d{4}-\d{2}-\d{2})(.*)$", re.M)
+    if not head.search(s):
+        sys.exit("release: CHANGELOG has no «## Не выпущено» section to release")
+    s = head.sub(lambda m: f"## {version} — {date}{m.group(1)}", s, count=1)
+    open(p, "w", encoding="utf-8", newline="\n").write(s)
+
+    p = os.path.join(ROOT, "README.md")
+    s = open(p, encoding="utf-8").read()
+    s = _sub_once(r"Версия \*\*[^*]+\*\*", f"Версия **{version}**", s, "the README version")
+    open(p, "w", encoding="utf-8", newline="\n").write(s)
+
+
+def main():
+    from version import APP_VERSION
+    today = datetime.date.today()
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    version = args[0] if args else next_version(APP_VERSION, today)
+    if "--show" in sys.argv:
+        print(f"current {APP_VERSION}, next {next_version(APP_VERSION, today)}")
+        return
+    if not _VERSION_RE.match(version):
+        sys.exit(f"release: {version!r} is not YY.MM.N")
+    if _VERSION_RE.match(APP_VERSION) and parse(version) < parse(APP_VERSION):
+        sys.exit(f"release: {version} is older than {APP_VERSION}")
+    apply(version, today.isoformat())
+    print(f"ModbusReader {version} ({today.isoformat()}) written to version.py, "
+          "CHANGELOG.md, README.md. Next:")
+    print("  python -m pytest")
+    print(f'  git commit -am "release: {version}"')
+    print(f'  git tag -a v{version} -m "ModbusReader {version}"')
+    print("  python tools/build_installer.py --portable")
+    print(f"  gh release create v{version} dist/ModbusReader-Setup-{version}.exe "
+          "dist/ModbusReader.exe dist/ModbusReader_debug.exe")
+
+
+if __name__ == "__main__":
+    main()

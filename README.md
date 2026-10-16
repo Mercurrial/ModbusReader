@@ -1,7 +1,7 @@
 # ModbusReader
 
 Настольное приложение (PyQt6) для наладки и мониторинга приборов по
-**Modbus RTU** — и как мастер, и как эмулятор прибора. Версия **2.2.0**.
+**Modbus RTU** — и как мастер, и как эмулятор прибора. Версия **26.10.0**.
 
 Все экраны — в панели слева (сворачивается до значков); в шапке — проект,
 параметры связи и кнопка «Подключить».
@@ -48,7 +48,12 @@ Linux/macOS: те же шаги (`source .venv/bin/activate`, `python main.py`).
 На Linux пользователь должен состоять в группе `dialout` для доступа к
 последовательным портам.
 
-## Сборка .exe
+**Без прибора:** откройте `examples/demo.mbproj` (Проект → Открыть) — карта
+условного термоконтроллера со всеми областями Modbus, масштабом и
+перечислением. Чтобы карта «ожила», запустите вторую копию программы в
+режиме «Эмулятор (Slave)» на парном виртуальном COM-порту (например, com0com).
+
+## Сборка .exe и установщика
 
 Иконка и заставка лежат в `assets/`; перегенерировать их:
 `python tools/make_icon.py`, `python tools/make_splash.py`. Сведения о версии
@@ -56,18 +61,46 @@ exe (Свойства → Подробно) берутся из `version.py` а�
 
 ```bash
 .venv\Scripts\pip install pyinstaller
-.venv\Scripts\pyinstaller ModbusReader.spec          # оконная сборка (с иконкой)
+.venv\Scripts\pyinstaller ModbusReader.spec          # портативный exe (один файл)
 .venv\Scripts\pyinstaller ModbusReader_debug.spec    # с консолью для отладки
+.venv\Scripts\python tools/build_installer.py        # установщик (нужен Inno Setup)
 ```
+
+`tools/build_installer.py` собирает программу папкой (`ModbusReader_setup.spec`)
+и упаковывает её Inno Setup'ом (`installer/ModbusReader.iss`) в
+`dist/ModbusReader-Setup-X.Y.Z.exe`; с `--portable` — ещё и оба exe. Установка
+— для текущего пользователя, без прав администратора: ярлыки в «Пуске» и на
+рабочем столе, `.mbproj` открывается двойным щелчком, удаление — через
+«Приложения».
+
+## Обновления
+
+Программа сама проверяет последний выпуск на GitHub (`UPDATE_REPO` в
+`version.py`) — при запуске и раз в 6 часов — и, если вышла новая версия,
+спрашивает разрешения; после «Обновить» скачивает, сверяет SHA-256 и
+перезапускается уже новой. Выключается в «Настройки → Общие», вручную —
+«О программе → Проверить сейчас».
+
+Чтобы выпуск подхватился, в нём должны быть файлы с такими именами
+(тег `vX.Y.Z`, не pre-release):
+
+* `ModbusReader-Setup-X.Y.Z.exe` — для установленных копий;
+* `ModbusReader.exe`, `ModbusReader_debug.exe` — для портативных.
+
+Репозиторий обновлений читается без входа — он должен быть **публичным**.
 
 ## Файлы, которые пишет приложение
 
 * `app_settings.json` — рядом с приложением (портативный режим). Если папка
   недоступна для записи (например, Program Files), настройки переезжают в
   `%APPDATA%/ModbusReader`. Запись атомарная, с копией `.bak` и
-  восстановлением при повреждении.
+  восстановлением при повреждении. У установленной программы настройки
+  всегда в `%APPDATA%/ModbusReader` — в папке программы только сама
+  программа, обновление и удаление их не трогают.
 * `modbusreader_errors.log` — в той же папке: трассировки непойманных ошибок
   (в оконной сборке консоли нет, без этого файла сбой нельзя расследовать).
+* Скачанные обновления — `%LOCALAPPDATA%/ModbusReader/updates`; удаляются
+  после установки.
 
 ## Тесты
 
@@ -84,3 +117,27 @@ exe (Свойства → Подробно) берутся из `version.py` а�
 См. [ARCHITECTURE.md](ARCHITECTURE.md) — карта модулей, стиль
 Descriptor+Registry, потоковая модель (COM-портом владеет один поток
 `ModbusCore`). История изменений — [CHANGELOG.md](CHANGELOG.md).
+
+## Лицензия
+
+ModbusReader — свободная программа: её можно использовать (в том числе в
+работе), изучать, изменять и распространять на условиях
+[GNU GPL версии 3](LICENSE) или (по вашему выбору) любой более поздней
+версии. Изменённые версии, которые вы распространяете, тоже должны быть
+открыты под GPL. Программа предоставляется **без каких-либо гарантий**.
+Лицензии сторонних компонентов — в [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
+```
+ModbusReader — Modbus RTU commissioning and monitoring
+Copyright (C) 2026 Mercurrial
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+more details.
+```
