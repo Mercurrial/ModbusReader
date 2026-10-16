@@ -12,7 +12,8 @@ the semantic-version era), which is all the updater compares.
 
 Writes version.py (APP_VERSION, RELEASE_DATE), the CHANGELOG heading of the
 upcoming release ("## Не выпущено · …" → "## 26.10.0 — 2026-10-16 · …";
-re-running for the same version refreshes the date) and the README line.
+re-running for the same version refreshes the date) and, if present, a README
+«Версия **X**» line (the README normally shows a release badge).
 It does not commit, tag or publish — it prints those steps.
 """
 import datetime
@@ -63,10 +64,13 @@ def apply(version: str, date: str):
     s = head.sub(lambda m: f"## {version} — {date}{m.group(1)}", s, count=1)
     open(p, "w", encoding="utf-8", newline="\n").write(s)
 
+    # The README shows the version through a release badge; an explicit
+    # «Версия **X**» line, if one is ever added back, is kept in step.
     p = os.path.join(ROOT, "README.md")
     s = open(p, encoding="utf-8").read()
-    s = _sub_once(r"Версия \*\*[^*]+\*\*", f"Версия **{version}**", s, "the README version")
-    open(p, "w", encoding="utf-8", newline="\n").write(s)
+    new = re.sub(r"Версия \*\*[^*]+\*\*", f"Версия **{version}**", s, count=1)
+    if new != s:
+        open(p, "w", encoding="utf-8", newline="\n").write(new)
 
 
 def main():
