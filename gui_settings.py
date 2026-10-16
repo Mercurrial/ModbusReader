@@ -8,13 +8,14 @@ walking ``settings_schema.PAGES`` (a Descriptor + Registry, see settings_schema.
 To add a setting, add one Field to the schema; this file does not change."""
 
 import copy
+import os
 
 from PyQt6.QtWidgets import (
     QDialog, QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget,
     QListWidget, QListWidgetItem, QLabel, QLineEdit, QComboBox,
     QPushButton, QFrame, QScrollArea, QMessageBox,
 )
-from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, QUrl, pyqtSignal
 from PyQt6.QtGui import QFont, QFontDatabase  # noqa: F401 — patched by tests
 from PyQt6.QtWidgets import QCompleter
 
@@ -30,6 +31,26 @@ from version import APP_VERSION, RELEASE_DATE
 def _settings_path() -> str:
     import settings_manager
     return settings_manager.SETTINGS_FILE
+
+
+def _link_html(url: str, text: str, color: str) -> str:
+    """Rich-text link for a QLabel (markup, not UI text — kept out of the
+    widget call so the i18n guard reads only real strings)."""
+    return f'<a href="{url}" style="color:{color};">{text}</a>'
+
+
+def _license_path() -> str:
+    """The GPL text shipped with this copy: next to the sources, inside the
+    one-file bundle, or beside an installed exe ("" if none is found)."""
+    import sys
+    here = os.path.dirname(os.path.abspath(__file__))
+    for base in (getattr(sys, "_MEIPASS", ""), here,
+                 os.path.dirname(os.path.abspath(sys.executable))):
+        for name in ("LICENSE", "LICENSE.txt"):
+            p = os.path.join(base, name) if base else ""
+            if p and os.path.isfile(p):
+                return p
+    return ""
 
 
 import icons
@@ -621,6 +642,45 @@ class SettingsDialog(QDialog):
             h.addStretch()
             h.addWidget(v)
             s.addWidget(row)
+        self._about_license(lo)
+
+    def _about_license(self, lo: QVBoxLayout):
+        """GPL: a program that talks to the user shows its licence, the
+        absence of warranty and where the source is."""
+        from version import LICENSE_ID, SOURCE_URL
+        s = self._section(lo, self.L("Лицензия", "Licence"))
+        lic_file = _license_path()
+        lic_url = (QUrl.fromLocalFile(lic_file).toString() if lic_file
+                   else f"{SOURCE_URL}/blob/main/LICENSE")
+        link = self.c["text_1"]
+        for label, text, url in [
+            (self.L("Текст лицензии", "Licence text"), LICENSE_ID, lic_url),
+            (self.L("Исходный код", "Source code"),
+             SOURCE_URL.removeprefix("https://"), SOURCE_URL),
+        ]:
+            row = QWidget()
+            row.setObjectName("stAboutRow")
+            h = QHBoxLayout(row)
+            h.setContentsMargins(0, 8, 0, 8)
+            k = QLabel(label)
+            k.setObjectName("stAboutKey")
+            v = QLabel(_link_html(url, text, link))
+            v.setObjectName("stAboutVal")
+            v.setOpenExternalLinks(True)
+            h.addWidget(k)
+            h.addStretch()
+            h.addWidget(v)
+            s.addWidget(row)
+        note = QLabel(self.L(
+            "Свободная программа: её можно использовать, изменять и "
+            "распространять на условиях GNU GPL версии 3 или более поздней. "
+            "Предоставляется без каких-либо гарантий.",
+            "Free software: you may use, modify and redistribute it under "
+            "the GNU GPL version 3 or later. It comes with absolutely no "
+            "warranty."))
+        note.setObjectName("stFieldHint")
+        note.setWordWrap(True)
+        s.addWidget(note)
 
     def _about_updates(self, lo: QVBoxLayout):
         """«Обновления»: where the last check stands + «Проверить сейчас».

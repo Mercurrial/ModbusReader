@@ -66,6 +66,9 @@ Type: filesandordirs; Name: "{app}\_internal"
 
 [Files]
 Source: "..\dist\ModbusReader\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; GPL: the licence goes with the program, readable without digging into _internal.
+Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
+Source: "..\THIRD_PARTY_LICENSES.md"; DestDir: "{app}"; DestName: "THIRD_PARTY_LICENSES.txt"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"

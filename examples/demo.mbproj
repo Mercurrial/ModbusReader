@@ -1,0 +1,172 @@
+{
+  "format": "modbusreader.project",
+  "version": 1,
+  "name": "Демо-термоконтроллер",
+  "connection": {
+    "transport": "serial",
+    "port": "COM1",
+    "baudrate": "115200",
+    "parity": "None (N)",
+    "stopbits": "1",
+    "slave_id": 1,
+    "timeout": 1000,
+    "poll_rate": 500,
+    "interframe_delay": 50,
+    "retry_count": 3,
+    "order_short": "AB",
+    "order_long": "ABCD",
+    "order_float": "BADC"
+  },
+  "profile": {
+    "format": "modbusreader.profile",
+    "version": 2,
+    "name": "Демо-термоконтроллер",
+    "registers": [
+      {
+        "addr": 0,
+        "name": "Температура",
+        "type": "FLOAT",
+        "length": 2,
+        "rw": "R",
+        "name_en": "Temperature",
+        "unit": "°C"
+      },
+      {
+        "addr": 2,
+        "name": "Уставка температуры",
+        "type": "FLOAT",
+        "length": 2,
+        "rw": "RW",
+        "name_en": "Temperature setpoint",
+        "unit": "°C"
+      },
+      {
+        "addr": 4,
+        "name": "Режим",
+        "type": "UINT16",
+        "length": 1,
+        "rw": "RW",
+        "name_en": "Mode",
+        "enum": {
+          "0": "Стоп",
+          "1": "Работа",
+          "2": "Авария"
+        }
+      },
+      {
+        "addr": 5,
+        "name": "Мощность нагревателя",
+        "type": "UINT16",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Heater power",
+        "unit": "%",
+        "scale": 0.1
+      },
+      {
+        "addr": 6,
+        "name": "Наработка",
+        "type": "UINT32",
+        "length": 2,
+        "rw": "R",
+        "name_en": "Operating hours",
+        "unit": "ч"
+      },
+      {
+        "addr": 8,
+        "name": "Слово состояния",
+        "type": "BITS16",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Status word"
+      },
+      {
+        "addr": 9,
+        "name": "Код ошибки",
+        "type": "UINT16",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Error code"
+      },
+      {
+        "addr": 10,
+        "name": "Задержка аварии",
+        "type": "UINT16",
+        "length": 1,
+        "rw": "RW",
+        "name_en": "Alarm delay",
+        "unit": "с",
+        "default": "30"
+      },
+      {
+        "addr": 0,
+        "name": "Напряжение питания",
+        "type": "UINT16",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Supply voltage",
+        "unit": "В",
+        "area": "input",
+        "scale": 0.01
+      },
+      {
+        "addr": 1,
+        "name": "Ток датчика",
+        "type": "SHORT",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Sensor current",
+        "unit": "мА",
+        "area": "input"
+      },
+      {
+        "addr": 0,
+        "name": "Нагреватель",
+        "type": "BOOL",
+        "length": 1,
+        "rw": "RW",
+        "name_en": "Heater",
+        "area": "coil"
+      },
+      {
+        "addr": 1,
+        "name": "Вентилятор",
+        "type": "BOOL",
+        "length": 1,
+        "rw": "RW",
+        "name_en": "Fan",
+        "area": "coil"
+      },
+      {
+        "addr": 0,
+        "name": "Дверь открыта",
+        "type": "BOOL",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Door open",
+        "area": "discrete"
+      }
+    ]
+  },
+  "dashboards": [
+    {
+      "format": "modbusreader.dashboard",
+      "version": 1,
+      "name": "",
+      "widgets": [],
+      "links": []
+    }
+  ],
+  "layout": {
+    "pinned_views": [
+      "view_table",
+      "view_console",
+      "view_scanner",
+      "view_sniffer"
+    ],
+    "last_view": "view_table",
+    "log_height": 150,
+    "show_log": true,
+    "graph_width": 420
+  }
+}

@@ -132,3 +132,68 @@ def test_editor_hides_zero_counts_on_an_empty_map(tmp_path, monkeypatch):
     finally:
         ed.is_modified = False
         ed.close()
+
+
+# ── open source: licence, About, demo project ──────────────────────
+def test_the_licence_is_the_gpl_v3_text():
+    import os
+    import version
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    text = open(os.path.join(root, "LICENSE"), encoding="utf-8").read()
+    assert text.lstrip().startswith("GNU GENERAL PUBLIC LICENSE")
+    assert "Version 3, 29 June 2007" in text
+    assert version.LICENSE_ID == "GPL-3.0-or-later"
+    for spec in ("ModbusReader.spec", "ModbusReader_debug.spec",
+                 "ModbusReader_setup.spec"):
+        assert "('LICENSE', '.')" in open(os.path.join(root, spec), encoding="utf-8").read()
+
+
+def test_about_shows_licence_and_source(tmp_path, monkeypatch):
+    import settings_manager
+    import gui_main
+    import gui_settings
+    from version import SOURCE_URL
+    assert gui_settings._license_path().endswith("LICENSE")
+    monkeypatch.setattr(settings_manager, "SETTINGS_FILE",
+                        str(tmp_path / "settings.json"), raising=False)
+    w = gui_main.ModernScadaApp()
+    try:
+        w.show()
+        w._open_settings()
+        _pump()
+        dlg = w._overlay_page
+        dlg.nav.setCurrentRow(dlg._page_keys.index("about"))
+        _pump()
+        links = [lb.text() for lb in dlg.findChildren(QLabel)
+                 if lb.openExternalLinks()]
+        assert any("GPL-3.0-or-later" in t for t in links)
+        assert any(SOURCE_URL in t for t in links)
+    finally:
+        w._close_overlay()
+        w._closing_for_update = True
+        w.close()
+        _pump()
+
+
+def test_demo_project_opens_clean(tmp_path, monkeypatch):
+    import os
+    import formats
+    import settings_manager
+    import gui_main
+    from profile_manager import find_overlaps, find_duplicate_names
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(root, "examples", "demo.mbproj")
+    regs = formats.load_project(path)["profile"]["registers"]
+    assert len(regs) >= 10 and not find_overlaps(regs) and not find_duplicate_names(regs)
+    assert {r.get("area", "holding") for r in regs} == {"holding", "input", "coil", "discrete"}
+    monkeypatch.setattr(settings_manager, "SETTINGS_FILE",
+                        str(tmp_path / "settings.json"), raising=False)
+    w = gui_main.ModernScadaApp()
+    try:
+        w._open_project(path)
+        _pump()
+        assert w.register_table.rowCount() == len(regs)
+    finally:
+        w._closing_for_update = True
+        w.close()
+        _pump()

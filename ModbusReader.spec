@@ -15,7 +15,8 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('assets/app.png', 'assets'), ('assets/app.ico', 'assets')],
+    datas=[('assets/app.png', 'assets'), ('assets/app.ico', 'assets'),
+           ('LICENSE', '.'), ('THIRD_PARTY_LICENSES.md', '.')],   # GPL: the licence travels with the program
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
