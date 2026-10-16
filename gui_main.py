@@ -30,6 +30,7 @@ from gui_dash import DashboardView
 from gui_snapshot import SnapshotView
 from gui_logger import LoggerView
 from gui_watch import WatchWindow
+from gui_update import UpdateController
 from dialogs import themed_info, themed_message, themed_input
 from qt_utils import later
 import datatypes
@@ -97,6 +98,12 @@ class ModernScadaApp(QMainWindow):
         # The spotlight rectangles need the window laid out, hence the delay.
         if not self.settings.get("guide_seen_main"):
             later(500, self, self._maybe_show_onboarding)
+
+        # Updates: a quiet check a few seconds after start-up, then every few
+        # hours; one question when there is something new (gui_update).
+        self._closing_for_update = False
+        self.update_ctl = UpdateController(self)
+        self.update_ctl.start()
 
     # ===========================================================
     #  SHARED SERVICES
@@ -769,6 +776,7 @@ class ModernScadaApp(QMainWindow):
         self.ctx.update(new_values)
         restyle = any(self.settings.get(k) != prev_style[k] for k in self._STYLE_KEYS)
         self._apply_settings(restyle=restyle)
+        self.update_ctl.apply_settings()
 
         # The Журнал / Графики pages hold layout settings. They used to be
         # read only at startup — and _save_window_geometry overwrote them on
@@ -1754,9 +1762,12 @@ class ModernScadaApp(QMainWindow):
         # results; if the operator cancels THERE, the app must stay open too.
         # Before, closing the main window left a running macro thread behind
         # (and the window it belongs to was torn down under it).
-        if not self.macro_view.confirm_close():
+        # (quit_for_update has asked this already — the new copy is running
+        # by then, so this close must not be cancellable.)
+        if not self._closing_for_update and not self.macro_view.confirm_close():
             event.ignore()
             return
+        self.update_ctl.shutdown()
         self.macro_view.shutdown()
         self.scanner_view.stop_if_running()
         self.dash_view.stop_if_running()      # kill dashboard automation timers
@@ -1771,6 +1782,31 @@ class ModernScadaApp(QMainWindow):
         self._save_window_geometry()
         save_settings(self.settings)
         super().closeEvent(event)
+
+    def quit_for_update(self, args: list) -> bool:
+        """Start the downloaded update (*args*, see updater.handover_args) and
+        exit so it can replace this copy.
+
+        Everything a normal close would ask is asked FIRST — an open editor's
+        unsaved map, a running macro: once the new copy is running, this one
+        has to go. If the start itself fails nothing is closed."""
+        import updater
+        if self._overlay_page is not None:
+            self._overlay_page.reject()
+            if self._overlay_page is not None:
+                return False
+        if not self.macro_view.confirm_close():
+            return False
+        try:
+            updater.start_detached(args)
+        except OSError as e:
+            themed_info(self, self.ctx.theme, "error", self.t("updStartFailed"),
+                        f"{e}\n{args[0]}")
+            return False
+        self._closing_for_update = True
+        self.close()
+        QApplication.quit()
+        return True
 
     def _create_config(self):
         """«Создать карту»: the editor opens EMPTY for a brand-new map."""

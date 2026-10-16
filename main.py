@@ -62,7 +62,26 @@ def _close_splash():
         pass
 
 
+def _file_argument(argv: list) -> str:
+    """A project / map handed over on the command line — what Explorer
+    passes when a .mbproj is double-clicked (the installer registers it)."""
+    for a in argv[1:]:
+        if (not a.startswith("-") and a.lower().endswith((".mbproj", ".json"))
+                and os.path.isfile(a)):
+            return os.path.abspath(a)
+    return ""
+
+
 def main():
+    # Second half of a portable self-update: THIS exe is the new version,
+    # started by the old one just before it quit (updater.finish_update —
+    # waits for it, takes its place, starts it). No window, no Qt.
+    import updater
+    if updater.FINISH_FLAG in sys.argv:
+        code = updater.finish_update(sys.argv)
+        _close_splash()
+        sys.exit(code)
+
     # Настройка HighDPI (PassThrough) для четкого промышленного интерфейса на любых мониторах
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
@@ -119,6 +138,10 @@ def main():
             f"{type(e).__name__}: {e}\n\n{error_log_path()}")
         sys.exit(1)
     _close_splash()                      # the window is up: drop the splash
+    path = _file_argument(sys.argv)
+    if path:
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: window._open_project(path))
     sys.exit(app.exec())
 
 

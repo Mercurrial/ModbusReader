@@ -30,6 +30,8 @@ from version import APP_VERSION, RELEASE_DATE
 def _settings_path() -> str:
     import settings_manager
     return settings_manager.SETTINGS_FILE
+
+
 import icons
 
 
@@ -595,6 +597,7 @@ class SettingsDialog(QDialog):
         names.addWidget(desc)
         hl.addLayout(names, 1)
         lo.addWidget(hero)
+        self._about_updates(lo)
         s = self._section(lo, self.L("Сведения", "Details"))
         import sys
         from PyQt6.QtCore import PYQT_VERSION_STR
@@ -618,6 +621,40 @@ class SettingsDialog(QDialog):
             h.addStretch()
             h.addWidget(v)
             s.addWidget(row)
+
+    def _about_updates(self, lo: QVBoxLayout):
+        """«Обновления»: where the last check stands + «Проверить сейчас».
+        The controller lives on the main window (gui_update)."""
+        # Embedded as an overlay the dialog is re-parented into the page
+        # stack, so look up the chain for the window that owns the controller.
+        owner = self.parent()
+        while owner is not None and not hasattr(owner, "update_ctl"):
+            owner = owner.parent()
+        ctl = getattr(owner, "update_ctl", None)
+        if ctl is None:
+            return
+        s = self._section(lo, tr("updSection", self.lang))
+        row = QWidget()
+        row.setObjectName("stAboutRow")
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 8, 0, 8)
+        self.lbl_update = QLabel(ctl.status_text)
+        self.lbl_update.setObjectName("stAboutKey")
+        self.lbl_update.setWordWrap(True)
+        ctl.status_changed.connect(self.lbl_update.setText)
+        btn = QPushButton(tr("updCheckNow", self.lang))
+        btn.setObjectName("btnSecondary")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.clicked.connect(lambda: ctl.check(manual=True))
+        self.btn_check_updates = btn
+        h.addWidget(self.lbl_update, 1)
+        h.addWidget(btn)
+        s.addWidget(row)
+        if ctl.kind == "source":
+            note = QLabel(tr("updSourceNote", self.lang))
+            note.setObjectName("stFieldHint")
+            note.setWordWrap(True)
+            s.addWidget(note)
 
     # ── result ────────────────────────────────────────────────────
     def _ensure_all_pages_built(self):

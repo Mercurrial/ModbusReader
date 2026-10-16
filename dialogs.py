@@ -30,6 +30,35 @@ _ROLE_DESTRUCTIVE = QMessageBox.ButtonRole.DestructiveRole
 _ROLE_REJECT = QMessageBox.ButtonRole.RejectRole
 
 
+def button_qss(c: dict, kind: str) -> str:
+    """Card-dialog button styles, shared with the other card dialogs
+    (gui_update). kind: "primary" | "destructive" | "plain" | "ghost"."""
+    if kind == "primary":
+        return (f"QPushButton {{ color:{c['accent_fg']}; background:{c['accent']};"
+                f" border:none; border-radius:7px; font-size:13px;"
+                f" font-weight:600; padding:7px 20px; }}"
+                f"QPushButton:hover {{ background:{_mix(c['accent'], c['text_1'], 0.16)}; }}"
+                f"QPushButton:disabled {{ background:{c['bg_3']}; color:{c['text_4']}; }}")
+    if kind == "destructive":
+        # Bare error-red text on the card background was unreadable.
+        # A tinted fill plus a solid border lifts it clear of bg_2
+        # while still reading as "this one throws work away".
+        return (f"QPushButton {{ color:{c['error']};"
+                f" background:{c['error_tint']};"
+                f" border:1px solid {c['error']}; border-radius:7px;"
+                f" font-size:13px; font-weight:600; padding:7px 16px; }}"
+                f"QPushButton:hover {{ background:{c['error']};"
+                f" color:{c['bg_0']}; }}")
+    if kind == "ghost":
+        return (f"QPushButton {{ color:{c['text_3']}; background:transparent;"
+                f" border:none; border-radius:7px; font-size:13px; padding:7px 10px; }}"
+                f"QPushButton:hover {{ color:{c['text_1']}; background:{c['bg_3']}; }}")
+    return (f"QPushButton {{ color:{c['text_1']}; background:{c['bg_3']};"
+            f" border:1px solid {c['line']}; border-radius:7px;"
+            f" font-size:13px; padding:7px 16px; }}"
+            f"QPushButton:hover {{ background:{c['bg_4']}; }}")
+
+
 class _CardDialog(QDialog):
     """Frameless rounded-card modal (matches OnboardingGuide's card)."""
 
@@ -116,27 +145,13 @@ class _CardDialog(QDialog):
             # Never let a label be cut: the button asks for the room it needs.
             b.setMinimumWidth(b.fontMetrics().horizontalAdvance(label) + 34)
             if is_default:
-                style = (f"QPushButton {{ color:{c['accent_fg']}; background:{c['accent']};"
-                         f" border:none; border-radius:7px; font-size:13px;"
-                         f" font-weight:600; padding:7px 20px; }}"
-                         f"QPushButton:hover {{ background:{_mix(c['accent'], c['text_1'], 0.16)}; }}")
+                style = button_qss(c, "primary")
                 b.setDefault(True)
                 self._default_idx = i
             elif role == _ROLE_DESTRUCTIVE:
-                # Bare error-red text on the card background was unreadable.
-                # A tinted fill plus a solid border lifts it clear of bg_2
-                # while still reading as "this one throws work away".
-                style = (f"QPushButton {{ color:{c['error']};"
-                         f" background:{c['error_tint']};"
-                         f" border:1px solid {c['error']}; border-radius:7px;"
-                         f" font-size:13px; font-weight:600; padding:7px 16px; }}"
-                         f"QPushButton:hover {{ background:{c['error']};"
-                         f" color:{c['bg_0']}; }}")
+                style = button_qss(c, "destructive")
             else:
-                style = (f"QPushButton {{ color:{c['text_1']}; background:{c['bg_3']};"
-                         f" border:1px solid {c['line']}; border-radius:7px;"
-                         f" font-size:13px; padding:7px 16px; }}"
-                         f"QPushButton:hover {{ background:{c['bg_4']}; }}")
+                style = button_qss(c, "plain")
             b.setStyleSheet(style)
             b.clicked.connect(lambda _=False, idx=i: self._pick(idx))
             if role == _ROLE_REJECT and self._reject_idx < 0:

@@ -270,6 +270,11 @@ PAGES: tuple = (
                     _toggle("load_last", "startupLoad",
                             hint="loadLastHint", default=True),
                 )),
+        Section("updSection", "updSectionDesc",
+                fields=(
+                    _toggle("update_auto", "updAuto",
+                            hint="updAutoHint", default=True),
+                )),
     )),
 
     Page("display", "contrast", "appearance", sections=(

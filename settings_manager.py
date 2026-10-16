@@ -16,12 +16,30 @@ else:                                       # running from source
     _APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
+def is_installed_dir(d: str) -> bool:
+    """True for a copy the installer put there (it leaves its uninstaller,
+    unins000.exe, next to the program)."""
+    import glob
+    return bool(glob.glob(os.path.join(d, "unins*.exe")))
+
+
+def user_data_dir() -> str:
+    base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    d = os.path.join(base, "ModbusReader")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
 def _settings_dir() -> str:
-    """Prefer the app folder (portable use, existing installs); fall back to
-    %APPDATA%/ModbusReader when the install location is read-only (e.g. the
-    app was put into Program Files) — otherwise every save would fail and the
-    settings would silently reset on the next launch. An old file left in the
-    read-only folder is migrated to the per-user dir once."""
+    """An INSTALLED copy keeps its files in %APPDATA%/ModbusReader — the
+    program folder holds only the program, and an update or uninstall never
+    touches the settings. A portable copy keeps them beside the exe (that is
+    what portable means); if that folder is read-only (e.g. the exe was put
+    into Program Files by hand) it falls back to %APPDATA% too — otherwise
+    every save would fail and the settings would silently reset on the next
+    launch. An old file left in the read-only folder is migrated once."""
+    if getattr(sys, "frozen", False) and is_installed_dir(_APP_DIR):
+        return user_data_dir()
     try:
         probe = os.path.join(_APP_DIR, ".write_probe")
         with open(probe, "w") as f:
@@ -29,9 +47,7 @@ def _settings_dir() -> str:
         os.remove(probe)
         return _APP_DIR
     except OSError:
-        base = os.environ.get("APPDATA") or os.path.expanduser("~")
-        d = os.path.join(base, "ModbusReader")
-        os.makedirs(d, exist_ok=True)
+        d = user_data_dir()
         old = os.path.join(_APP_DIR, "app_settings.json")
         new = os.path.join(d, "app_settings.json")
         if os.path.exists(old) and not os.path.exists(new):
@@ -132,6 +148,11 @@ DEFAULT_SETTINGS = {
 
     # General
     "load_last":        True,
+    # Updates (gui_update): check on start + every few hours; a version the
+    # user chose to skip is not offered again until a newer one appears.
+    "update_auto":       True,
+    "update_skip":       "",
+    "update_last_check": 0,
 
     # State
     "last_profile_path": "",
