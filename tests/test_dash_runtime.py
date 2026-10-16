@@ -777,3 +777,16 @@ def test_new_cards_do_not_overlap(view):
         view._make_card(cfg)
     rects = [(c.x(), c.y()) for c in view.cards.values()]
     assert len(set(rects)) == 3               # every card got its own slot
+
+
+def test_duplicate_uids_in_a_file_do_not_orphan_a_widget(view):
+    """Cards are keyed by uid: with two equal uids the first card stayed on
+    screen but dropped out of the board — no values, no selection, not saved."""
+    view.load_boards([{"name": "B", "links": [], "widgets": [
+        {"uid": "same", "kind": "value", "reg_id": "0x0010", "x": 0, "y": 0},
+        {"uid": "same", "kind": "value", "reg_id": "0x0011", "x": 300, "y": 0},
+    ]}])
+    assert len(view.cards) == 2
+    view.update_value("0x0010", 5.0)
+    view.update_value("0x0011", 7.0)
+    assert sorted(c.value for c in view.cards.values()) == [5.0, 7.0]

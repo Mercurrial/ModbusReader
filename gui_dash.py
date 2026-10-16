@@ -1392,7 +1392,12 @@ class DashboardView(QWidget):
 
     # ── card lifecycle ───────────────────────────────────────────────
     def _make_card(self, cfg: dict):
-        cfg.setdefault("uid", uuid.uuid4().hex[:8])
+        # A uid already on the board (a hand-edited or generated file) gets a
+        # fresh one: cards are keyed by uid, and a duplicate used to replace
+        # the earlier card in that dict — it stayed on screen but never got
+        # another value, could not be selected and was not saved.
+        if not cfg.get("uid") or cfg["uid"] in self.cards:
+            cfg["uid"] = uuid.uuid4().hex[:8]
         k = cfg.get("kind", "value")
         dw, dh = dm.default_size(k)
         # NB: setdefault is not enough — the dialog sends explicit None for a
