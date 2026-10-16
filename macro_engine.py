@@ -163,6 +163,11 @@ class MacroRunner(QThread):
                     "name": r.get("name", datatypes.key_label(addr))}
             self._by_addr[info["addr"]] = info
             self._by_name[info["name"].strip().lower()] = info
+            # The English name works too: in the English UI that is the name
+            # the operator sees in the map (a Russian name still wins a clash).
+            en = str(r.get("name_en") or "").strip().lower()
+            if en:
+                self._by_name.setdefault(en, info)
             self._scalars.append(info)
 
         self._stop = False

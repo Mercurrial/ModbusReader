@@ -189,6 +189,7 @@ class UpdateDialog(QDialog):
             # box left three lines floating in the middle of empty space.
             text_w = 480 - 44 - 24 - 2
             sc.setFixedHeight(min(220, notes.heightForWidth(text_w) + 20 + 2))
+            self._notes_sc, self._notes_lbl = sc, notes
             nl.addWidget(sc)
         lay.addWidget(self._notes_wrap)
 
@@ -224,6 +225,37 @@ class UpdateDialog(QDialog):
         row.addWidget(self.btn_later)
         row.addWidget(self.btn_go)
         lay.addLayout(row)
+        # Size the notes box BEFORE the first show, with the stylesheet's
+        # font on the label: a top-level keeps the size it was shown with.
+        self.ensurePolished()
+        self._fit_notes()
+        self.resize(self.sizeHint())
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self._fit_notes()
+        later(0, self, self._fit_notes)        # again once the layout settled
+
+    def _fit_notes(self):
+        """Measure with the label's REAL width and font. Measured while
+        building (default font) or in showEvent (before the layout gave the
+        label its width) the notes came out a line short — the last line
+        sat on the box's bottom edge."""
+        sc = getattr(self, "_notes_sc", None)
+        if sc is None:
+            return
+        lbl = self._notes_lbl
+        # Before the first layout the label has no real width yet; the card
+        # is fixed at 480, so its text column is known.
+        width = (lbl.width() if lbl.isVisible() and lbl.width() > 50
+                 else 480 - 44 - 24 - 2)
+        sc.setFixedHeight(min(220, lbl.heightForWidth(width) + 20 + 4))
+        # The container must not be squeezed below the box: the dialog's
+        # height-for-width pass gave it less, and the box's bottom was cut.
+        self._notes_wrap.setMinimumHeight(self._notes_wrap.sizeHint().height())
+        self.layout().activate()
+        if self.isVisible() and self.height() < self.minimumSizeHint().height():
+            self.adjustSize()
 
     # ── pieces ────────────────────────────────────────────────────
     def _button(self, text: str, kind: str, slot) -> QPushButton:

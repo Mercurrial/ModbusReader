@@ -201,7 +201,7 @@ class ScannerView(QWidget):
         else:
             c0 = f"0x{hit['addr']:04X}"
             c1 = "—" if hit.get("value") is None else str(hit["value"])
-        cells = [c0, c1, f"{hit['ms']:.0f} ms"]
+        cells = [c0, c1, f"{hit['ms']:.0f}{t('unitMsSuffix')}"]
         for col, text in enumerate(cells):
             it = QTableWidgetItem(text)
             it.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)

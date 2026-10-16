@@ -13,7 +13,7 @@ import csv
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QPlainTextEdit,
     QTableWidget, QTableWidgetItem, QSplitter, QFrame, QFileDialog,
-    QMessageBox, QAbstractItemView, QDialog, QTextBrowser,
+    QMessageBox, QAbstractItemView, QDialog, QTextBrowser, QHeaderView,
 )
 from PyQt6.QtCore import Qt, QSize, QRect, pyqtSignal
 from PyQt6.QtGui import QFont, QColor, QPainter, QTextOption
@@ -23,37 +23,43 @@ from dialogs import themed_message, themed_info
 import icons
 
 
-DEFAULT_MACRO = """\
-# Пример: измерение темнового тока — 3600 циклов (~1 час).
+DEFAULT_MACRO = """# Пример: час замеров раз в секунду (карта — examples/demo.mbproj).
 # Доступно: reg/read/write/wait/record/read_all/log/now/timestamp.
-# Регистры адресуются по имени из профиля или по адресу: write(0x0010, 1).
+# Регистры — по имени из карты или по адресу: write(0x0002, 25).
+
+write("Уставка температуры", 25)        # задать уставку
 
 for i in range(3600):
-    write("Старт темнового тока", 1)   # запустить счёт
-    wait(1)                            # подождать 1 секунду
+    wait(1)                              # подождать 1 секунду
     row = {"#": i, "time": timestamp()}
-    row.update(read_all())             # прочитать все регистры
-    record(row)                        # добавить строку в таблицу
-    log("цикл", i, "готов")
+    row["Температура"] = read("Температура")
+    row["Мощность"] = read("Мощность нагревателя")
+    record(row)                          # строка в таблицу результатов
+    if i % 60 == 59:
+        log("минута", (i + 1) // 60, "готова")
 
-log("Измерение завершено")
+log("Замеры завершены")
 """
 
 # The same example for the English UI (a Russian sample under English menus
-# was the first thing an English-speaking user saw on this page).
-DEFAULT_MACRO_EN = """# Example: a dark-current measurement — 3600 cycles (~1 hour).
+# was the first thing an English-speaking user saw on this page). Registers
+# can be named in either language (macro_engine indexes name_en too).
+DEFAULT_MACRO_EN = """# Example: an hour of readings, once a second (map: examples/demo.mbproj).
 # Available: reg/read/write/wait/record/read_all/log/now/timestamp.
-# Address registers by their map name or by address: write(0x0010, 1).
+# Address registers by their map name or by address: write(0x0002, 25).
+
+write("Temperature setpoint", 25)       # set the setpoint
 
 for i in range(3600):
-    write("Dark current start", 1)     # start a count
-    wait(1)                            # wait one second
+    wait(1)                              # wait one second
     row = {"#": i, "time": timestamp()}
-    row.update(read_all())             # read every register
-    record(row)                        # add a row to the table
-    log("cycle", i, "done")
+    row["Temperature"] = read("Temperature")
+    row["Power"] = read("Heater power")
+    record(row)                          # a row in the results table
+    if i % 60 == 59:
+        log("minute", (i + 1) // 60, "done")
 
-log("Measurement finished")
+log("Readings finished")
 """
 
 
@@ -250,6 +256,11 @@ class MacroWindow(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
+        # Columns fit their contents and the last one takes the rest — the
+        # header used to stop half-way, an empty slab to its right.
+        self.table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setObjectName("mTable")
         self.table.setFont(_mono(9))
         tbl_wrap = self._titled(self.L("Результаты", "Results"), self.table, count_label=True)

@@ -362,7 +362,8 @@ class LoggerView(QWidget):
         self.table.setVisible(True)
         self.table.setColumnCount(1 + len(self._columns))
         self.table.setHorizontalHeaderLabels(
-            ["timestamp"] + [title for _addr, title in self._columns])
+            # «timestamp» is the CSV column name; on screen it is just time.
+            [t("time")] + [title for _addr, title in self._columns])
         self.table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch)
         self.table.setRowCount(0)

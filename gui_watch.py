@@ -130,10 +130,11 @@ class WatchRowWidget(QFrame):
         self.ed_write = QLineEdit()
         self.ed_write.setObjectName("wWrite")
         self.ed_write.setFixedWidth(120)
-        # Rows without a write field keep its height: every row the same.
-        sp = self.ed_write.sizePolicy()
-        sp.setRetainSizeWhenHidden(True)
-        self.ed_write.setSizePolicy(sp)
+        # Rows without a write field keep its HEIGHT (every row the same) but
+        # not its width: retaining the whole hidden field cut a read-only
+        # row's details mid-word («изменено сей…»).
+        self.ed_write.ensurePolished()
+        self.lbl_meta.setMinimumHeight(self.ed_write.sizeHint().height())
         self.ed_write.returnPressed.connect(self._write)
         bottom.addWidget(self.lbl_meta, 1)
         bottom.addWidget(self.ed_write)
@@ -426,13 +427,17 @@ class WatchWindow(QWidget):
         """Value + details line of one row."""
         t = self.ctx.t
         text = row.text if row.text is not None else "—"
+        # The table text of a scaled register already carries its unit
+        # («55.3 %»): take it off the number so every row shows the unit the
+        # same way — small, beside the value, not in the big digits.
+        unit = getattr(wdg, "unit", "")
+        if unit and row.text and text.endswith(unit):
+            text = text[: -len(unit)].rstrip()
         wdg.lbl_value.setText(text)
         wdg.lbl_value.setProperty("state", "live" if row.text is not None else "none")
         wdg.lbl_value.style().unpolish(wdg.lbl_value)
         wdg.lbl_value.style().polish(wdg.lbl_value)
-        # The table text of a scaled register already carries its unit.
-        unit = getattr(wdg, "unit", "")
-        wdg.lbl_unit.setText(unit if unit and not text.endswith(unit) and row.text else "")
+        wdg.lbl_unit.setText(unit if unit and row.text else "")
         wdg.lbl_unit.setVisible(bool(wdg.lbl_unit.text()))
         parts = [datatypes.key_label(row.addr)]
         if row.vmin is not None:
