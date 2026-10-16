@@ -6,7 +6,7 @@ of bug five times, so the guard is centralised and pinned by these tests."""
 from PyQt6.QtCore import QEvent
 from PyQt6.QtWidgets import QApplication, QLabel, QWidget
 
-from qt_utils import alive, later
+from gui.qt_utils import alive, later
 
 
 def _pump(n=10):
@@ -53,9 +53,9 @@ def test_later_swallows_runtime_error_from_a_dying_widget():
 def test_editor_guide_popup_survives_immediate_close():
     """Real scenario: the profile editor auto-opens its guide after 450 ms.
     Closing it sooner used to call _show_guide on a dead dialog."""
-    from app_context import AppContext
-    from settings_manager import DEFAULT_SETTINGS
-    from profile_editor import ProfileEditorDialog
+    from app.app_context import AppContext
+    from app.settings_manager import DEFAULT_SETTINGS
+    from gui.map_editor import ProfileEditorDialog
 
     ctx = AppContext(dict(DEFAULT_SETTINGS))
     dlg = ProfileEditorDialog(None, [], ctx)

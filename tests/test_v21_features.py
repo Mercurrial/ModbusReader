@@ -8,13 +8,13 @@ import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QMenu
 
-import byteorder
-import datatypes as dt
-import linestats
-import settings_manager
-import slave_core as sc
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
+from core import byteorder
+from core import datatypes as dt
+from core import linestats
+from app import settings_manager
+from core import slave_core as sc
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
 
 
 def _ctx(**over):
@@ -91,7 +91,7 @@ def test_bits16_opens_in_binary():
 
 
 def test_every_new_type_has_editor_hints():
-    import i18n
+    from app import i18n
     for key in ("UINT16", "BITS16", "BCD16", "UINT32", "BCD32", "INT64",
                 "DOUBLE", "STRING"):
         assert key in dt.ALL_TYPES
@@ -99,7 +99,7 @@ def test_every_new_type_has_editor_hints():
 
 
 def test_the_table_shows_int64_exactly_and_bits_in_binary():
-    from gui_table import RegisterTable, COL_CURRENT
+    from gui.register_table import RegisterTable, COL_CURRENT
     t = RegisterTable(_ctx())
     t.populate([{"addr": 0, "name": "I", "type": "INT64", "rw": "R"},
                 {"addr": 4, "name": "B", "type": "BITS16", "rw": "R"}])
@@ -125,7 +125,7 @@ class _WriteClient:
 
 
 def test_core_writes_a_string_over_its_whole_field():
-    from modbus_core import ModbusCore
+    from core.modbus_core import ModbusCore
     core = ModbusCore()
     core.client = _WriteClient()
     core.update_profile([{"addr": 0x20, "type": "STRING", "length": 3}])
@@ -135,7 +135,7 @@ def test_core_writes_a_string_over_its_whole_field():
 
 
 def test_core_writes_int64_without_a_float_round_trip():
-    from modbus_core import ModbusCore
+    from core.modbus_core import ModbusCore
     core = ModbusCore()
     core.client = _WriteClient()
     assert core._execute_write(0, "INT64", "9007199254740993")
@@ -162,8 +162,8 @@ def test_stats_snapshot_math():
 
 
 def test_the_crc_probe_tells_noise_from_silence():
-    import sniffer_core
-    import transports
+    from core import sniffer_core
+    from core import transports
     client = transports.get("serial").create({"port": "COM99"}, 0.5)
     st = linestats.LineStats()
     assert linestats.install_crc_probe(client, st)
@@ -181,7 +181,7 @@ def test_the_crc_probe_tells_noise_from_silence():
 
 
 def test_the_core_counts_every_outcome():
-    from modbus_core import ModbusCore
+    from core.modbus_core import ModbusCore
 
     class _Res:
         def __init__(self, err=False, fc=3):
@@ -207,7 +207,7 @@ def test_the_core_counts_every_outcome():
 
 
 def test_status_bar_chip_and_card():
-    from gui_statusbar import MainStatusBar
+    from gui.statusbar import MainStatusBar
     sb = MainStatusBar()
     st = linestats.LineStats()
     st.record("ok", 0.012)
@@ -230,7 +230,7 @@ REGS = [{"addr": 0x10, "name": "Температура", "type": "FLOAT", "rw": 
 
 @pytest.fixture()
 def watch():
-    from gui_watch import WatchWindow
+    from gui.watch import WatchWindow
     ctx = _ctx()
     w = WatchWindow(ctx, lambda: REGS)
     yield w
@@ -282,7 +282,7 @@ def test_watch_window_has_its_own_chrome(watch):
 
 @pytest.fixture()
 def win(tmp_path, monkeypatch):
-    import gui_main
+    from gui import main_window as gui_main
     monkeypatch.setattr(settings_manager, "SETTINGS_FILE",
                         str(tmp_path / "settings.json"), raising=False)
     w = gui_main.ModernScadaApp()
@@ -295,7 +295,7 @@ def win(tmp_path, monkeypatch):
 
 
 def test_table_menu_adds_to_watch_and_values_flow(win, monkeypatch):
-    from gui_table import COL_NAME
+    from gui.register_table import COL_NAME
     labels = []
     monkeypatch.setattr(QMenu, "exec", lambda self, *a: labels.append(
         [x.text() for x in self.actions()]))
@@ -307,7 +307,7 @@ def test_table_menu_adds_to_watch_and_values_flow(win, monkeypatch):
     assert 0x10 in win.watch_window.watched()
     assert win.watch_window.isVisible()
     rt.update_value(0x10, "21.50")
-    from gui_table import COL_CURRENT
+    from gui.register_table import COL_CURRENT
     shown = rt.item(rt.addr_to_row[0x10], COL_CURRENT).text()
     # The watch window shows exactly what the table shows.
     assert win.watch_window.row_widget(0).lbl_value.text() == shown == "21.5"
@@ -320,7 +320,7 @@ def test_dashboard_widget_can_be_watched(win):
 
 # ═══════════════ app icon ═══════════════
 def test_the_app_icon_exists_and_loads():
-    import icons
+    from gui import icons
     for name in ("app.png", "app.ico"):
         assert os.path.exists(icons.asset_path(name)), name
     data = open(icons.asset_path("app.ico"), "rb").read()
@@ -390,7 +390,7 @@ def test_silence_where_a_real_device_stays_silent():
 def test_master_reads_exactly_what_the_slave_serves(order_float):
     """End to end without a port: ModbusCore polls through a client that
     hands its requests to build_response(). Same codecs on both sides."""
-    from modbus_core import ModbusCore
+    from core.modbus_core import ModbusCore
     dt.configure_orders({"order_float": order_float})
     st = _store()
     values = {"S": "-5", "F": "21.5", "U": "4000000000", "T": "OK",
@@ -464,7 +464,7 @@ def test_the_server_answers_over_a_fake_port(monkeypatch):
 
 
 def test_master_refuses_the_port_the_emulator_serves(win, monkeypatch):
-    import gui_main
+    from gui import main_window as gui_main
     told = []
     monkeypatch.setattr(gui_main, "themed_info", lambda *a, **k: told.append(a[3]))
     monkeypatch.setattr(win.slave_view, "serving_port",
@@ -478,7 +478,7 @@ def test_the_slave_view_serves_the_open_map(win):
     win._set_profile([dict(r) for r in SLAVE_REGS], "")
     sv = win.slave_view
     assert sv.table.rowCount() == len(SLAVE_REGS)
-    from gui_slave import COL_VALUE
+    from gui.slave import COL_VALUE
     assert sv.table.item(0, COL_VALUE).text() == "-5"       # the map's default
     sv.table.item(1, COL_VALUE).setText("12.5")             # typed by the user
     assert sv.store.get_value(SLAVE_REGS[1]) == "12.50"

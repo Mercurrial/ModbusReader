@@ -1,9 +1,9 @@
 """LogPanel: HTML escaping, filters, theme rebuild."""
 import pytest
 
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
-from gui_log import LogPanel
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
+from gui.log import LogPanel
 
 
 @pytest.fixture()

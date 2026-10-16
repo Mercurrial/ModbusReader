@@ -1,7 +1,7 @@
 """ModbusCore: poll filter, crash-proof frame logging, honest write outcome."""
 import struct
 
-from modbus_core import ModbusCore
+from core.modbus_core import ModbusCore
 
 
 class _OkRes:

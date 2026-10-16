@@ -2,8 +2,8 @@
 import pytest
 from PyQt6.QtWidgets import QApplication
 
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
 
 
 def _pump():
@@ -13,13 +13,13 @@ def _pump():
 
 # ── sniffer: CRC + frame decode (pure) ──────────────────────────────────
 def test_crc16_known_vector():
-    from sniffer_core import crc16
+    from core.sniffer_core import crc16
     # The classic textbook frame: 01 03 00 00 00 02 -> CRC C4 0B on the wire.
     assert crc16(bytes([0x01, 0x03, 0x00, 0x00, 0x00, 0x02])) == 0x0BC4
 
 
 def test_decode_request_and_response():
-    from sniffer_core import crc16, decode_frame
+    from core.sniffer_core import crc16, decode_frame
     req = bytes([0x01, 0x03, 0x00, 0x10, 0x00, 0x02])
     c = crc16(req)
     d = decode_frame(req + bytes([c & 0xFF, c >> 8]))
@@ -34,7 +34,7 @@ def test_decode_request_and_response():
 
 
 def test_decode_exception_and_bad_crc():
-    from sniffer_core import crc16, decode_frame
+    from core.sniffer_core import crc16, decode_frame
     exc = bytes([0x01, 0x83, 0x02])
     c = crc16(exc)
     d = decode_frame(exc + bytes([c & 0xFF, c >> 8]))
@@ -45,7 +45,7 @@ def test_decode_exception_and_bad_crc():
 
 
 def test_write_single_is_ambiguous_echo():
-    from sniffer_core import crc16, decode_frame
+    from core.sniffer_core import crc16, decode_frame
     frm = bytes([0x0A, 0x06, 0x00, 0x10, 0x00, 0x2A])
     c = crc16(frm)
     d = decode_frame(frm + bytes([c & 0xFF, c >> 8]))
@@ -73,7 +73,7 @@ class _FakeCore:
 
 
 def test_scanner_finds_devices():
-    from scanner_engine import ScannerWorker
+    from core.scanner_engine import ScannerWorker
     w = ScannerWorker(_FakeCore(), "devices", 1, 10)
     hits = []
     w.found.connect(hits.append)
@@ -86,7 +86,7 @@ def test_scanner_finds_devices():
 
 
 def test_scanner_finds_registers_with_value():
-    from scanner_engine import ScannerWorker
+    from core.scanner_engine import ScannerWorker
     w = ScannerWorker(_FakeCore(), "registers", 0, 5, slave_id=9)
     hits = []
     w.found.connect(hits.append)
@@ -96,7 +96,7 @@ def test_scanner_finds_registers_with_value():
 
 
 def test_scanner_stop_breaks_loop():
-    from scanner_engine import ScannerWorker
+    from core.scanner_engine import ScannerWorker
     w = ScannerWorker(_FakeCore(), "devices", 1, 247)
     w.request_stop()
     done = []
@@ -108,7 +108,7 @@ def test_scanner_stop_breaks_loop():
 # ── dashboard: config, persistence, value routing ───────────────────────
 @pytest.fixture()
 def dash():
-    from gui_dash import DashboardView
+    from gui.dashboard import DashboardView
     ctx = AppContext(dict(DEFAULT_SETTINGS))
     regs = [{"addr": 1, "name": "Ток", "type": "SHORT", "unit": "А"}]
     view = DashboardView(ctx, lambda: regs)
@@ -137,7 +137,7 @@ def test_dash_value_routing(dash):
 
 
 def test_dash_restores_from_settings():
-    from gui_dash import DashboardView
+    from gui.dashboard import DashboardView
     s = dict(DEFAULT_SETTINGS)
     s["dash_widgets"] = [{"uid": "aa", "reg_id": "0x0002", "name": "T",
                           "unit": "", "kind": "gauge", "vmin": 0,
@@ -150,7 +150,7 @@ def test_dash_restores_from_settings():
 
 # ── dashboard v2: alarms, LED semantics, order, duplicate, stale ────────
 def test_alarm_state_thresholds():
-    from gui_dash import alarm_state
+    from gui.dashboard import alarm_state
     cfg = {"alo": 10, "ahi": 90}
     assert alarm_state(cfg, 5) and alarm_state(cfg, 95)
     assert not alarm_state(cfg, 50)
@@ -159,7 +159,7 @@ def test_alarm_state_thresholds():
 
 
 def test_led_on_with_invert():
-    from gui_dash import led_on
+    from gui.dashboard import led_on
     assert led_on({"thr": 0.5}, 1) and not led_on({"thr": 0.5}, 0)
     assert led_on({"thr": 0.5, "invert": True}, 0)
     assert not led_on({"thr": 0.5, "invert": True}, 1)
@@ -191,7 +191,7 @@ def test_dash_duplicate_offsets_copy(dash):
 
 def test_dash_legacy_cards_get_positions():
     """Pre-v3 saved cards had no x/y — they must be laid out, not stacked."""
-    from gui_dash import DashboardView
+    from gui.dashboard import DashboardView
     s = dict(DEFAULT_SETTINGS)
     s["dash_widgets"] = [
         {"uid": "a", "reg_id": "0x0001", "kind": "value", "name": "A"},
@@ -206,7 +206,7 @@ def test_dash_legacy_cards_get_positions():
 
 
 def test_dash_stale_marking(dash):
-    import gui_dash
+    from gui import dashboard as gui_dash
     dash._make_card({"reg_id": "0x0001", "name": "S", "unit": "",
                      "kind": "value", "vmin": 0, "vmax": 1, "thr": 0.5})
     card = list(dash.cards.values())[0]
@@ -223,7 +223,7 @@ def test_dash_stale_marking(dash):
 def test_header_bar_title_and_connect():
     """The 2.2 header: the page title follows the page; Connect is the
     primary button and flips with the link."""
-    from gui_toolbar import MainToolBar
+    from gui.toolbar import MainToolBar
     tb = MainToolBar(None)
     tb.set_active_view("view_scanner")
     assert tb.lbl_title.text() == tb.t("viewScanner")

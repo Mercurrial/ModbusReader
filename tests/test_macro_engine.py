@@ -1,7 +1,7 @@
 """Macro engine: register lookup variants + sandbox namespace."""
 import pytest
 
-from macro_engine import MacroRunner, _build_safe_builtins
+from core.macro_engine import MacroRunner, _build_safe_builtins
 
 
 class _Core:

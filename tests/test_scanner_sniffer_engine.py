@@ -8,8 +8,8 @@ import struct
 import pytest
 from PyQt6.QtWidgets import QApplication
 
-import sniffer_core as sc
-from scanner_engine import ScannerWorker
+from core import sniffer_core as sc
+from core.scanner_engine import ScannerWorker
 
 
 # ═══════════════ sniffer: CRC + framing ═══════════════
@@ -109,7 +109,7 @@ def test_decode_never_omits_the_fields_the_table_reads():
 
 def test_decoder_emits_no_language_specific_prose():
     """The worker must stay language-free: verbal notes travel as i18n keys."""
-    import i18n
+    from app import i18n
     for raw in (b"\x01\x03", _frame(b"\x01\x83\x02"), _frame(b"\x01\x99\x00\x01")):
         f = sc.decode_frame(raw)
         key = f.get("describe_key")

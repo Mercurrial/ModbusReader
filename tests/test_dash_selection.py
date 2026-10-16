@@ -9,9 +9,9 @@ import pytest
 from PyQt6.QtCore import Qt, QPoint, QPointF, QEvent
 from PyQt6.QtGui import QMouseEvent, QKeyEvent
 
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
-from gui_dash import DashboardView
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
+from gui.dashboard import DashboardView
 
 REGS = [{"addr": 0x10, "name": "Пуск", "type": "SHORT", "rw": "RW"}]
 

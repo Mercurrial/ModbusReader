@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-import datatypes as dt
+from core import datatypes as dt
 
 
 def test_short_roundtrip_signed():

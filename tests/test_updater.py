@@ -16,9 +16,9 @@ import urllib.error
 import pytest
 from PyQt6.QtWidgets import QApplication
 
-import settings_manager
-import updater
-from version import APP_VERSION
+from app import settings_manager
+from core import updater
+from app.version import APP_VERSION
 
 EXE_BYTES = b"MZ" + b"\x90" * 5000
 
@@ -302,7 +302,7 @@ def test_file_argument_opens_a_project(tmp_path):
 # ── the window side ────────────────────────────────────────────────
 @pytest.fixture()
 def win(tmp_path, monkeypatch):
-    import gui_main
+    from gui import main_window as gui_main
     monkeypatch.setattr(settings_manager, "SETTINGS_FILE",
                         str(tmp_path / "settings.json"), raising=False)
     w = gui_main.ModernScadaApp()
@@ -327,7 +327,7 @@ def test_a_source_checkout_never_checks_by_itself(win):
 
 
 def test_manual_check_offers_the_release_and_skip_is_remembered(win, monkeypatch):
-    import gui_update
+    from gui import update as gui_update
     rel = _rel()
     monkeypatch.setattr(updater, "fetch_latest", lambda **kw: rel)
     shown = []
@@ -352,7 +352,7 @@ def test_manual_check_offers_the_release_and_skip_is_remembered(win, monkeypatch
 
 
 def test_manual_check_answers_when_there_is_nothing_new(win, monkeypatch):
-    import gui_update
+    from gui import update as gui_update
     monkeypatch.setattr(updater, "fetch_latest", lambda **kw: None)
     said = []
     monkeypatch.setattr(gui_update, "themed_info", lambda *a, **k: said.append(a))
@@ -362,7 +362,7 @@ def test_manual_check_answers_when_there_is_nothing_new(win, monkeypatch):
 
 
 def test_failed_check_is_explained_only_when_asked(win, monkeypatch):
-    import gui_update
+    from gui import update as gui_update
 
     def boom(**kw):
         raise updater.UpdateError("offline", "no route")
@@ -379,7 +379,7 @@ def test_failed_check_is_explained_only_when_asked(win, monkeypatch):
 
 
 def test_dialog_downloads_and_hands_over(win, monkeypatch, tmp_path):
-    import gui_update
+    from gui import update as gui_update
     rel = _rel()
     monkeypatch.setattr(updater, "can_replace", lambda p: True)
     monkeypatch.setattr(updater, "download",
@@ -393,7 +393,7 @@ def test_dialog_downloads_and_hands_over(win, monkeypatch, tmp_path):
 
 
 def test_dialog_from_source_points_to_the_page(win):
-    import gui_update
+    from gui import update as gui_update
     dlg = gui_update.UpdateDialog(win.ctx, _rel(), "source", win)
     assert dlg.btn_go.text() == win.t("updOpenPage")
     dlg.btn_go.click()
@@ -401,7 +401,7 @@ def test_dialog_from_source_points_to_the_page(win):
 
 
 def test_dialog_download_failure_offers_the_page(win, monkeypatch):
-    import gui_update
+    from gui import update as gui_update
 
     def boom(r, progress=None, cancelled=None):
         raise updater.UpdateError("checksum", "SHA-256 mismatch")
@@ -428,7 +428,7 @@ def test_quit_for_update_starts_the_new_copy_then_closes(win, monkeypatch):
 
 
 def test_quit_for_update_keeps_the_window_if_the_start_fails(win, monkeypatch):
-    import gui_main
+    from gui import main_window as gui_main
 
     def boom(args):
         raise PermissionError(5, "Access is denied")
@@ -481,7 +481,7 @@ def test_next_calendar_version():
 def test_update_notes_box_fits_its_text(win):
     """The notes were measured before the label had its width and font —
     the last line sat on the box's bottom edge."""
-    import gui_update
+    from gui import update as gui_update
     rel = _rel(notes="• Чтение блоками: вся карта одним запросом\n"
                      "• Тревоги по порогам прямо в таблице\n"
                      "• Исправлено: Esc в редакторе после Alt+Tab")

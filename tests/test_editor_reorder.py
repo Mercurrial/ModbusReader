@@ -14,9 +14,9 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt, QPointF, QEvent
 from PyQt6.QtGui import QMouseEvent, QKeyEvent
 
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
-from profile_editor import ProfileEditorDialog, COL_GRIP, COL_RU
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
+from gui.map_editor import ProfileEditorDialog, COL_GRIP, COL_RU
 
 
 @pytest.fixture()

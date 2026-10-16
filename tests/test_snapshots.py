@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-import snapshots as sn
+from core import snapshots as sn
 
 REGS = [
     {"addr": 0x10, "name": "Температура", "type": "FLOAT", "unit": "°C"},
@@ -206,9 +206,9 @@ import pytest as _pytest
 
 @_pytest.fixture()
 def view():
-    from app_context import AppContext
-    from settings_manager import DEFAULT_SETTINGS
-    from gui_snapshot import SnapshotView
+    from app.app_context import AppContext
+    from app.settings_manager import DEFAULT_SETTINGS
+    from gui.snapshot_view import SnapshotView
     profile = list(REGS)
     values = {}
     v = SnapshotView(AppContext(dict(DEFAULT_SETTINGS)),
@@ -264,7 +264,7 @@ def test_switching_language_redraws_the_summary(view):
 
 
 def test_compare_without_a_baseline_is_refused_not_crashed(view, monkeypatch):
-    import gui_snapshot
+    from gui import snapshot_view as gui_snapshot
     seen = []
     monkeypatch.setattr(gui_snapshot, "themed_info",
                         lambda *a, **k: seen.append(a[3]))
@@ -273,10 +273,10 @@ def test_compare_without_a_baseline_is_refused_not_crashed(view, monkeypatch):
 
 
 def test_taking_a_snapshot_without_a_profile_is_refused(monkeypatch):
-    from app_context import AppContext
-    from settings_manager import DEFAULT_SETTINGS
-    from gui_snapshot import SnapshotView
-    import gui_snapshot
+    from app.app_context import AppContext
+    from app.settings_manager import DEFAULT_SETTINGS
+    from gui.snapshot_view import SnapshotView
+    from gui import snapshot_view as gui_snapshot
     seen = []
     monkeypatch.setattr(gui_snapshot, "themed_info",
                         lambda *a, **k: seen.append(a[3]))
@@ -308,7 +308,7 @@ def test_saving_and_reopening_a_snapshot_round_trips(view, tmp_path,
 def test_opening_a_file_that_is_not_a_snapshot_is_reported(view, tmp_path,
                                                            monkeypatch):
     from PyQt6.QtWidgets import QFileDialog
-    import gui_snapshot
+    from gui import snapshot_view as gui_snapshot
     bad = tmp_path / "profile.json"
     bad.write_text('{"registers": [{"addr": 1}]}', encoding="utf-8")
     seen = []

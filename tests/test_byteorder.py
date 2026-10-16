@@ -10,8 +10,8 @@ import struct
 
 import pytest
 
-import byteorder as bo
-import datatypes as dt
+from core import byteorder as bo
+from core import datatypes as dt
 
 
 # ── the ORIGINAL implementation, inlined as the golden reference ────────
@@ -128,7 +128,7 @@ def test_short_regs_when_missing_words():
 
 
 def test_settings_defaults_equal_device_protocol():
-    from settings_manager import DEFAULT_SETTINGS
+    from app.settings_manager import DEFAULT_SETTINGS
     assert DEFAULT_SETTINGS["order_short"] == "AB"
     assert DEFAULT_SETTINGS["order_long"] == "ABCD"
     assert DEFAULT_SETTINGS["order_float"] == "BADC"

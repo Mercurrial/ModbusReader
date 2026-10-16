@@ -9,13 +9,13 @@ registry and the dispatcher may not drift apart.
 import pytest
 from PyQt6.QtWidgets import QApplication
 
-import commands
-from settings_manager import DEFAULT_SETTINGS
+from app import commands
+from app.settings_manager import DEFAULT_SETTINGS
 
 
 @pytest.fixture()
 def win():
-    import gui_main
+    from gui import main_window as gui_main
     w = gui_main.ModernScadaApp()
     yield w
     w.close()
@@ -53,7 +53,7 @@ def test_macros_is_a_page(win):
 
 
 def test_rail_collapses_and_remembers(win):
-    from gui_rail import COLLAPSED_W, EXPANDED_W
+    from gui.rail import COLLAPSED_W, EXPANDED_W
     rail = win.nav_rail
     rail.set_collapsed(True)
     assert rail.width() == COLLAPSED_W and win.settings["rail_collapsed"] is True
@@ -109,7 +109,7 @@ def test_settings_overlay_highlights_and_restores(win):
 def test_map_editor_opens_as_overlay(win):
     """Ctrl+2 / profile menu opens the editor over the MAP view — the map nav
     button stays highlighted (the editor belongs to that view)."""
-    from profile_editor import ProfileEditorDialog
+    from gui.map_editor import ProfileEditorDialog
     win._dispatch_command("view_console")
     _pump()
     win._dispatch_command("view_map")
@@ -164,7 +164,7 @@ def test_ctrl_f_focuses_search_from_other_view(win):
 def test_project_save_and_reopen_roundtrip(win, tmp_path):
     """A project bundles connection + register map + every dashboard. Saving
     and re-applying must restore all three."""
-    import formats
+    from core import formats
     regs = [{"addr": 0x10, "name": "Пуск", "type": "SHORT", "rw": "RW"}]
     win.profile_data = regs
     win.register_table.populate(regs)
@@ -200,7 +200,7 @@ def test_project_save_and_reopen_roundtrip(win, tmp_path):
 
 
 def test_version_is_at_least_1_1():
-    from version import APP_VERSION
+    from app.version import APP_VERSION
     major, minor = (int(x) for x in APP_VERSION.split(".")[:2])
     assert (major, minor) >= (1, 1)
 

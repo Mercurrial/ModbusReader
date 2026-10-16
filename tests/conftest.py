@@ -22,7 +22,9 @@ def qt_app():
     # built from the developer's own settings loads their last map and
     # project, which made results depend on whose machine ran the suite.
     import tempfile
-    import settings_manager, app_context, gui_main
+    from app import settings_manager
+    from app import app_context
+    from gui import main_window as gui_main
     settings_manager.SETTINGS_FILE = os.path.join(
         tempfile.mkdtemp(prefix="mbr-tests-"), "app_settings.json")
     # Keep the real implementation reachable under another name: a test that

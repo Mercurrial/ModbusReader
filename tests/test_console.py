@@ -1,10 +1,10 @@
 """Raw-frame console: hex parsing, CRC, row sync, sending, history, core raw op."""
 import pytest
 
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
-from gui_console import RawConsole, parse_hex, crc16, fmt_hex
-from modbus_core import ModbusCore
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
+from gui.console import RawConsole, parse_hex, crc16, fmt_hex
+from core.modbus_core import ModbusCore
 
 
 # ── pure helpers ──────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 """Transport registry: serial factory parity + fallback semantics."""
 from pymodbus.client import ModbusSerialClient, ModbusTcpClient
 
-import transports as tr
+from core import transports as tr
 
 
 def test_registry_shape():

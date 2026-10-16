@@ -7,7 +7,7 @@ much worse than failing loudly.
 """
 import pytest
 
-import mapimport as mi
+from core import mapimport as mi
 
 
 def _csv(tmp_path, text, name="map.csv", encoding="utf-8"):
@@ -186,7 +186,7 @@ def test_type_aliases(text, expected):
 
 
 def test_every_alias_maps_to_a_real_registry_type():
-    import datatypes
+    from core import datatypes
     for key in mi._TYPE_ALIASES.values():
         assert key in datatypes.TYPES, key
 
@@ -224,7 +224,7 @@ def test_a_normal_sheet_imports_cleanly():
 
 def test_result_is_a_valid_profile_for_the_rest_of_the_app():
     """The import must produce rows the editor and poller already understand."""
-    import formats
+    from core import formats
     regs, _ = mi.build_registers(_rows(), mi.guess_mapping(_rows()[0]))
     doc = formats.migrate_profile({"registers": regs})
     assert len(doc["registers"]) == 3
@@ -295,13 +295,13 @@ def test_short_rows_do_not_raise():
 
 
 def test_problem_keys_are_all_translatable():
-    import i18n
+    from app import i18n
     for key in ("impBadAddr", "impAddrRange", "impDuplicateAddr"):
         assert key in i18n.STRINGS["ru"] and key in i18n.STRINGS["en"]
 
 
 def test_field_and_mode_labels_are_translatable():
-    import i18n
+    from app import i18n
     for _key, label, _req in mi.FIELDS:
         assert label in i18n.STRINGS["ru"] and label in i18n.STRINGS["en"]
     for label in mi.ADDR_MODE_LABELS.values():
@@ -310,9 +310,9 @@ def test_field_and_mode_labels_are_translatable():
 
 # ═══════════════ the dialog, driven for real ═══════════════
 def _dialog(tmp_path, text, encoding="utf-8"):
-    from app_context import AppContext
-    from settings_manager import DEFAULT_SETTINGS
-    from gui_import_dialog import ImportMapDialog
+    from app.app_context import AppContext
+    from app.settings_manager import DEFAULT_SETTINGS
+    from gui.import_dialog import ImportMapDialog
     p = tmp_path / "vendor.csv"
     p.write_bytes(text.encode(encoding))
     return ImportMapDialog(AppContext(dict(DEFAULT_SETTINGS)), str(p))
@@ -378,7 +378,7 @@ def test_a_field_assigned_twice_keeps_the_first_column(tmp_path):
 
 def test_dialog_survives_a_file_it_cannot_read(tmp_path, monkeypatch):
     """A broken file must leave a usable dialog, not a traceback."""
-    import dialogs
+    from gui import dialogs
     monkeypatch.setattr(dialogs, "themed_message", lambda *a, **k: 0)
     d = _dialog(tmp_path, "\n\n\n")
     assert d.registers == [] and not d.btn_import.isEnabled()

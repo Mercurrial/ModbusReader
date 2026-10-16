@@ -6,7 +6,7 @@ screen: text on its surface, and the accent's own label on the accent.
 """
 import pytest
 
-import theme_manager as tm
+from gui import theme_manager as tm
 
 
 def _contrast_ratio(a: str, b: str) -> float:
@@ -127,14 +127,14 @@ def test_accent_label_is_readable_on_the_accent(theme):
 
 
 def test_accent_swatches_match_the_registry():
-    from settings_schema import ACCENT_SWATCHES
+    from app.settings_schema import ACCENT_SWATCHES
     keys = {k for k, _ in ACCENT_SWATCHES}
     assert keys == set(tm.ACCENT_PALETTES), "swatch row and accents disagree"
 
 
 def test_scheme_labels_cover_every_scheme():
-    from settings_schema import SCHEME_LABELS
-    import i18n
+    from app.settings_schema import SCHEME_LABELS
+    from app import i18n
     assert {v for v, _ in SCHEME_LABELS} == set(tm.SCHEMES)
     for _, key in SCHEME_LABELS:
         assert key in i18n.STRINGS["ru"] and key in i18n.STRINGS["en"]
@@ -171,7 +171,7 @@ def test_startup_publishes_the_saved_appearance():
 
 def test_saved_scheme_changes_the_stylesheet():
     """A scheme that produces the same QSS as the default is invisible."""
-    from styles import get_stylesheet
+    from gui.styles import get_stylesheet
     before = tm.active()
     try:
         tm.set_active(scheme="graphite", contrast="soft", accent="neutral")

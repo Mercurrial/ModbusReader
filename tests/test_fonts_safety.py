@@ -6,7 +6,7 @@ list is filtered and the saved value is validated on the way in.
 """
 from PyQt6.QtGui import QFontDatabase
 
-import fonts
+from app import fonts
 
 
 def test_symbol_fonts_are_rejected(monkeypatch):
@@ -84,7 +84,7 @@ def test_schema_validates_the_family_it_writes(monkeypatch):
     ws = QFontDatabase.WritingSystem
     _fake_db(monkeypatch, ["Segoe UI", "Wingdings"],
              {"Segoe UI": [ws.Latin, ws.Cyrillic], "Wingdings": [ws.Symbol]})
-    import settings_schema as ss
+    from app import settings_schema as ss
     derived = ss._derive_font_family("Wingdings")
     assert "Wingdings" not in derived["font_family"]
     assert "Segoe UI" in derived["font_family"]

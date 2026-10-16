@@ -3,8 +3,8 @@ import json
 
 import pytest
 
-from profile_editor import normalize_registers, _to_int
-from profile_manager import load_profile_data, find_overlaps, find_duplicate_names
+from gui.map_editor import normalize_registers, _to_int
+from core.profile_manager import load_profile_data, find_overlaps, find_duplicate_names
 
 
 def test_load_profile_data(tmp_path):

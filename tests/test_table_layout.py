@@ -8,9 +8,9 @@ Invariants (rather than exact pixels, which vary headless):
 """
 from PyQt6.QtWidgets import QApplication
 
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
-from gui_table import RegisterTable, COL_NAME, COL_CURRENT, COL_NEW
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
+from gui.register_table import RegisterTable, COL_NAME, COL_CURRENT, COL_NEW
 
 
 def _pump():

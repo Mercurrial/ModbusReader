@@ -7,11 +7,11 @@ import traceback
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from PyQt6.QtCore import Qt
 
-import settings_manager
-from settings_manager import load_settings
-from styles import get_stylesheet
-from theme_manager import set_active
-from version import APP_VERSION
+from app import settings_manager
+from app.settings_manager import load_settings
+from gui.styles import get_stylesheet
+from gui.theme_manager import set_active
+from app.version import APP_VERSION
 
 ERROR_LOG_NAME = "modbusreader_errors.log"
 
@@ -88,7 +88,7 @@ def main():
     # Second half of a portable self-update: THIS exe is the new version,
     # started by the old one just before it quit (updater.finish_update —
     # waits for it, takes its place, starts it). No window, no Qt.
-    import updater
+    from core import updater
     if updater.FINISH_FLAG in sys.argv:
         code = updater.finish_update(sys.argv)
         _close_splash()
@@ -105,7 +105,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("ModbusReader")
     app.setApplicationVersion(APP_VERSION)
-    import icons
+    from gui import icons
     app.setWindowIcon(icons.app_icon())    # every window, taskbar included
 
     # Безопасное чтение настроек. load_settings() is CWD-independent (absolute
@@ -137,7 +137,7 @@ def main():
 
     # Инициализация и запуск графического интерфейса
     try:
-        from gui_main import ModernScadaApp
+        from gui.main_window import ModernScadaApp
         window = ModernScadaApp()
         window.show()
     except Exception as e:

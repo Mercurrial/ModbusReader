@@ -8,9 +8,9 @@ import os
 
 import pytest
 
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
-from gui_logger import LoggerView, human_size, human_elapsed
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
+from gui.logger import LoggerView, human_size, human_elapsed
 
 REGS = [
     {"addr": 0x10, "name": "Температура", "type": "SHORT", "unit": "°C"},
@@ -95,7 +95,7 @@ def test_the_newest_row_is_on_top(view):
 
 
 def test_the_preview_is_bounded(view, monkeypatch):
-    import gui_logger
+    from gui import logger as gui_logger
     monkeypatch.setattr(gui_logger, "PREVIEW_ROWS", 5)
     view.start()
     for _ in range(20):

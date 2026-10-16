@@ -63,7 +63,7 @@ def device(t: float) -> dict:
 
 
 def feed(w, regs, t: float):
-    import datatypes as dt
+    from core import datatypes as dt
     vals = device(t)
     for r in regs:
         if r["name"] in vals:
@@ -243,7 +243,7 @@ def main():
     app = QApplication(sys.argv)
 
     import json
-    import settings_manager
+    from app import settings_manager
     settings_manager.SETTINGS_FILE = os.path.join(tempfile.mkdtemp(), "app_settings.json")
     s = dict(settings_manager.DEFAULT_SETTINGS)
     s.update(LOOK)
@@ -252,9 +252,9 @@ def main():
               "guide_seen_editor": True, "update_auto": False})
     json.dump(s, open(settings_manager.SETTINGS_FILE, "w", encoding="utf-8"))
 
-    from styles import get_stylesheet
-    from theme_manager import set_active
-    import icons
+    from gui.styles import get_stylesheet
+    from gui.theme_manager import set_active
+    from gui import icons
     app.setWindowIcon(icons.app_icon())
     set_active(s["scheme"], s["contrast"], s["accent"])
     app.setStyleSheet(get_stylesheet(s["theme"], s["font_family"], s["font_size"], s["accent"]))
@@ -271,9 +271,9 @@ def main():
         (finish(img) if rounded else img).save(os.path.join(out, name))
         print(f"  {name:24} {os.path.getsize(os.path.join(out, name)) / 1024:7.0f} KB")
 
-    import gui_main
-    import datatypes as dt
-    import formats
+    from gui import main_window as gui_main
+    from core import datatypes as dt
+    from core import formats
     w = gui_main.ModernScadaApp()
     w.resize(WIN_W, WIN_H)
     w.show()
@@ -381,8 +381,8 @@ def main():
     save(crop(w.grab().toImage(), 212, 53, WIN_W - 212, 330), "scanner.png")
 
     # 5. sniffer: real frames, decoded by the real decoder
-    import sniffer_core
-    from slave_core import with_crc
+    from core import sniffer_core
+    from core.slave_core import with_crc
     w._switch_view("view_sniffer")
     nv = w.sniffer_view
     words = [0x41C4, 0xCCCD, 0x41C8, 0x0000, 1, 573, 0, 1834, 0x25, 0, 30]
@@ -441,7 +441,7 @@ def main():
     save(crop(w.grab().toImage(), *PAGE), "macros.png")
 
     # 8. slave emulator, serving a master
-    import slave_core
+    from core import slave_core
     w._switch_view("view_slave")
     slv = w.slave_view
     pump()
@@ -505,8 +505,8 @@ def main():
     ww.hide()
 
     # 12. the update dialog
-    import gui_update
-    import updater
+    from gui import update as gui_update
+    from core import updater
     rel = updater.Release(
         "26.11.0", "• Чтение блоками: вся карта одним запросом\n"
                    "• Тревоги по порогам прямо в таблице\n"

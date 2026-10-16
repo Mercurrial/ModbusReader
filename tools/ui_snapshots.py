@@ -50,7 +50,7 @@ def main():
     from PyQt6.QtCore import QPoint
     app = QApplication(sys.argv)
 
-    import settings_manager
+    from app import settings_manager
     settings_manager.SETTINGS_FILE = os.path.join(tempfile.mkdtemp(), "app_settings.json")
     s = dict(settings_manager.DEFAULT_SETTINGS)
     s.update({"theme": args.theme, "lang": args.lang, "guide_seen_main": True,
@@ -60,9 +60,9 @@ def main():
         s.update({k: user[k] for k in APPEARANCE if k in user})
     json.dump(s, open(settings_manager.SETTINGS_FILE, "w", encoding="utf-8"))
 
-    from styles import get_stylesheet
-    from theme_manager import set_active
-    import icons
+    from gui.styles import get_stylesheet
+    from gui.theme_manager import set_active
+    from gui import icons
     app.setWindowIcon(icons.app_icon())
     set_active(s["scheme"], s["contrast"], s["accent"])
     app.setStyleSheet(get_stylesheet(s["theme"], s["font_family"], s["font_size"], s["accent"]))
@@ -94,8 +94,8 @@ def main():
         widget.grab().save(os.path.join(out, name))
 
     only = set(args.only.split(","))
-    import gui_main
-    import datatypes as dt
+    from gui import main_window as gui_main
+    from core import datatypes as dt
     w = gui_main.ModernScadaApp()
     w.resize(1440, 860)
     w.show()
@@ -105,7 +105,7 @@ def main():
     if os.path.exists(map_path):
         regs = json.load(open(map_path, encoding="utf-8"))
     else:
-        import formats
+        from core import formats
         map_path = os.path.join(ROOT, "examples", "demo.mbproj")
         regs = formats.load_project(map_path)["profile"]["registers"]
     NUMERIC = ("SHORT", "LONG", "FLOAT", "UINT16", "UINT32")
@@ -181,7 +181,7 @@ def main():
         w._open_profile_menu()
         grab(last(), "d01_project_menu.png")
         last().close()
-        from gui_table import COL_NAME
+        from gui.register_table import COL_NAME
         rt = w.register_table
         rt._show_context_menu(rt.visualItemRect(rt.item(3, COL_NAME)).center())
         grab(last(), "d02_table_menu.png")
@@ -189,7 +189,7 @@ def main():
         w.main_toolbar._open_layout_menu()
         grab(last(), "d03_layout_menu.png")
         last().close()
-        from dialogs import themed_message, themed_info, themed_input
+        from gui.dialogs import themed_message, themed_info, themed_input
         from PyQt6.QtWidgets import QMessageBox
         themed_message(w, s["theme"], "warning", "Несохранённые изменения",
                        "В карте есть изменения, которые не сохранены. Сохранить их перед выходом?",
@@ -219,12 +219,12 @@ def main():
         w.dash_view._add_widget()
         grab(last(), "d08_dash_dialog.png")
         last().close()
-        from gui_scaling_dialog import ScalingDialog
+        from gui.scaling_dialog import ScalingDialog
         d = ScalingDialog(regs[3], s["theme"], w.t, w)
         d.show()
         grab(d, "d09_scaling.png")
         d.close()
-        from memory_viewer import MemoryViewerDialog
+        from gui.memory_viewer import MemoryViewerDialog
         mv = MemoryViewerDialog(0x20, 16, "Буфер", ctx=w.ctx)
         mv.set_real_data(list(range(16)))
         mv.show()
@@ -242,7 +242,7 @@ def main():
         open(csv_path, "w", encoding="utf-8").write("\n".join([
             "Адрес;Имя;Тип;Доступ;Ед.", "40001;Температура;FLOAT;R;°C",
             "40003;Уставка;SHORT;RW;°C", "40004;Режим;UINT16;RW;"]) + "\n")
-        from gui_import_dialog import ImportMapDialog
+        from gui.import_dialog import ImportMapDialog
         imp = ImportMapDialog(w.ctx, csv_path, w)
         imp.show()
         imp.resize(980, 640)
@@ -260,8 +260,8 @@ def main():
             grab(combos[0].view().window(), "d15_combo_popup.png")
             combos[0].hidePopup()
         w._close_overlay()
-        import gui_update
-        import updater
+        from gui import update as gui_update
+        from core import updater
         rel = updater.Release(
             "2.4.0", "• Чтение блоками: вся карта одним запросом\n"
                      "• Тревоги по порогам прямо в таблице\n"
@@ -290,7 +290,7 @@ def main():
             g.close()
 
     if "trend" in only:
-        from gui_trends import TrendsManager
+        from gui.trends import TrendsManager
         tm = TrendsManager(w.ctx)
         tm.resize(420, 880)
         tm.show()

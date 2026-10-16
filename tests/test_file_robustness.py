@@ -9,9 +9,9 @@ import json
 
 import pytest
 
-import formats
-import profile_manager
-import settings_manager as sm
+from core import formats
+from core import profile_manager
+from app import settings_manager as sm
 
 
 def _write(tmp_path, raw: str, name="p.json"):

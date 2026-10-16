@@ -1,7 +1,7 @@
 """Dashboard model: kind registry, alignment snapping, automation graph."""
 import pytest
 
-import dash_model as dm
+from core import dash_model as dm
 
 
 # ── kind registry ───────────────────────────────────────────────────────

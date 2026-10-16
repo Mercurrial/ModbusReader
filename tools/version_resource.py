@@ -16,7 +16,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from version import APP_VERSION, RELEASE_DATE  # noqa: E402
+from app.version import APP_VERSION, RELEASE_DATE  # noqa: E402
 
 PRODUCT = "ModbusReader"
 DESCRIPTION = "ModbusReader — Modbus RTU commissioning and monitoring"

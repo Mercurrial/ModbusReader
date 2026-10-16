@@ -27,7 +27,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from version import APP_VERSION  # noqa: E402
+from app.version import APP_VERSION  # noqa: E402
 
 
 def find_iscc() -> str:

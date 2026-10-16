@@ -8,8 +8,8 @@ import time
 
 import pytest
 
-import macro_engine as me
-from macro_engine import MacroRejected, MacroRunner
+from core import macro_engine as me
+from core.macro_engine import MacroRejected, MacroRunner
 
 
 class _FakeCore:

@@ -4,9 +4,9 @@ import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
-from gui_dash import DashboardView
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
+from gui.dashboard import DashboardView
 
 REGS = [
     {"addr": 0x10, "name": "Пуск", "type": "SHORT", "rw": "RW"},
@@ -160,7 +160,7 @@ def test_dialog_result_creates_a_card(view):
     """Regression: the dialog returned x/y/w/h = None for a NEW widget and
     int(None) blew up inside the click handler — the widget silently never
     appeared. Exercise the real dialog → add path."""
-    from gui_dash_dialog import WidgetDialog
+    from gui.dashboard_dialog import WidgetDialog
     dlg = WidgetDialog(view.ctx, REGS, None, view)
     dlg._accept()
     cfg = dlg.result_cfg
@@ -173,8 +173,8 @@ def test_dialog_result_creates_a_card(view):
 
 
 def test_dialog_tile_picker_switches_kind(view):
-    from gui_dash_dialog import WidgetDialog
-    import dash_model as dm
+    from gui.dashboard_dialog import WidgetDialog
+    from core import dash_model as dm
     dlg = WidgetDialog(view.ctx, REGS, None, view)
     assert set(dlg._tiles) == set(dm.KINDS)     # every kind has a tile
     dlg._select_kind("timer")
@@ -186,7 +186,7 @@ def test_dialog_tile_picker_switches_kind(view):
 
 
 def test_zoom_scales_cards_but_not_config(view):
-    import dash_model as dm
+    from core import dash_model as dm
     view._make_card({"uid": "z", "kind": "value", "reg_id": "0x0010",
                      "x": 100, "y": 50, "w": 200, "h": 100})
     card = view.cards["z"]
@@ -199,7 +199,7 @@ def test_zoom_scales_cards_but_not_config(view):
 
 
 def test_zoom_is_clamped(view):
-    import dash_model as dm
+    from core import dash_model as dm
     for _ in range(40):
         view.zoom_by(1.5)
     assert view.zoom <= dm.ZOOM_MAX
@@ -218,7 +218,7 @@ def test_persist_stores_logical_geometry_while_zoomed(view):
 
 
 def test_nudge_moves_selected_widget(view):
-    import dash_model as dm
+    from core import dash_model as dm
     view._make_card({"uid": "n", "kind": "value", "reg_id": "0x0010",
                      "x": 100, "y": 100})
     view._nudge("n", dm.NUDGE_BIG, 0)
@@ -416,7 +416,7 @@ def test_slider_is_inert_in_edit_mode(view):
 def test_select_takes_its_options_from_the_register_enum(view):
     """The dialog snapshots the enum, so labels survive opening the dashboard
     without that profile loaded."""
-    from gui_dash_dialog import WidgetDialog
+    from gui.dashboard_dialog import WidgetDialog
     dlg = WidgetDialog(view.ctx, REGS, None, view)
     dlg._select_kind("select")
     dlg.combo_reg.setCurrentIndex(2)           # 0x0012 has the enum
@@ -520,7 +520,7 @@ def test_bits_and_chart_are_read_only(view):
 
 
 def test_chart_keeps_a_longer_history_than_the_sparkline(view):
-    import gui_dash
+    from gui import dashboard as gui_dash
     view._make_card({"uid": "c", "kind": "chart", "reg_id": "0x0010",
                      "x": 0, "y": 0})
     view._make_card({"uid": "v", "kind": "value", "reg_id": "0x0010",
@@ -532,8 +532,8 @@ def test_chart_keeps_a_longer_history_than_the_sparkline(view):
 def test_every_kind_can_be_added_through_the_dialog(view):
     """Real path: pick each tile, accept, build the card. Guards against a new
     kind that the dialog can produce but the view cannot render."""
-    from gui_dash_dialog import WidgetDialog
-    import dash_model as dm
+    from gui.dashboard_dialog import WidgetDialog
+    from core import dash_model as dm
     for k in dm.KINDS:
         dlg = WidgetDialog(view.ctx, REGS, None, view)
         dlg._select_kind(k)
@@ -701,9 +701,9 @@ def test_picker_fits_every_kind_in_both_languages(view):
     elide its label, or grow the dialog past a 768 px laptop screen."""
     from PyQt6.QtGui import QFontMetrics
     from PyQt6.QtWidgets import QFrame
-    from app_context import AppContext
-    from gui_dash_dialog import WidgetDialog
-    import dash_model as dm
+    from app.app_context import AppContext
+    from gui.dashboard_dialog import WidgetDialog
+    from core import dash_model as dm
     for lang in ("ru", "en"):
         ctx = AppContext(dict(DEFAULT_SETTINGS, lang=lang))
         dlg = WidgetDialog(ctx, REGS, None, view)
@@ -732,9 +732,9 @@ def test_picker_fits_every_kind_in_both_languages(view):
 def test_control_widgets_only_offer_writable_registers(view):
     """Offering a read-only register to a button/slider is a write that the
     device will refuse — the picker must not show it at all."""
-    from app_context import AppContext
-    from gui_dash_dialog import WidgetDialog
-    import dash_model as dm
+    from app.app_context import AppContext
+    from gui.dashboard_dialog import WidgetDialog
+    from core import dash_model as dm
     regs = [{"addr": 0x10, "name": "Уставка", "type": "SHORT", "rw": "RW"},
             {"addr": 0x11, "name": "Только чтение", "type": "SHORT", "rw": "R"},
             {"addr": 0x12, "name": "Команда", "type": "SHORT", "rw": "W"}]
@@ -751,9 +751,9 @@ def test_control_widgets_only_offer_writable_registers(view):
 
 
 def test_read_only_map_disables_the_register_picker_for_controls(view, monkeypatch):
-    from app_context import AppContext
-    from gui_dash_dialog import WidgetDialog
-    import dialogs
+    from app.app_context import AppContext
+    from gui.dashboard_dialog import WidgetDialog
+    from gui import dialogs
     told = []
     monkeypatch.setattr(dialogs, "themed_info",
                         lambda *a, **k: told.append(a[4]))

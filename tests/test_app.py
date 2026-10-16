@@ -4,10 +4,10 @@ import json
 
 import pytest
 
-import gui_main
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
-from profile_editor import ProfileEditorDialog
+from gui import main_window as gui_main
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
+from gui.map_editor import ProfileEditorDialog
 
 
 @pytest.fixture()

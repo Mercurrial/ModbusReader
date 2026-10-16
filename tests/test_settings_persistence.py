@@ -20,7 +20,7 @@ import importlib.util
 import pytest
 
 _SRC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "settings_manager.py")
+                    "app", "settings_manager.py")
 
 
 @pytest.fixture()
@@ -87,5 +87,5 @@ def test_empty_file_is_treated_as_corrupt(sm):
 def test_settings_path_is_absolute(sm):
     # CWD-independent: the shipped module anchors to an absolute path so
     # launching from any directory hits the same file.
-    import settings_manager
+    from app import settings_manager
     assert os.path.isabs(settings_manager.SETTINGS_FILE)

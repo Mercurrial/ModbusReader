@@ -10,15 +10,15 @@ import copy
 import pytest
 from PyQt6.QtCore import Qt
 
-import datatypes as dt
-import formats
-import mapimport as mi
-import profile_manager as pm
-import slave_core as sc
-import snapshots as sn
-import sniffer_core
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
+from core import datatypes as dt
+from core import formats
+from core import mapimport as mi
+from core import profile_manager as pm
+from core import slave_core as sc
+from core import snapshots as sn
+from core import sniffer_core
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
 
 
 def _ctx(**over):
@@ -123,7 +123,7 @@ def test_a_new_table_starts_a_new_chain():
 # ═══════════════ editor ═══════════════
 @pytest.fixture()
 def editor():
-    from profile_editor import ProfileEditorDialog
+    from gui.map_editor import ProfileEditorDialog
     regs = [{"addr": 0, "name": "A", "type": "SHORT"},
             {"addr": 1, "name": "B", "type": "LONG"},
             {"addr": 3, "name": "C", "type": "SHORT"}]
@@ -134,14 +134,14 @@ def editor():
 
 
 def test_editor_has_an_area_column(editor):
-    from profile_editor import COL_AREA
+    from gui.map_editor import COL_AREA
     cb = editor.table.cellWidget(0, COL_AREA)
     assert [cb.itemData(i) for i in range(cb.count())] == list(dt.AREAS)
     assert cb.currentData() == "holding"
 
 
 def test_moving_a_row_to_coils(editor):
-    from profile_editor import COL_AREA, COL_TYPE, COL_ACC
+    from gui.map_editor import COL_AREA, COL_TYPE, COL_ACC
     editor._on_area_changed(1, "coil")
     reg = editor.profile_data[1]
     assert (reg["area"], reg["type"], reg["length"]) == ("coil", "BOOL", 1)
@@ -154,7 +154,7 @@ def test_moving_a_row_to_coils(editor):
 
 
 def test_read_only_tables_lock_access(editor):
-    from profile_editor import COL_ACC
+    from gui.map_editor import COL_ACC
     editor._on_area_changed(0, "input")
     assert editor.profile_data[0]["rw"] == "R"
     assert not editor.table.cellWidget(0, COL_ACC).isEnabled()
@@ -256,7 +256,7 @@ class _LoopClient:
 
 @pytest.fixture()
 def loop():
-    from modbus_core import ModbusCore
+    from core.modbus_core import ModbusCore
     st = sc.SlaveStore.from_registers(MIXED)
     for reg, v in zip(MIXED, ("42", "215", "1", "0", "1")):
         st.set_value(reg, v)
@@ -299,7 +299,7 @@ def test_the_master_refuses_to_write_a_read_only_table(loop):
 
 def test_the_macro_api_reads_by_table_label(loop):
     core, st, _ = loop
-    from macro_engine import MacroRunner
+    from core.macro_engine import MacroRunner
     r = MacroRunner("", core, MIXED)
     info = r._lookup("CO 0x0001")
     assert info["addr"] == dt.parse_key("CO 1") and info["name"] == "Fan"
@@ -372,7 +372,7 @@ def test_a_read_cannot_spill_into_the_next_table():
 
 # ═══════════════ UI ═══════════════
 def test_the_table_shows_every_table_on_its_own_row():
-    from gui_table import RegisterTable, COL_ADDR, COL_CURRENT, COL_NEW
+    from gui.register_table import RegisterTable, COL_ADDR, COL_CURRENT, COL_NEW
     t = RegisterTable(_ctx())
     t.populate(MIXED)
     assert [t.item(r, COL_ADDR).text() for r in range(5)] == [
@@ -402,7 +402,7 @@ def test_snapshots_tell_tables_apart():
 
 
 def test_logger_columns_carry_the_table():
-    import datalog
+    from core import datalog
     cols = datalog.columns_for(MIXED)
     assert [c[0] for c in cols][:3] == [0, dt.parse_key("IR 0"), dt.parse_key("CO 0")]
     assert cols[2][1].startswith("CO 0x0000 Pump")

@@ -13,8 +13,8 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-import formats  # noqa: E402
-from settings_manager import DEFAULT_SETTINGS  # noqa: E402
+from core import formats  # noqa: E402
+from app.settings_manager import DEFAULT_SETTINGS  # noqa: E402
 
 REGISTERS = [
     # holding registers (4x)
@@ -91,7 +91,7 @@ for _i, _cfg in enumerate(DASHBOARD, 1):       # stable ids: a diff stays small
 
 
 def main():
-    import datatypes
+    from core import datatypes
     for r in REGISTERS:                    # what the map editor writes
         r.setdefault("length", datatypes.addr_span(r))
     settings = dict(DEFAULT_SETTINGS)

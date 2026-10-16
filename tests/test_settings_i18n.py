@@ -2,10 +2,10 @@
 import json
 import os
 
-import i18n
-import settings_manager as sm
-import settings_schema as ss
-from settings_manager import DEFAULT_SETTINGS
+from app import i18n
+from app import settings_manager as sm
+from app import settings_schema as ss
+from app.settings_manager import DEFAULT_SETTINGS
 
 
 def test_load_corrupt_falls_back(tmp_path):
@@ -76,7 +76,8 @@ def test_every_used_translation_key_exists():
     pat = re.compile(r'\bt\(\s*["\']([a-zA-Z][a-zA-Z0-9_]*)["\']\s*\)')
     known = set(i18n.STRINGS["ru"])
     missing = {}
-    for path in glob.glob(os.path.join(root, "*.py")):
+    from _paths import source_files
+    for path in source_files():
         name = os.path.basename(path)
         if name in ("i18n.py", "settings_schema.py", "bundle_project.py"):
             continue          # the schema stores keys as data (tr passthrough)
@@ -123,7 +124,8 @@ def test_no_hardcoded_ui_strings_in_qt_calls():
     skip = {"i18n.py", "styles.py", "icons.py", "theme_manager.py",
             "settings_schema.py", "datatypes.py", "bundle_project.py"}
     bad = []
-    for path in glob.glob(os.path.join(root, "*.py")):
+    from _paths import source_files
+    for path in source_files():
         name = os.path.basename(path)
         if name in skip:
             continue
@@ -182,14 +184,14 @@ def test_no_hardcoded_ui_strings_in_qt_calls():
 
 
 def test_dashboard_kinds_all_have_labels_and_hints():
-    import dash_model as dm
+    from core import dash_model as dm
     for key in dm.KINDS:
         assert dm.kind(key).label_key in i18n.STRINGS["ru"]
         assert f"dashHint{key.capitalize()}" in i18n.STRINGS["ru"]
 
 
 def test_datatype_hints_translated():
-    import datatypes
+    from core import datatypes
     for key in datatypes.TYPES:
         assert f"hint{key}" in i18n.STRINGS["ru"], f"no hint for {key}"
         assert f"hint{key}" in i18n.STRINGS["en"]

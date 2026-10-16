@@ -10,9 +10,9 @@ import os
 import pytest
 from PyQt6.QtWidgets import QMenu
 
-import formats
-import settings_manager
-from gui_main import ModernScadaApp
+from core import formats
+from app import settings_manager
+from gui.main_window import ModernScadaApp
 
 REGS = [{"addr": 0x10, "name": "Ток", "type": "SHORT", "rw": "RO"}]
 
@@ -28,13 +28,13 @@ def no_blocking_modals(monkeypatch):
         def _f(*a, **k):
             raise AssertionError(f"unexpected modal dialog: {name}")
         return _f
-    monkeypatch.setattr("gui_main.themed_message", boom("themed_message"))
-    monkeypatch.setattr("gui_main.themed_info", boom("themed_info"))
+    monkeypatch.setattr("gui.main_window.themed_message", boom("themed_message"))
+    monkeypatch.setattr("gui.main_window.themed_info", boom("themed_info"))
     monkeypatch.setattr("PyQt6.QtWidgets.QFileDialog.getOpenFileName",
                         boom("getOpenFileName"))
     monkeypatch.setattr("PyQt6.QtWidgets.QFileDialog.getSaveFileName",
                         boom("getSaveFileName"))
-    monkeypatch.setattr("gui_main.themed_input", boom("themed_input"))
+    monkeypatch.setattr("gui.main_window.themed_input", boom("themed_input"))
 
 
 @pytest.fixture()
@@ -83,7 +83,7 @@ def test_new_project_clears_the_map_and_the_dashboards(win, tmp_path,
     assert win.profile_data
     win.dash_view._make_card({"uid": "w", "kind": "value", "reg_id": "0x0010",
                               "x": 0, "y": 0})
-    monkeypatch.setattr("gui_main.themed_message", lambda *a, **k: 0)  # confirm
+    monkeypatch.setattr("gui.main_window.themed_message", lambda *a, **k: 0)  # confirm
     win._new_project()
     assert win.profile_data == []
     assert win.register_table.rowCount() == 0
@@ -101,7 +101,7 @@ def test_new_project_keeps_the_connection_settings(win, tmp_path):
 def test_new_project_asks_before_throwing_work_away(win, tmp_path, monkeypatch):
     win._open_project(_project_file(tmp_path))
     asked = []
-    monkeypatch.setattr("gui_main.themed_message",
+    monkeypatch.setattr("gui.main_window.themed_message",
                         lambda *a, **k: (asked.append(a), 1)[1])   # 1 = cancel
     win._new_project()
     assert asked, "must confirm when there is a map to lose"
@@ -131,7 +131,7 @@ def test_saving_a_named_project_overwrites_without_asking(win, tmp_path,
 
 def test_an_unnamed_project_falls_back_to_save_as(win, tmp_path, monkeypatch):
     target = str(tmp_path / "fresh.mbproj")
-    monkeypatch.setattr("gui_main.themed_input",
+    monkeypatch.setattr("gui.main_window.themed_input",
                         lambda *a, **k: ("fresh", True))
     monkeypatch.setattr("PyQt6.QtWidgets.QFileDialog.getSaveFileName",
                         lambda *a, **k: (target, ""))
@@ -143,7 +143,7 @@ def test_an_unnamed_project_falls_back_to_save_as(win, tmp_path, monkeypatch):
 
 def test_saving_records_the_project_as_recent(win, tmp_path, monkeypatch):
     target = str(tmp_path / "r.mbproj")
-    monkeypatch.setattr("gui_main.themed_input",
+    monkeypatch.setattr("gui.main_window.themed_input",
                         lambda *a, **k: ("r", True))
     monkeypatch.setattr("PyQt6.QtWidgets.QFileDialog.getSaveFileName",
                         lambda *a, **k: (target, ""))
@@ -154,11 +154,11 @@ def test_saving_records_the_project_as_recent(win, tmp_path, monkeypatch):
 def test_a_failed_save_does_not_claim_the_project_is_saved(win, tmp_path,
                                                            monkeypatch):
     bad = str(tmp_path / "nope" / "deep" / "x.mbproj")
-    monkeypatch.setattr("gui_main.themed_input",
+    monkeypatch.setattr("gui.main_window.themed_input",
                         lambda *a, **k: ("x", True))
     monkeypatch.setattr("PyQt6.QtWidgets.QFileDialog.getSaveFileName",
                         lambda *a, **k: (bad, ""))
-    monkeypatch.setattr("gui_main.themed_info", lambda *a, **k: None)
+    monkeypatch.setattr("gui.main_window.themed_info", lambda *a, **k: None)
     win._save_project_as()
     assert win.project_path == "", "an unwritten file must not become the project"
 
@@ -178,7 +178,7 @@ def test_a_deleted_recent_project_is_reported_and_forgotten(win, tmp_path,
     win._open_project(path)
     os.remove(path)
     warned = []
-    monkeypatch.setattr("gui_main.themed_info",
+    monkeypatch.setattr("gui.main_window.themed_info",
                         lambda *a, **k: warned.append(a))
     win._open_project(path)
     assert warned, "a dead path must say so, not fail silently"
@@ -190,7 +190,7 @@ def test_a_corrupt_project_reports_instead_of_crashing(win, tmp_path,
     path = str(tmp_path / "broken.mbproj")
     open(path, "w", encoding="utf-8").write("{not json at all")
     errors = []
-    monkeypatch.setattr("gui_main.themed_info",
+    monkeypatch.setattr("gui.main_window.themed_info",
                         lambda *a, **k: errors.append(a))
     win._open_project(path)
     assert errors

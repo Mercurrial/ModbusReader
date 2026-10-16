@@ -9,9 +9,9 @@ import copy
 import pytest
 from PyQt6.QtWidgets import QApplication, QLineEdit, QMenu
 
-import settings_manager
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
+from app import settings_manager
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
 
 
 def _ctx(**over):
@@ -22,7 +22,7 @@ def _ctx(**over):
 
 @pytest.fixture()
 def win(tmp_path, monkeypatch):
-    import gui_main
+    from gui import main_window as gui_main
     monkeypatch.setattr(settings_manager, "SETTINGS_FILE",
                         str(tmp_path / "settings.json"), raising=False)
     w = gui_main.ModernScadaApp()
@@ -38,7 +38,7 @@ REGS = [{"addr": 5, "name": "Режим", "type": "SHORT", "rw": "RW"},
 def test_copy_address_copies_the_address(monkeypatch):
     """The dec/hex/bin loop reused the variable that held the address label,
     so «Copy address» put «Двоичное» on the clipboard."""
-    from gui_table import RegisterTable, COL_NAME
+    from gui.register_table import RegisterTable, COL_NAME
     t = RegisterTable(_ctx())
     t.populate(REGS)
     menus = []
@@ -56,7 +56,7 @@ def test_copy_address_copies_the_address(monkeypatch):
 
 
 def test_themed_input_returns_text_or_cancel():
-    from dialogs import _CardDialog
+    from gui.dialogs import _CardDialog
     from PyQt6.QtWidgets import QMessageBox
     d = _CardDialog(None, "Dark", "question", "T", "Label",
                     [("Cancel", QMessageBox.ButtonRole.RejectRole, False),
@@ -73,8 +73,8 @@ def test_themed_input_returns_text_or_cancel():
 
 def test_no_native_input_dialogs_left():
     import pathlib
-    root = pathlib.Path(__file__).resolve().parent.parent
-    for f in root.glob("*.py"):
+    from _paths import source_files
+    for f in map(pathlib.Path, source_files()):
         code = "\n".join(line for line in f.read_text(encoding="utf-8").splitlines()
                          if not line.lstrip().startswith("#"))
         assert "QInputDialog." not in code and "import QInputDialog" not in code, f.name
@@ -106,8 +106,8 @@ def test_frame_log_lines_are_localized_and_not_doubled(win):
 
 
 def test_chart_windows_speak_the_ui_language():
-    from gui_trends import win_label
-    from i18n import get_translator
+    from gui.trends import win_label
+    from app.i18n import get_translator
     ru, en = get_translator("ru"), get_translator("en")
     assert [win_label(s, ru) for s in (10, 30, 120, 600)] == \
         ["10 с", "30 с", "2 мин", "10 мин"]
@@ -115,8 +115,8 @@ def test_chart_windows_speak_the_ui_language():
 
 
 def test_sizes_and_units_speak_the_ui_language():
-    from gui_logger import human_size
-    from i18n import get_translator
+    from gui.logger import human_size
+    from app.i18n import get_translator
     assert human_size(5 << 20, "ru") == "5.0 МБ"
     assert human_size(5 << 20) == "5.0 MB"
     assert get_translator("ru")("unitMsSuffix") == " мс"
@@ -132,8 +132,8 @@ def test_switching_pages_does_not_hand_focus_to_a_field(win):
 
 
 def test_toggles_use_the_accent():
-    from gui_widgets import ToggleSwitch
-    from theme_manager import get_theme
+    from gui.widgets import ToggleSwitch
+    from gui.theme_manager import get_theme
     c = get_theme("Dark", "rose")
     assert ToggleSwitch(True, theme=c)._c_on.name() == c["accent"].lower()
 
@@ -148,7 +148,7 @@ def test_version_resource_follows_version_py():
     import pathlib
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
     from tools import version_resource
-    from version import APP_VERSION
+    from app.version import APP_VERSION
     assert version_resource._quad(APP_VERSION)[:3] == tuple(
         int(p) for p in APP_VERSION.split("."))
     pytest.importorskip("PyInstaller")
@@ -164,12 +164,12 @@ def test_version_resource_follows_version_py():
     ([7.5, 7.5], 2),                         # flat line: from the magnitude
 ])
 def test_one_precision_per_card(values, decimals):
-    from gui_trends import decimals_for
+    from gui.trends import decimals_for
     assert decimals_for(values) == decimals
 
 
 def test_value_formatting():
-    from gui_trends import fmt_value
+    from gui.trends import fmt_value
     assert fmt_value(22.309, 2) == "22.31"
     assert fmt_value(4000000, 0) == "4 000 000"   # thin-space groups
     assert fmt_value(-0.0001, 2) == "0"                       # no "-0.00"
@@ -179,9 +179,9 @@ def test_value_formatting():
 
 @pytest.fixture()
 def card():
-    from gui_trends import TrendCard
-    from i18n import get_translator
-    from theme_manager import get_theme
+    from gui.trends import TrendCard
+    from app.i18n import get_translator
+    from gui.theme_manager import get_theme
     c = TrendCard("0x0014", "Температура", get_theme("Dark"), "#12cbf5",
                   t=get_translator("ru"), unit="°C")
     yield c
@@ -189,7 +189,7 @@ def card():
 
 
 def test_card_states_waiting_live_stale_paused(card, monkeypatch):
-    import gui_trends
+    from gui import trends as gui_trends
     assert card._state == "waiting" and not card.lbl_wait.isHidden()
     card.add_value(21.5)
     assert card._state == "live" and card.lbl_wait.isHidden()

@@ -7,10 +7,10 @@ and a guide step pointing at a widget that no longer exists raises mid-tour.
 import pytest
 from PyQt6.QtWidgets import QApplication, QMessageBox, QWidget
 
-import icons
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
-from theme_manager import get_theme
+from gui import icons
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
+from gui.theme_manager import get_theme
 
 
 @pytest.fixture()
@@ -42,7 +42,8 @@ def test_icon_names_used_in_code_all_exist():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     pat = re.compile(r'icons\.(?:icon|pixmap|icon_url)\(\s*"([a-z_]+)"')
     missing = {}
-    for path in glob.glob(os.path.join(root, "*.py")):
+    from _paths import source_files
+    for path in source_files():
         for lineno, line in enumerate(open(path, encoding="utf-8"), 1):
             for name in pat.findall(line):
                 if name not in icons._PATHS:
@@ -80,7 +81,7 @@ def test_pixmap_honours_size_and_device_ratio():
 
 # ═══════════════════ gui_widgets ═══════════════════
 def test_segmented_selects_and_reports():
-    from gui_widgets import Segmented
+    from gui.widgets import Segmented
     seg = Segmented([("a", "First"), ("b", "Second")], "a")
     seen = []
     seg.valueChanged.connect(seen.append)
@@ -92,14 +93,14 @@ def test_segmented_selects_and_reports():
 def test_segmented_ignores_an_unknown_value():
     """Settings can hold a value from a newer build; the control must not end
     up with nothing selected."""
-    from gui_widgets import Segmented
+    from gui.widgets import Segmented
     seg = Segmented([("a", "First"), ("b", "Second")], "a")
     seg.setValue("nonsense")
     assert seg.value() in ("a", "b")
 
 
 def test_segmented_does_not_re_emit_the_same_value():
-    from gui_widgets import Segmented
+    from gui.widgets import Segmented
     seg = Segmented([("a", "A"), ("b", "B")], "a")
     seen = []
     seg.valueChanged.connect(seen.append)
@@ -108,7 +109,7 @@ def test_segmented_does_not_re_emit_the_same_value():
 
 
 def test_toggle_switch_reports_its_state():
-    from gui_widgets import ToggleSwitch
+    from gui.widgets import ToggleSwitch
     t = ToggleSwitch(False, theme=get_theme("Dark"))
     assert t.isChecked() is False
     t.setChecked(True)
@@ -116,7 +117,7 @@ def test_toggle_switch_reports_its_state():
 
 
 def test_labeled_slider_clamps_to_its_range():
-    from gui_widgets import LabeledSlider
+    from gui.widgets import LabeledSlider
     sl = LabeledSlider(8, 16, 9, unit=" pt")
     assert sl.value() == 9
     sl.slider.setValue(999)
@@ -126,8 +127,8 @@ def test_labeled_slider_clamps_to_its_range():
 
 
 def test_swatch_picker_round_trips_every_accent():
-    from gui_widgets import SwatchPicker
-    from settings_schema import ACCENT_SWATCHES
+    from gui.widgets import SwatchPicker
+    from app.settings_schema import ACCENT_SWATCHES
     p = SwatchPicker(list(ACCENT_SWATCHES), "neutral")
     for key, _hex in ACCENT_SWATCHES:
         p.setValue(key)
@@ -135,8 +136,8 @@ def test_swatch_picker_round_trips_every_accent():
 
 
 def test_swatch_picker_marks_exactly_one_selected():
-    from gui_widgets import SwatchPicker
-    from settings_schema import ACCENT_SWATCHES
+    from gui.widgets import SwatchPicker
+    from app.settings_schema import ACCENT_SWATCHES
     p = SwatchPicker(list(ACCENT_SWATCHES), "blue")
     selected = [k for k, b in p._buttons.items() if b._selected]
     assert selected == ["blue"]
@@ -146,7 +147,7 @@ def test_swatch_picker_marks_exactly_one_selected():
 def test_themed_message_returns_the_clicked_index(monkeypatch):
     """Every confirmation in the app depends on this index mapping; an off-by-
     one here silently turns Cancel into Discard."""
-    import dialogs
+    from gui import dialogs
     captured = {}
 
     def fake_exec(self):
@@ -164,7 +165,7 @@ def test_themed_message_returns_the_clicked_index(monkeypatch):
 
 def test_esc_maps_to_the_reject_button(monkeypatch):
     """Dismissing with Esc must mean Cancel, not the destructive option."""
-    import dialogs
+    from gui import dialogs
     dlg = dialogs._CardDialog(
         None, "Dark", "warning", "T", "B",
         [("Save", QMessageBox.ButtonRole.AcceptRole, True),
@@ -174,7 +175,7 @@ def test_esc_maps_to_the_reject_button(monkeypatch):
 
 
 def test_dialog_with_no_reject_button_reports_minus_one(monkeypatch):
-    import dialogs
+    from gui import dialogs
     dlg = dialogs._CardDialog(
         None, "Dark", "info", "T", "B",
         [("OK", QMessageBox.ButtonRole.AcceptRole, True)])
@@ -185,7 +186,7 @@ def test_dialog_with_no_reject_button_reports_minus_one(monkeypatch):
 def test_no_button_label_is_ever_clipped():
     """Three buttons did not fit the old fixed 400 px card and the middle label
     came out cut mid-word."""
-    import dialogs
+    from gui import dialogs
     from PyQt6.QtWidgets import QPushButton
     dlg = dialogs._CardDialog(
         None, "Dark", "warning", "Заголовок", "Тело сообщения",
@@ -204,7 +205,7 @@ def test_no_button_label_is_ever_clipped():
                                   "success", "nonsense"])
 def test_every_dialog_kind_builds(kind):
     """An unknown kind must fall back, not raise — callers pass strings."""
-    import dialogs
+    from gui import dialogs
     dlg = dialogs._CardDialog(None, "Dark", kind, "T", "B",
                               [("OK", QMessageBox.ButtonRole.AcceptRole, True)])
     assert dlg is not None
@@ -215,10 +216,10 @@ def test_every_dialog_kind_builds(kind):
 def test_every_view_guide_builds_with_live_targets(lang, monkeypatch):
     """A guide step pointing at a widget that was renamed raises in the middle
     of the tour. Build each one for real and check the steps survive."""
-    import gui_onboarding
-    from gui_scanner import ScannerView
-    from gui_sniffer import SnifferView
-    from gui_dash import DashboardView
+    from gui import onboarding as gui_onboarding
+    from gui.scanner import ScannerView
+    from gui.sniffer import SnifferView
+    from gui.dashboard import DashboardView
 
     built = []
     monkeypatch.setattr(gui_onboarding.OnboardingGuide, "show_guide",
@@ -245,7 +246,7 @@ def test_every_view_guide_builds_with_live_targets(lang, monkeypatch):
 
 def test_guide_drops_steps_whose_target_is_hidden():
     """Steps are filtered rather than crashing when a panel is toggled off."""
-    from gui_onboarding import OnboardingGuide
+    from gui.onboarding import OnboardingGuide
     host = QWidget()
     visible, hidden = QWidget(host), QWidget(host)
     hidden.hide()
@@ -261,7 +262,7 @@ def test_guide_drops_steps_whose_target_is_hidden():
 # ═══════════════════ trends data ═══════════════════
 def test_trend_history_is_bounded(ctx):
     """An always-on session must not grow memory without limit."""
-    from gui_trends import TrendCard
+    from gui.trends import TrendCard
     card = TrendCard(reg_id="0x0001", reg_name="T", theme=get_theme("Dark"),
                      color="#12cbf5", default_window_sec=30, history_len=50,
                      t=ctx.t, unit="")
@@ -273,7 +274,7 @@ def test_trend_history_is_bounded(ctx):
 
 
 def test_trends_manager_routes_a_sample_to_the_right_card(ctx):
-    from gui_trends import TrendsManager
+    from gui.trends import TrendsManager
     m = TrendsManager(ctx)
     m.add_trend("0x0001", "A")
     m.add_trend("0x0002", "B")
@@ -284,7 +285,7 @@ def test_trends_manager_routes_a_sample_to_the_right_card(ctx):
 
 
 def test_a_sample_for_an_unknown_register_is_ignored(ctx):
-    from gui_trends import TrendsManager
+    from gui.trends import TrendsManager
     m = TrendsManager(ctx)
     m.update_trend_data("0xBEEF", 1.0)      # must not raise
     assert m.active_trends == {}
@@ -292,7 +293,7 @@ def test_a_sample_for_an_unknown_register_is_ignored(ctx):
 
 
 def test_removing_a_trend_frees_its_card(ctx):
-    from gui_trends import TrendsManager
+    from gui.trends import TrendsManager
     m = TrendsManager(ctx)
     m.add_trend("0x0001", "A")
     m.remove_trend("0x0001")

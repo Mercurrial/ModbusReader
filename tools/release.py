@@ -74,7 +74,7 @@ def apply(version: str, date: str):
 
 
 def main():
-    from version import APP_VERSION
+    from app.version import APP_VERSION
     today = datetime.date.today()
     args = [a for a in sys.argv[1:] if not a.startswith("-")]
     version = args[0] if args else next_version(APP_VERSION, today)

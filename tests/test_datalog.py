@@ -9,7 +9,7 @@ import time
 
 import pytest
 
-import datalog
+from core import datalog
 
 
 COLUMNS = [(0x10, "0x0010 Температура, °C"), (0x12, "0x0012 Давление, бар")]
@@ -243,9 +243,9 @@ def test_generated_name_sorts_chronologically():
 # ═══════════════ the view, driven for real ═══════════════
 @pytest.fixture()
 def view(tmp_path):
-    from app_context import AppContext
-    from settings_manager import DEFAULT_SETTINGS
-    from gui_logger import LoggerView
+    from app.app_context import AppContext
+    from app.settings_manager import DEFAULT_SETTINGS
+    from gui.logger import LoggerView
     regs = [{"addr": 0x10, "name": "Температура", "unit": "°C"},
             {"addr": 0x12, "name": "Давление", "unit": "бар"}]
     values = {0x10: "25.4", 0x12: "3"}
@@ -298,10 +298,10 @@ def test_stopped_result_survives_a_language_switch(view):
 
 
 def test_view_refuses_to_start_without_a_profile(monkeypatch, tmp_path):
-    from app_context import AppContext
-    from settings_manager import DEFAULT_SETTINGS
-    from gui_logger import LoggerView
-    import gui_logger
+    from app.app_context import AppContext
+    from app.settings_manager import DEFAULT_SETTINGS
+    from gui.logger import LoggerView
+    from gui import logger as gui_logger
     seen = []
     monkeypatch.setattr(gui_logger, "themed_info",
                         lambda *a, **k: seen.append(a[3]))

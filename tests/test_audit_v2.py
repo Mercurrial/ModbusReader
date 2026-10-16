@@ -14,15 +14,15 @@ import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QMenu
 
-import formats
-import mapimport
-import profile_manager as pm
-import scaling
-import settings_manager
-import sniffer_core
-import transports
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
+from core import formats
+from core import mapimport
+from core import profile_manager as pm
+from core import scaling
+from app import settings_manager
+from core import sniffer_core
+from core import transports
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
 
 
 def _ctx(**over):
@@ -82,7 +82,7 @@ class _BoomTransport:
 def test_a_failing_port_open_reports_instead_of_killing_the_thread():
     """An exception from the client factory ended the QThread silently: no
     status signal, nothing in the log, the window stuck on 'connecting'."""
-    from modbus_core import ModbusCore
+    from core.modbus_core import ModbusCore
     core = ModbusCore()
     core.transport = _BoomTransport()
     statuses, logs = [], []
@@ -96,7 +96,7 @@ def test_a_failing_port_open_reports_instead_of_killing_the_thread():
 def test_shutdown_answers_waiting_ops_and_drops_stale_writes():
     """Queued work used to survive a disconnect: a macro sat out its whole
     timeout, and a write queued before the drop fired on the NEXT connect."""
-    from modbus_core import ModbusCore
+    from core.modbus_core import ModbusCore
     core = ModbusCore()
     logs = []
     core.log_msg.connect(lambda lv, m: logs.append((lv, m)))
@@ -117,7 +117,7 @@ def test_shutdown_answers_waiting_ops_and_drops_stale_writes():
 
 
 def test_an_unacknowledged_macro_write_raises_in_the_macro():
-    from modbus_core import ModbusCore
+    from core.modbus_core import ModbusCore
 
     class _Err:
         def isError(self):
@@ -199,7 +199,7 @@ def test_non_finite_values_format_without_raising(raw):
 
 
 def test_enum_keys_with_leading_zeros_are_kept():
-    from gui_scaling_dialog import parse_enum
+    from gui.scaling_dialog import parse_enum
     assert parse_enum("01 = Работа\n0x02 = Стоп") == {"1": "Работа", "2": "Стоп"}
 
 
@@ -222,9 +222,9 @@ def test_loaded_settings_never_share_objects_with_the_defaults(tmp_path):
 def test_the_shortcuts_page_lists_every_registered_shortcut():
     """The page was hand-written and had drifted (Ctrl+7 shown as Slave,
     Ctrl+S/8/9 missing). It is now generated from commands.COMMANDS."""
-    import commands
-    from gui_settings import SettingsDialog
-    from settings_schema import PAGES
+    from app import commands
+    from gui.settings import SettingsDialog
+    from app.settings_schema import PAGES
     dlg = SettingsDialog(copy.deepcopy(DEFAULT_SETTINGS))
     dlg.nav.setCurrentRow([p.key for p in PAGES].index("shortcuts"))
     page = dlg._page_scrolls[dlg._page_keys.index("shortcuts")].widget()
@@ -239,7 +239,7 @@ def test_the_shortcuts_page_lists_every_registered_shortcut():
 # ═══════════════ register table ═══════════════
 @pytest.fixture()
 def table():
-    from gui_table import RegisterTable
+    from gui.register_table import RegisterTable
     t = RegisterTable(_ctx())
     t.populate([
         {"addr": 1, "name": "A", "type": "SHORT", "rw": "RW"},
@@ -258,7 +258,7 @@ def test_the_context_menu_opens(table, monkeypatch):
     shown = []
     monkeypatch.setattr(QMenu, "exec", lambda self, *a: shown.append(
         [a.text() for a in self.actions()]))
-    from gui_table import COL_NAME
+    from gui.register_table import COL_NAME
     rect = table.visualItemRect(table.item(0, COL_NAME))
     table._show_context_menu(rect.center())
     assert shown and table.t("ctxTrendAdd") in shown[0]
@@ -300,7 +300,7 @@ def test_fresh_only_drops_values_after_a_disconnect(table):
 
 
 def test_hex_view_of_32_bit_types(table):
-    from gui_table import COL_CURRENT
+    from gui.register_table import COL_CURRENT
     table.update_value(4, "-2")
     table.set_view_mode("0x0004", table.addr_to_row[4], "hex")
     assert table.item(table.addr_to_row[4], COL_CURRENT).text() == "0xFFFFFFFE"
@@ -310,13 +310,13 @@ def test_hex_view_of_32_bit_types(table):
 
 
 def test_write_only_registers_are_writable(table):
-    from gui_table import COL_NEW
+    from gui.register_table import COL_NEW
     row = table.addr_to_row[8]
     assert table.item(row, COL_NEW).flags() & Qt.ItemFlag.ItemIsEditable
 
 
 def test_typing_while_disconnected_is_reported_not_swallowed(table):
-    from gui_table import COL_NEW
+    from gui.register_table import COL_NEW
     blocked = []
     table.write_blocked.connect(lambda a, v: blocked.append((a, v)))
     row = table.addr_to_row[1]
@@ -337,8 +337,8 @@ def test_an_enum_label_can_be_typed_to_write(table):
 def test_one_log_two_views():
     """The bottom panel and the Консоль view kept separate buffers with
     different rules; now both render the same store."""
-    from gui_log import LogPanel
-    from gui_views import ConsoleView
+    from gui.log import LogPanel
+    from gui.views import ConsoleView
     ctx = _ctx()
     panel = LogPanel(ctx)
     view = ConsoleView(ctx, store=panel.store)
@@ -350,7 +350,7 @@ def test_one_log_two_views():
 
 
 def test_console_history_is_shared_between_consoles():
-    from gui_console import RawConsole
+    from gui.console import RawConsole
     ctx = _ctx()
     a, b = RawConsole(ctx), RawConsole(ctx)
     a._push_history("01 03")
@@ -368,7 +368,7 @@ def test_chain_flags():
 
 @pytest.fixture()
 def editor():
-    from profile_editor import ProfileEditorDialog
+    from gui.map_editor import ProfileEditorDialog
     gapped = [{"addr": 0x00, "name": "A", "type": "SHORT"},
               {"addr": 0x01, "name": "B", "type": "SHORT"},
               {"addr": 0x10, "name": "C", "type": "SHORT"},
@@ -400,7 +400,7 @@ def test_delete_keeps_explicit_addresses(editor):
 
 
 def test_a_typed_address_moves_its_chain(editor):
-    from profile_editor import COL_ADDR
+    from gui.map_editor import COL_ADDR
     item = editor.table.item(2, COL_ADDR)
     item.setText("0x20")
     _pump()
@@ -412,7 +412,7 @@ def test_a_typed_address_moves_its_chain(editor):
 
 
 def test_a_contiguous_map_still_packs_after_a_drag():
-    from profile_editor import ProfileEditorDialog
+    from gui.map_editor import ProfileEditorDialog
     regs = [{"addr": 0x100 + i, "name": f"R{i}", "type": "SHORT"} for i in range(3)]
     ed = ProfileEditorDialog(None, regs, _ctx())
     ed.table.verticalHeader().moveSection(2, 0)
@@ -427,7 +427,7 @@ def test_a_contiguous_map_still_packs_after_a_drag():
 def test_the_memory_viewer_opens():
     """The title used self.t before it was assigned: AttributeError, the
     viewer never opened."""
-    from memory_viewer import MemoryViewerDialog
+    from gui.memory_viewer import MemoryViewerDialog
     ctx = _ctx()
     d = MemoryViewerDialog(0x20, 8, "Mem", ctx=ctx)
     d.set_real_data([1, 2, 3, 4, 5, 6, 7, 8])
@@ -444,7 +444,7 @@ class _FakeCore:
 
 
 def test_stop_cannot_be_swallowed_by_except_exception():
-    from macro_engine import MacroRunner
+    from core.macro_engine import MacroRunner
     code = "while True:\n    try:\n        pass\n    except Exception:\n        pass\n"
     r = MacroRunner(code, _FakeCore(), [])
     done = []
@@ -458,7 +458,7 @@ def test_stop_cannot_be_swallowed_by_except_exception():
 
 
 def test_a_nul_byte_in_the_script_finishes_cleanly():
-    from macro_engine import MacroRunner
+    from core.macro_engine import MacroRunner
     r = MacroRunner("x = 1\x00", _FakeCore(), [])
     done = []
     r.sig_finished.connect(lambda ok, m: done.append((ok, m)))
@@ -469,7 +469,7 @@ def test_a_nul_byte_in_the_script_finishes_cleanly():
 # ═══════════════ trends ═══════════════
 def test_chart_settings_are_applied():
     """«Автомасштаб Y» and «Анимация» were stored and read by nothing."""
-    from gui_trends import TrendsManager
+    from gui.trends import TrendsManager
     ctx = _ctx(graph_autofit_y=False, graph_anim="off")
     tm = TrendsManager(ctx)
     tm.add_trend("0x0001", "A")
@@ -486,7 +486,7 @@ def test_chart_settings_are_applied():
 # ═══════════════ the window ═══════════════
 @pytest.fixture()
 def win(tmp_path, monkeypatch):
-    import gui_main
+    from gui import main_window as gui_main
     monkeypatch.setattr(settings_manager, "SETTINGS_FILE",
                         str(tmp_path / "settings.json"), raising=False)
     w = gui_main.ModernScadaApp()
@@ -538,7 +538,7 @@ def test_the_logger_plan_follows_a_loaded_map(win, tmp_path):
 def test_a_project_map_is_what_comes_back_after_restart(tmp_path, monkeypatch):
     """Only the bare .json path used to be restored: the window came back
     showing the project's name over a different, older map."""
-    import gui_main
+    from gui import main_window as gui_main
     proj = str(tmp_path / "plant.mbproj")
     formats.dump_project(proj, "plant", dict(DEFAULT_SETTINGS),
                          [{"addr": 7, "name": "P", "type": "SHORT"}], [])
@@ -560,7 +560,7 @@ def test_a_new_project_forgets_the_old_map_file(win, tmp_path, monkeypatch):
     p.write_text(json.dumps([{"addr": 5, "name": "X", "type": "SHORT"}]),
                  encoding="utf-8")
     win._load_profile(str(p))
-    import gui_main
+    from gui import main_window as gui_main
     monkeypatch.setattr(gui_main, "themed_message", lambda *a, **k: 0)
     win._new_project()
     assert win.settings["last_profile_path"] == ""
@@ -583,7 +583,7 @@ def test_applying_a_project_updates_the_status_bar_slave_id(win):
 
 
 def test_the_dashboard_add_button_is_reachable_in_run_mode(win, monkeypatch):
-    import gui_dash
+    from gui import dashboard as gui_dash
 
     class _Dlg:
         result_cfg = None

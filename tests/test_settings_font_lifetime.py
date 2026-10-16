@@ -8,13 +8,13 @@ in the global excepthook). The callback is now guarded with sip.isdeleted."""
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QEvent
 
-from settings_manager import DEFAULT_SETTINGS
-from settings_schema import PAGES
+from app.settings_manager import DEFAULT_SETTINGS
+from app.settings_schema import PAGES
 
 
 def test_font_chunks_survive_dialog_deletion(monkeypatch):
     # Enough fake families that chunk 2+ is DEFERRED past the deletion.
-    import gui_settings
+    from gui import settings as gui_settings
     monkeypatch.setattr(
         gui_settings.QFontDatabase, "families",
         staticmethod(lambda: [f"Fake Font {i}" for i in range(200)]))

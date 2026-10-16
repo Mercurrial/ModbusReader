@@ -7,8 +7,8 @@ import json
 
 import pytest
 
-import formats
-import scaling
+from core import formats
+from core import scaling
 
 
 # ── profile version detection + migration ──────────────────────────────
@@ -173,7 +173,7 @@ def test_format_value_scaled_with_unit():
 
 
 def test_scaling_dialog_enum_parse():
-    from gui_scaling_dialog import parse_enum, enum_to_text
+    from gui.scaling_dialog import parse_enum, enum_to_text
     txt = "0 = Стоп\n1 = Работа\n\nбред\n2=Авария"
     enum = parse_enum(txt)
     assert enum == {"0": "Стоп", "1": "Работа", "2": "Авария"}

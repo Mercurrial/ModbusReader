@@ -3,9 +3,9 @@ intent signals."""
 import pytest
 from PyQt6.QtCore import Qt
 
-from app_context import AppContext
-from settings_manager import DEFAULT_SETTINGS
-from gui_table import (RegisterTable, COL_CURRENT, COL_STATE, COL_NEW,
+from app.app_context import AppContext
+from app.settings_manager import DEFAULT_SETTINGS
+from gui.register_table import (RegisterTable, COL_CURRENT, COL_STATE, COL_NEW,
                        COL_NAME, format_value)
 
 
