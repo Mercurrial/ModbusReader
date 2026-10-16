@@ -4,19 +4,25 @@
 A register map can run to hundreds of rows, and the ones that matter during
 commissioning are spread across it; on top of that the operator is usually
 looking at something else — the dashboard, the console, the map editor. The
-watch window is a small floating window (it stays above the main window, and
-can be pinned above every window) that shows just the picked registers, live,
-whatever the main window is showing.
+watch window is a small floating panel (above the main window; the pin keeps
+it above every window) that shows just the picked registers, live, whatever
+the main window is showing.
+
+2.2 rebuilt it as a panel, not a spreadsheet: its own dark chrome (the native
+title bar was a white strip across a dark app), one row per register —
+
+    ● Температура датчик 1                           21.5 °C
+      0x0014 · мин 19 · макс 25.3 · 3 с назад     [записать…]
+
+— the value large, everything else one quiet line, the write field only on
+registers that can be written. Drag the title to move it, the corner to size
+it; right-click a row to reorder / reset min-max / remove.
 
 Registers are added from the register table's context menu or from a
-dashboard widget's menu. Each row shows the current value (the SAME text as
-the table: scaling, enum labels and view mode applied), the min / max seen
-since it was added, and how long ago the value last changed. Writable
-registers can be written straight from the «Новое» cell.
-
-The list is persisted in ``settings["watch_list"]`` (addresses, in order);
-names, units and types are looked up in the current map at display time, so a
-watched address that is not in the map says so instead of vanishing.
+dashboard widget's menu. The value is the SAME text as the table (scaling,
+enum labels, view mode). The list is persisted in ``settings["watch_list"]``
+(register keys, in order); names, units and writability come from the current
+map at display time, so a watched register that is not in the map says so.
 """
 
 import time
@@ -24,21 +30,16 @@ import time
 from PyQt6.QtCore import Qt, QTimer, QSize, pyqtSignal
 from PyQt6.QtGui import QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget,
-    QTableWidgetItem, QHeaderView, QAbstractItemView, QMenu,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QMenu,
+    QScrollArea, QLineEdit, QSizeGrip, QGraphicsDropShadowEffect, QSizePolicy,
 )
 
 import datatypes
 import icons
-from gui_table import StateDotDelegate, mono_font
+from gui_widgets import EmptyState
 
 STALE_AFTER = 5.0           # s without a fresh value -> the dot goes grey
-
-COL_DOT, COL_ADDR, COL_NAME, COL_VALUE, COL_MIN, COL_MAX, COL_AGE, COL_NEW = range(8)
-# Short headers on purpose: this is a small floating window, and the long
-# table captions («ТЕКУЩЕЕ ЗНАЧЕНИЕ») were clipped and starved the names.
-_HEADERS = ("", "address", "name", "watchValue", "watchMin", "watchMax",
-            "watchChanged", "watchNew")
+_SHADOW = 12                # px around the card for its drop shadow
 
 
 def _age(sec: float | None, t) -> str:
@@ -74,21 +75,114 @@ class _Row:
         self.seen_at = None
 
 
+class _Dot(QLabel):
+    """The live/stale dot of a row."""
+
+    def __init__(self):
+        super().__init__()
+        self.setFixedSize(10, 10)
+        self.state = "stale"
+
+
+class WatchRowWidget(QFrame):
+    """One register: name + big value on top, the details line below."""
+
+    write_requested = pyqtSignal(int, str)
+    menu_requested = pyqtSignal(int, object)      # addr, global pos
+    clicked = pyqtSignal(int)
+
+    def __init__(self, addr: int, ctx):
+        super().__init__()
+        self.addr = addr
+        self.ctx = ctx
+        self.setObjectName("watchRow")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(
+            lambda pos: self.menu_requested.emit(self.addr, self.mapToGlobal(pos)))
+        lo = QVBoxLayout(self)
+        lo.setContentsMargins(12, 8, 12, 8)
+        lo.setSpacing(2)
+
+        top = QHBoxLayout()
+        top.setSpacing(8)
+        self.dot = _Dot()
+        self.lbl_name = QLabel()
+        self.lbl_name.setObjectName("wName")
+        self.lbl_name.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.lbl_value = QLabel("—")
+        self.lbl_value.setObjectName("wValue")
+        self.lbl_value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.lbl_unit = QLabel()
+        self.lbl_unit.setObjectName("wUnit")
+        top.addWidget(self.dot, 0, Qt.AlignmentFlag.AlignVCenter)
+        top.addWidget(self.lbl_name, 1)
+        top.addWidget(self.lbl_value)
+        top.addWidget(self.lbl_unit)
+
+        bottom = QHBoxLayout()
+        bottom.setSpacing(8)
+        bottom.setContentsMargins(18, 0, 0, 0)       # under the name, past the dot
+        self.lbl_meta = QLabel()
+        self.lbl_meta.setObjectName("wMeta")
+        self.lbl_meta.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.ed_write = QLineEdit()
+        self.ed_write.setObjectName("wWrite")
+        self.ed_write.setFixedWidth(120)
+        # Rows without a write field keep its height: every row the same.
+        sp = self.ed_write.sizePolicy()
+        sp.setRetainSizeWhenHidden(True)
+        self.ed_write.setSizePolicy(sp)
+        self.ed_write.returnPressed.connect(self._write)
+        bottom.addWidget(self.lbl_meta, 1)
+        bottom.addWidget(self.ed_write)
+        lo.addLayout(top)
+        lo.addLayout(bottom)
+
+    def _write(self):
+        text = self.ed_write.text().strip()
+        if text:
+            self.write_requested.emit(self.addr, text)
+            self.ed_write.clear()
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit(self.addr)
+        super().mousePressEvent(e)
+
+    def set_selected(self, on: bool):
+        self.setProperty("selected", "true" if on else "false")
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+    def set_dot(self, state: str, tokens: dict):
+        if state == self.dot.state and self.dot.pixmap() is not None \
+                and not self.dot.pixmap().isNull():
+            return
+        self.dot.state = state
+        self.dot.setPixmap(icons.pixmap(
+            "dot", tokens["ok"] if state == "ok" else tokens["text_4"], 10))
+
+
 class WatchWindow(QWidget):
-    """Floating watch list. Emits ``write_requested(addr, text)`` and
+    """Floating watch panel. Emits ``write_requested(addr, text)`` and
     ``watch_changed(set_of_addrs)``."""
 
     write_requested = pyqtSignal(int, str)
     watch_changed = pyqtSignal(object)
 
     def __init__(self, ctx, get_registers, parent=None):
-        super().__init__(parent, Qt.WindowType.Tool)
+        super().__init__(parent, Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
         self.ctx = ctx
         self.get_registers = get_registers
         self.setObjectName("watchWin")
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setMinimumSize(420, 220)
+        # Rounded card + soft shadow: the window itself is transparent.
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setMinimumSize(340 + 2 * _SHADOW, 180 + 2 * _SHADOW)
         self._rows: list[_Row] = []
+        self._widgets: list[WatchRowWidget] = []
+        self._selected = None
         for a in ctx.settings.get("watch_list") or []:
             try:
                 addr = int(a)
@@ -104,9 +198,9 @@ class WatchWindow(QWidget):
             try:
                 self.setGeometry(*[int(v) for v in geo])
             except (TypeError, ValueError):
-                self.resize(720, 320)
+                self.resize(460, 360)
         else:
-            self.resize(720, 320)
+            self.resize(460, 360)
         self.retranslate(ctx.t)
         self._rebuild()
         self._timer = QTimer(self)
@@ -115,81 +209,101 @@ class WatchWindow(QWidget):
 
     # ── UI ────────────────────────────────────────────────────────────
     def _build_ui(self):
-        c = self.ctx.theme_tokens()
-        lo = QVBoxLayout(self)
-        lo.setContentsMargins(0, 0, 0, 0)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(_SHADOW, _SHADOW, _SHADOW, _SHADOW)
+        self.card = QFrame()
+        self.card.setObjectName("watchCard")
+        self.card.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        shadow = QGraphicsDropShadowEffect(self.card)
+        shadow.setBlurRadius(28)
+        shadow.setOffset(0, 6)
+        shadow.setColor(QColor(0, 0, 0, 130))
+        self.card.setGraphicsEffect(shadow)
+        outer.addWidget(self.card)
+        lo = QVBoxLayout(self.card)
+        lo.setContentsMargins(1, 1, 1, 1)
         lo.setSpacing(0)
 
-        bar = QWidget()
-        bar.setObjectName("watchBar")
-        bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        bl = QHBoxLayout(bar)
-        bl.setContentsMargins(12, 6, 8, 6)
+        # Title bar — drag it to move the panel (native move: snapping works).
+        self.bar = QWidget()
+        self.bar.setObjectName("watchBar")
+        self.bar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.bar.setFixedHeight(40)
+        self.bar.mousePressEvent = self._bar_press
+        self.bar.mouseDoubleClickEvent = lambda _e: None
+        bl = QHBoxLayout(self.bar)
+        bl.setContentsMargins(12, 0, 6, 0)
         bl.setSpacing(6)
         self._ico = QLabel()
-        self._ico.setPixmap(icons.pixmap("watch", c["text_2"], 16))
         bl.addWidget(self._ico)
         self.lbl_title = QLabel()
-        self.lbl_title.setObjectName("mhTitle")
+        self.lbl_title.setObjectName("wTitle")
         bl.addWidget(self.lbl_title)
         self.lbl_count = QLabel()
-        self.lbl_count.setObjectName("mhBadge")
+        self.lbl_count.setObjectName("wCount")
         bl.addWidget(self.lbl_count)
         bl.addStretch(1)
-        self.btn_pin = QPushButton()
-        self.btn_pin.setObjectName("iconBtn")
-        self.btn_pin.setCheckable(True)
-        self.btn_pin.setFixedSize(30, 30)
-        self.btn_pin.setIconSize(QSize(16, 16))
-        self.btn_pin.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_pin.toggled.connect(lambda on: self._apply_on_top(on))
-        bl.addWidget(self.btn_pin)
-        self.btn_clear = QPushButton()
-        self.btn_clear.setObjectName("iconBtn")
-        self.btn_clear.setFixedSize(30, 30)
-        self.btn_clear.setIconSize(QSize(16, 16))
-        self.btn_clear.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_clear.clicked.connect(self.clear)
-        bl.addWidget(self.btn_clear)
-        lo.addWidget(bar)
 
-        self.table = QTableWidget(0, len(_HEADERS))
-        self.table.setObjectName("watchTable")
-        self.table.verticalHeader().setVisible(False)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked
-                                   | QAbstractItemView.EditTrigger.EditKeyPressed
-                                   | QAbstractItemView.EditTrigger.AnyKeyPressed)
-        self._dots = StateDotDelegate(self.ctx.theme_tokens(), self.table)
-        self.table.setItemDelegateForColumn(COL_DOT, self._dots)
-        hh = self.table.horizontalHeader()
-        hh.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        hh.setSectionResizeMode(COL_NAME, QHeaderView.ResizeMode.Stretch)
-        hh.setSectionResizeMode(COL_VALUE, QHeaderView.ResizeMode.Interactive)
-        hh.setSectionResizeMode(COL_NEW, QHeaderView.ResizeMode.Interactive)
-        self.table.setColumnWidth(COL_VALUE, 110)
-        self.table.setColumnWidth(COL_NEW, 80)
-        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.table.customContextMenuRequested.connect(self._menu)
-        self.table.cellChanged.connect(self._on_cell_changed)
-        lo.addWidget(self.table, 1)
+        def _btn(slot, checkable=False):
+            b = QPushButton()
+            b.setObjectName("iconBtn")
+            b.setCheckable(checkable)
+            b.setFixedSize(28, 28)
+            b.setIconSize(QSize(15, 15))
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            (b.toggled if checkable else b.clicked).connect(slot)
+            bl.addWidget(b)
+            return b
+        self.btn_pin = _btn(lambda on: self._apply_on_top(on), checkable=True)
+        self.btn_clear = _btn(self.clear)
+        self.btn_close = _btn(self.hide)
+        lo.addWidget(self.bar)
 
-        self.lbl_empty = QLabel()
-        self.lbl_empty.setObjectName("emptyState")
-        self.lbl_empty.setWordWrap(True)
-        self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lo.addWidget(self.lbl_empty, 1)
+        self.scroll = QScrollArea()
+        self.scroll.setObjectName("watchScroll")
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.list_host = QWidget()
+        self.list_host.setObjectName("watchList")
+        self.list_lo = QVBoxLayout(self.list_host)
+        self.list_lo.setContentsMargins(6, 6, 6, 6)
+        self.list_lo.setSpacing(2)
+        self.list_lo.addStretch(1)
+        self.scroll.setWidget(self.list_host)
+        lo.addWidget(self.scroll, 1)
 
-        sc = QShortcut(QKeySequence(Qt.Key.Key_Delete), self.table)
+        self.empty = EmptyState("watch", "", "")
+        lo.addWidget(self.empty, 1)
+
+        grip_row = QHBoxLayout()
+        grip_row.setContentsMargins(0, 0, 2, 2)
+        grip_row.addStretch(1)
+        self.grip = QSizeGrip(self.card)
+        self.grip.setObjectName("watchGrip")
+        self.grip.setFixedSize(14, 14)
+        grip_row.addWidget(self.grip)
+        lo.addLayout(grip_row)
+
+        sc = QShortcut(QKeySequence(Qt.Key.Key_Delete), self)
         sc.activated.connect(self._remove_selected)
         self._paint_icons()
+
+    def _bar_press(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            handle = self.windowHandle()
+            if handle is not None:
+                handle.startSystemMove()
 
     def _paint_icons(self):
         c = self.ctx.theme_tokens()
         on = self.btn_pin.isChecked()
-        self.btn_pin.setIcon(icons.icon("pin", c["accent"] if on else c["text_3"], 16))
-        self.btn_clear.setIcon(icons.icon("trash", c["text_3"], 16))
+        self.btn_pin.setIcon(icons.icon("pin", c["accent"] if on else c["text_3"], 15))
+        self.btn_clear.setIcon(icons.icon("trash", c["text_3"], 15))
+        self.btn_close.setIcon(icons.icon("x", c["text_3"], 15))
         self._ico.setPixmap(icons.pixmap("watch", c["text_2"], 16))
+        self.empty.apply_theme(c)
 
     def _apply_on_top(self, on: bool, show: bool = True):
         """«Поверх всех окон»: by default the window floats above the main
@@ -219,6 +333,8 @@ class WatchWindow(QWidget):
 
     def remove(self, addr: int):
         self._rows = [r for r in self._rows if r.addr != int(addr)]
+        if self._selected == int(addr):
+            self._selected = None
         self._list_changed()
 
     def toggle(self, addr: int) -> bool:
@@ -232,6 +348,7 @@ class WatchWindow(QWidget):
     def clear(self):
         if self._rows:
             self._rows = []
+            self._selected = None
             self._list_changed()
 
     def _move(self, addr: int, step: int):
@@ -241,7 +358,6 @@ class WatchWindow(QWidget):
             return
         self._rows[i], self._rows[j] = self._rows[j], self._rows[i]
         self._list_changed()
-        self.table.selectRow(j)
 
     def _list_changed(self):
         self.ctx.settings["watch_list"] = [r.addr for r in self._rows]
@@ -257,68 +373,74 @@ class WatchWindow(QWidget):
         return out
 
     # ── rendering ─────────────────────────────────────────────────────
-    def _item(self, text="", align=Qt.AlignmentFlag.AlignCenter, editable=False):
-        it = QTableWidgetItem(text)
-        flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
-        if editable:
-            flags |= Qt.ItemFlag.ItemIsEditable
-        it.setFlags(flags)
-        it.setTextAlignment(align | Qt.AlignmentFlag.AlignVCenter)
-        return it
+    def row_widget(self, i: int) -> WatchRowWidget:
+        return self._widgets[i]
 
     def _rebuild(self):
         """Full re-render (list changed, map changed, language/theme)."""
         t = self.ctx.t
         regs = self._regs()
-        try:
-            size = int(self.ctx.settings.get("font_size", 9))
-        except (TypeError, ValueError):
-            size = 9
-        mono = mono_font(size)
-        big = mono_font(size + 2)
-        big.setBold(True)
-        muted = QColor(self.ctx.theme_tokens()["text_4"])
-        self.table.blockSignals(True)
-        try:
-            self.table.setRowCount(len(self._rows))
-            for i, row in enumerate(self._rows):
-                reg = regs.get(row.addr)
-                dot = self._item()
-                dot.setData(Qt.ItemDataRole.UserRole, self._state(row))
-                self.table.setItem(i, COL_DOT, dot)
-                a = self._item(datatypes.key_label(row.addr), Qt.AlignmentFlag.AlignLeft)
-                a.setFont(mono)
-                self.table.setItem(i, COL_ADDR, a)
-                if reg is None:
-                    name = self._item(t("watchNotInMap"), Qt.AlignmentFlag.AlignLeft)
-                    name.setForeground(muted)
-                else:
-                    label = (reg.get("name_en") if self.ctx.lang == "en"
-                             and reg.get("name_en") else reg.get("name", ""))
-                    name = self._item(str(label), Qt.AlignmentFlag.AlignLeft)
-                    name.setToolTip(f"{label}\n{reg.get('type', '')} · {reg.get('rw', '')}")
-                self.table.setItem(i, COL_NAME, name)
-                v = self._item(row.text if row.text is not None else "—")
-                v.setFont(big)
-                self.table.setItem(i, COL_VALUE, v)
-                for col, val in ((COL_MIN, row.vmin), (COL_MAX, row.vmax)):
-                    it = self._item("—" if val is None else _num_text(val))
-                    it.setFont(mono)
-                    self.table.setItem(i, col, it)
-                self.table.setItem(i, COL_AGE, self._item(self._age_text(row)))
-                writable = reg is not None and datatypes.is_writable(reg)
-                # Read-only: an empty cell, not a dash (same rule as the map).
-                new = self._item("", Qt.AlignmentFlag.AlignLeft, editable=writable)
-                if writable:
-                    new.setToolTip(t("watchNewTip"))
-                new.setFont(mono)
-                self.table.setItem(i, COL_NEW, new)
-        finally:
-            self.table.blockSignals(False)
+        tok = self.ctx.theme_tokens()
+        for wdg in self._widgets:
+            self.list_lo.removeWidget(wdg)
+            # Out of the window NOW: a removed-but-not-yet-deleted row was
+            # still painted, a ghost line on top of the new list.
+            wdg.hide()
+            wdg.setParent(None)
+            wdg.deleteLater()
+        self._widgets = []
+        for i, row in enumerate(self._rows):
+            reg = regs.get(row.addr)
+            wdg = WatchRowWidget(row.addr, self.ctx)
+            wdg.write_requested.connect(self.write_requested.emit)
+            wdg.menu_requested.connect(self._menu)
+            wdg.clicked.connect(self._select)
+            if reg is None:
+                wdg.lbl_name.setText(t("watchNotInMap"))
+                wdg.lbl_name.setProperty("missing", "true")
+                unit = ""
+                writable = False
+            else:
+                label = (reg.get("name_en") if self.ctx.lang == "en"
+                         and reg.get("name_en") else reg.get("name", ""))
+                wdg.lbl_name.setText(str(label))
+                wdg.lbl_name.setToolTip(
+                    f"{label}\n{reg.get('type', '')} · {reg.get('rw', '')}")
+                unit = str(reg.get("unit", "") or "")
+                writable = datatypes.is_writable(reg)
+            wdg.unit = unit
+            wdg.ed_write.setVisible(writable)
+            wdg.ed_write.setPlaceholderText(t("watchWritePh"))
+            wdg.ed_write.setToolTip(t("watchNewTip"))
+            wdg.set_dot(self._state(row), tok)
+            wdg.set_selected(row.addr == self._selected)
+            self._fill(wdg, row)
+            self.list_lo.insertWidget(i, wdg)
+            self._widgets.append(wdg)
         empty = not self._rows
-        self.table.setVisible(not empty)
-        self.lbl_empty.setVisible(empty)
-        self.lbl_count.setText(str(len(self._rows)))
+        self.scroll.setVisible(not empty)
+        self.empty.setVisible(empty)
+        self.lbl_count.setText(str(len(self._rows)) if self._rows else "")
+
+    def _fill(self, wdg: WatchRowWidget, row: _Row):
+        """Value + details line of one row."""
+        t = self.ctx.t
+        text = row.text if row.text is not None else "—"
+        wdg.lbl_value.setText(text)
+        wdg.lbl_value.setProperty("state", "live" if row.text is not None else "none")
+        wdg.lbl_value.style().unpolish(wdg.lbl_value)
+        wdg.lbl_value.style().polish(wdg.lbl_value)
+        # The table text of a scaled register already carries its unit.
+        unit = getattr(wdg, "unit", "")
+        wdg.lbl_unit.setText(unit if unit and not text.endswith(unit) and row.text else "")
+        wdg.lbl_unit.setVisible(bool(wdg.lbl_unit.text()))
+        parts = [datatypes.key_label(row.addr)]
+        if row.vmin is not None:
+            parts.append(f"{t('trendMin')} {_num_text(row.vmin)}")
+            parts.append(f"{t('trendMax')} {_num_text(row.vmax)}")
+        if row.changed_at is not None:
+            parts.append(t("watchChangedAgo").format(age=self._age_text(row)))
+        wdg.lbl_meta.setText("  ·  ".join(parts))
 
     def _state(self, row: _Row) -> str:
         if row.seen_at is None:
@@ -350,42 +472,24 @@ class WatchWindow(QWidget):
             row.num = float(num)
             row.vmin = row.num if row.vmin is None else min(row.vmin, row.num)
             row.vmax = row.num if row.vmax is None else max(row.vmax, row.num)
-        self.table.blockSignals(True)
-        try:
-            for col, txt in ((COL_VALUE, text),
-                             (COL_MIN, "—" if row.vmin is None else _num_text(row.vmin)),
-                             (COL_MAX, "—" if row.vmax is None else _num_text(row.vmax)),
-                             (COL_AGE, self._age_text(row))):
-                it = self.table.item(i, col)
-                if it is not None and it.text() != txt:
-                    it.setText(txt)
-            dot = self.table.item(i, COL_DOT)
-            if dot is not None and dot.data(Qt.ItemDataRole.UserRole) != "ok":
-                dot.setData(Qt.ItemDataRole.UserRole, "ok")
-        finally:
-            self.table.blockSignals(False)
+        if i < len(self._widgets):
+            wdg = self._widgets[i]
+            self._fill(wdg, row)
+            wdg.set_dot("ok", self.ctx.theme_tokens())
 
     def set_stale_all(self):
         for r in self._rows:
             r.seen_at = None
-        self._tick()
+        self._tick(force=True)
 
-    def _tick(self):
-        """Once a second: age labels and stale dots."""
-        if not self.isVisible():
+    def _tick(self, force: bool = False):
+        """Once a second: age text and stale dots."""
+        if not self.isVisible() and not force:
             return
-        self.table.blockSignals(True)
-        try:
-            for i, row in enumerate(self._rows):
-                age = self.table.item(i, COL_AGE)
-                if age is not None:
-                    age.setText(self._age_text(row))
-                dot = self.table.item(i, COL_DOT)
-                if dot is not None:
-                    dot.setData(Qt.ItemDataRole.UserRole, self._state(row))
-        finally:
-            self.table.blockSignals(False)
-        self.table.viewport().update()
+        tok = self.ctx.theme_tokens()
+        for row, wdg in zip(self._rows, self._widgets):
+            wdg.set_dot(self._state(row), tok)
+            self._fill(wdg, row)
 
     def reset_minmax(self, addr: int | None = None):
         for r in self._rows:
@@ -394,29 +498,27 @@ class WatchWindow(QWidget):
         self._rebuild()
 
     # ── interaction ───────────────────────────────────────────────────
-    def _selected_addr(self):
-        row = self.table.currentRow()
-        return self._rows[row].addr if 0 <= row < len(self._rows) else None
+    def _select(self, addr: int):
+        self._selected = addr
+        for wdg in self._widgets:
+            wdg.set_selected(wdg.addr == addr)
 
     def _remove_selected(self):
-        addr = self._selected_addr()
-        if addr is not None:
-            self.remove(addr)
+        if self._selected is not None:
+            self.remove(self._selected)
 
-    def _menu(self, pos):
-        it = self.table.itemAt(pos)
-        if it is None:
-            return
-        addr = self._rows[it.row()].addr
+    def _menu(self, addr: int, gpos):
+        self._select(addr)
         t = self.ctx.t
+        c = self.ctx.theme_tokens()["text_2"]
         m = QMenu(self)
-        a_up = m.addAction(t("watchUp"))
-        a_down = m.addAction(t("watchDown"))
+        a_up = m.addAction(icons.icon("chevron_up", c, 14), t("watchUp"))
+        a_down = m.addAction(icons.icon("chevron", c, 14), t("watchDown"))
         m.addSeparator()
-        a_reset = m.addAction(t("watchResetMinMax"))
+        a_reset = m.addAction(icons.icon("focus", c, 14), t("watchResetMinMax"))
         m.addSeparator()
-        a_del = m.addAction(t("watchRemove"))
-        chosen = m.exec(self.table.viewport().mapToGlobal(pos))
+        a_del = m.addAction(icons.icon("x", c, 14), t("watchRemove"))
+        chosen = m.exec(gpos)
         if chosen is a_up:
             self._move(addr, -1)
         elif chosen is a_down:
@@ -426,44 +528,22 @@ class WatchWindow(QWidget):
         elif chosen is a_del:
             self.remove(addr)
 
-    def _on_cell_changed(self, row: int, col: int):
-        if col != COL_NEW or not 0 <= row < len(self._rows):
-            return
-        it = self.table.item(row, COL_NEW)
-        text = it.text().strip() if it else ""
-        if not text or text == "—":
-            return
-        self.write_requested.emit(self._rows[row].addr, text)
-        self.table.blockSignals(True)
-        it.setText("")
-        self.table.blockSignals(False)
-
     # ── app plumbing ──────────────────────────────────────────────────
     def refresh_map(self):
         """The register map changed: names, units and writability follow."""
         self._rebuild()
 
     def apply_settings(self):
-        self._dots.set_theme(self.ctx.theme_tokens())
         self._paint_icons()
         self._rebuild()
 
     def retranslate(self, t):
         self.setWindowTitle(t("watchTitle"))
         self.lbl_title.setText(t("watchTitle"))
-        self.lbl_empty.setText(t("watchEmpty"))
+        self.empty.set_content(t("watchEmptyTitle"), t("watchEmpty"))
         self.btn_pin.setToolTip(t("watchPinTip"))
         self.btn_clear.setToolTip(t("watchClearTip"))
-        self.table.setHorizontalHeaderLabels(
-            [t(k) if k else "" for k in _HEADERS])
-        hdr = self.table.horizontalHeaderItem(COL_NEW)
-        if hdr is not None:
-            hdr.setToolTip(t("watchNewTip"))
-        # Headers sit over their cells: text columns left, readouts centred.
-        for col in (COL_ADDR, COL_NAME, COL_NEW):
-            h = self.table.horizontalHeaderItem(col)
-            if h is not None:
-                h.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.btn_close.setToolTip(t("close"))
         self._rebuild()
 
     def save_geometry(self):

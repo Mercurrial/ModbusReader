@@ -156,3 +156,24 @@ def test_grab_released_on_drop(editor):
     _drag(editor, 0, 3)
     assert editor.table._grabbed is False
     assert editor.is_modified is True
+
+
+def test_a_fast_drag_leaves_no_row_snapshots_behind(editor):
+    """Displaced rows glide as snapshot labels. A release before their 140 ms
+    animation finished STOPPED it — and stop() does not emit finished(), the
+    only place the snapshot was deleted. The stale row pictures stayed over
+    the table for good (rows drawn on top of each other)."""
+    from PyQt6.QtWidgets import QLabel
+    editor.show()
+    QApplication.processEvents()
+    try:
+        _drag(editor, 0, 2)                  # release at once: anims running
+        QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+        QApplication.processEvents()
+        left = [w for w in editor.table.viewport().findChildren(QLabel)
+                if not w.isHidden()]
+        names = _names(editor)
+    finally:
+        editor.is_modified = False           # no "save changes?" on close
+    assert left == []
+    assert names == ["R1", "R2", "R0", "R3"]

@@ -142,7 +142,9 @@ class SlaveView(QWidget):
         self.log = QTextEdit()
         self.log.setObjectName("txLog")
         self.log.setReadOnly(True)
-        # An empty exchange log is a blank slab without this line.
+        # An empty exchange log is a blank slab without this line. Keep it to
+        # ONE short line: Qt clips a QTextEdit placeholder to the empty
+        # document's height, so a wrapped second line is cut off.
         self.log.setPlaceholderText(self.ctx.t("slvLogEmpty"))
         split.addWidget(self.log)
         split.setStretchFactor(0, 2)

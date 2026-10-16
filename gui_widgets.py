@@ -6,10 +6,10 @@ settings dialog (and anywhere else) can be built declaratively.
 """
 
 from PyQt6.QtWidgets import (
-    QWidget, QHBoxLayout, QPushButton, QSlider, QLabel,
+    QWidget, QHBoxLayout, QPushButton, QSlider, QLabel, QHeaderView,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QPainter, QColor, QPen
+from PyQt6.QtGui import QPainter, QColor, QPen, QPalette
 
 
 class Segmented(QWidget):
@@ -345,6 +345,41 @@ class EmptyState(QWidget):
     def apply_theme(self, tokens: dict):
         import icons
         self.tile.setPixmap(icons.pixmap(self._icon_name, tokens["text_3"], 24))
+
+
+class RowNumberHeader(QHeaderView):
+    """Row numbers that belong to their row: the zebra stripe runs through
+    the number too. A stock vertical header paints every section on one
+    colour, so each stripe started a number's width in from the edge — a
+    stepped, chequered left margin.
+
+    Qt stripes by position among the VISIBLE rows (a filtered-out row does
+    not flip the colour), so the parity is counted the same way."""
+
+    def __init__(self, parent=None):
+        super().__init__(Qt.Orientation.Vertical, parent)
+        self.setSectionsClickable(True)        # as QTableView's own header
+        self.setHighlightSections(True)
+        self._odd: set[int] = set()
+
+    def paintEvent(self, event):
+        view = self.parent()
+        self._odd = set()
+        if view is not None and view.alternatingRowColors():
+            n = 0
+            for v in range(self.count()):
+                li = self.logicalIndex(v)
+                if not self.isSectionHidden(li):
+                    if n & 1:
+                        self._odd.add(li)
+                    n += 1
+        super().paintEvent(event)
+
+    def paintSection(self, painter, rect, logical):
+        if logical in self._odd:
+            painter.fillRect(rect, self.parent().palette().color(
+                QPalette.ColorRole.AlternateBase))
+        super().paintSection(painter, rect, logical)
 
 
 class EmptyOverlay:

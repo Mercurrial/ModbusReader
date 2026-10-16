@@ -11,6 +11,7 @@ import pyqtgraph as pg
 import datatypes
 import icons
 from theme_manager import get_theme
+from gui_widgets import RowNumberHeader
 
 
 class MemoryViewerDialog(QDialog):
@@ -148,6 +149,11 @@ class MemoryViewerDialog(QDialog):
         self.table.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.table.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.table.setAlternatingRowColors(True)
+        # Stripes, not stripes AND row lines; numbers on their own stripe.
+        self.table.setProperty("zebra", "true")
+        self.table.setVerticalHeader(RowNumberHeader(self.table))
+        self.table.verticalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         splitter.addWidget(self.table)
 
         self.plot_widget = pg.PlotWidget()

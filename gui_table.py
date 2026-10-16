@@ -26,7 +26,8 @@ from dataclasses import dataclass
 
 from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QMenu,
-    QApplication, QStyledItemDelegate, QAbstractItemView,
+    QApplication, QStyledItemDelegate, QAbstractItemView, QStyleOptionViewItem,
+    QStyle,
 )
 from PyQt6.QtCore import Qt, QSize, QPoint, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QFont, QPen
@@ -36,6 +37,7 @@ import icons
 import scaling
 from dialogs import themed_input
 from qt_utils import later
+from gui_widgets import RowNumberHeader
 
 # ── column indices ────────────────────────────────────────────────
 COL_STATE   = 0   # state dot  (custom delegate)
@@ -54,6 +56,8 @@ _ROLE_RAW = Qt.ItemDataRole.UserRole + 1
 _ROLE_VERBOSE = Qt.ItemDataRole.UserRole + 2
 # Address cell: the register KEY (area << 16 | addr, see datatypes.AREAS).
 _ROLE_KEY = Qt.ItemDataRole.UserRole + 3
+# Value cell: still showing the "no reading yet" placeholder (drawn muted).
+_ROLE_PLACEHOLDER = Qt.ItemDataRole.UserRole + 4
 
 
 # ── dashboard column registry ─────────────────────────────────────
@@ -173,6 +177,15 @@ class StateDotDelegate(QStyledItemDelegate):
         being written to the log (click the dot to toggle)."""
         state = index.data(Qt.ItemDataRole.UserRole) or "stale"
         color = self._colors.get(state, self._colors["stale"])
+        # The cell's own background first (zebra stripe, selection, the row
+        # line): painting only the dot left this column a dark square in
+        # every other row — a checkerboard down the left edge.
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        opt.text = ""
+        widget = option.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, widget)
         r  = option.rect
         cx = r.center().x()
         cy = r.center().y()
@@ -242,9 +255,12 @@ class RegisterTable(QTableWidget):
         self._flash_brush = QBrush(QColor(ctx.theme_tokens()["accent_soft"]))
 
         s = ctx.settings
+        self.setVerticalHeader(RowNumberHeader(self))
         self.apply_headers()
         self.verticalHeader().setVisible(s.get("show_row_nums", True))
-        self.setAlternatingRowColors(s.get("zebra_rows", True))
+        self.verticalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self._set_zebra(s.get("zebra_rows", True))
         self._state_delegate = StateDotDelegate(ctx.theme_tokens(), self)
         self.setItemDelegateForColumn(COL_STATE, self._state_delegate)
 
@@ -355,7 +371,7 @@ class RegisterTable(QTableWidget):
         s = self.ctx.settings
         self.verticalHeader().setVisible(s.get("show_row_nums", True))
         self.apply_visibility()
-        self.setAlternatingRowColors(s.get("zebra_rows", True))
+        self._set_zebra(s.get("zebra_rows", True))
         self.verticalHeader().setDefaultSectionSize(int(s.get("row_height", 26)))
         tokens = self.ctx.theme_tokens()
         self._state_delegate.set_theme(tokens)
@@ -388,6 +404,14 @@ class RegisterTable(QTableWidget):
                         it.setFont(font)
         finally:
             self.blockSignals(False)
+
+    def _set_zebra(self, on: bool):
+        """Stripes OR row lines, never both: two structures on one grid read
+        as noise (QSS keys the row line off the [zebra] property)."""
+        self.setAlternatingRowColors(bool(on))
+        self.setProperty("zebra", "true" if on else "false")
+        self.style().unpolish(self)
+        self.style().polish(self)
 
     # ── window-facing state hooks ──────────────────────────────────
     def set_connected(self, connected: bool):
@@ -510,6 +534,7 @@ class RegisterTable(QTableWidget):
                 # Values honor the mono_values setting; addr/access stay
                 # monospace (they're identifiers, not data).
                 val_item = QTableWidgetItem(self._placeholder(dtype))
+                val_item.setData(_ROLE_PLACEHOLDER, True)
                 val_item.setFlags(val_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 val_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 val_item.setFont(value_font)
@@ -560,7 +585,10 @@ class RegisterTable(QTableWidget):
                 for col, color in colors.items():
                     it = self.item(row, col)
                     if it is not None:
+                        if col == COL_CURRENT and it.data(_ROLE_PLACEHOLDER):
+                            color = muted            # "—": no reading yet
                         it.setForeground(muted if service else color)
+            self._value_brush = QBrush(primary)
         finally:
             self.blockSignals(was)
 
@@ -642,6 +670,15 @@ class RegisterTable(QTableWidget):
         super().resizeEvent(event)
         self._reflow_columns()
 
+    def viewportEvent(self, event):
+        # The viewport also narrows WITHOUT the table resizing — when the
+        # vertical scrollbar appears as rows arrive. Re-fit then too, or the
+        # columns overshoot by the scrollbar's width and a horizontal
+        # scrollbar shows up under the map.
+        if event.type() == event.Type.Resize:
+            later(0, self, self._reflow_columns)
+        return super().viewportEvent(event)
+
     def current_values(self, fresh_only: bool = False) -> dict:
         """``{addr: value text}`` for every register that has a reading.
 
@@ -695,6 +732,10 @@ class RegisterTable(QTableWidget):
                 state.setData(Qt.ItemDataRole.UserRole, "ok")
             ci = self.item(row, COL_CURRENT)
             if ci:
+                if ci.data(_ROLE_PLACEHOLDER):       # first reading: full colour
+                    ci.setData(_ROLE_PLACEHOLDER, False)
+                    ci.setForeground(getattr(self, "_value_brush", QBrush(
+                        QColor(self.ctx.theme_tokens()["text_1"]))))
                 try:
                     raw = float(val_str)
                 except (ValueError, TypeError):

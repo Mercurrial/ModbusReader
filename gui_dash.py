@@ -1337,8 +1337,9 @@ class DashboardView(QWidget):
         # An empty board says what a board is for and offers the first step
         # (it used to be one grey sentence under a black canvas).
         self.lbl_empty = EmptyState("gauge", ctx.t("dashEmptyTitle"), ctx.t("dashEmpty"))
-        self.lbl_empty.add_action("  " + ctx.t("dashAddWidget"), self._add_widget,
-                                  primary=True)
+        # Outline, not filled: the toolbar right above already carries the
+        # same action as the page's one accent button.
+        self.lbl_empty.add_action(ctx.t("dashAddWidget"), self._add_widget)
         self.lbl_empty.apply_theme(ctx.theme_tokens())
         self._empty_ov = EmptyOverlay(self.scroll, self.lbl_empty,
                                       is_empty=lambda: not self.cards)
@@ -2636,7 +2637,7 @@ class DashboardView(QWidget):
     def retranslate(self, t):
         self.btn_add.setText("  " + t("dashAddWidget"))
         self.lbl_empty.set_content(t("dashEmptyTitle"), t("dashEmpty"))
-        self.lbl_empty.buttons[0].setText("  " + t("dashAddWidget"))
+        self.lbl_empty.buttons[0].setText(t("dashAddWidget"))
         self.set_edit(self.edit)
 
     # ── guide (F1 / Справка) ──────────────────────────────────────────

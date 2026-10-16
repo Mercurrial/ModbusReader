@@ -162,6 +162,7 @@ DEFAULT_SETTINGS = {
     "pinned_views":      ["view_table", "view_console",
                           "view_scanner", "view_sniffer"],
     "rail_collapsed":    False,   # left rail: icons only
+    "editor_json":       False,   # map editor: JSON preview panel shown
     # Dashboards: a LIST of {name, widgets, links}; dash_index selects the one
     # on screen. (dash_widgets/dash_links are the pre-1.6 single-dashboard
     # keys — still read once and migrated, see gui_dash.load_dashboards.)

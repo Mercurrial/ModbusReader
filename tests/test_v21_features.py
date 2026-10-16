@@ -247,30 +247,37 @@ def test_watch_list_is_persisted_in_order(watch):
 
 
 def test_watch_tracks_value_min_max(watch):
-    from gui_watch import COL_VALUE, COL_MIN, COL_MAX
     watch.add(0x10)
     for v in (21.5, 19.0, 25.25):
         watch.on_value(0x10, f"{v:.2f}", v)
-    assert watch.table.item(0, COL_VALUE).text() == "25.25"
-    assert watch.table.item(0, COL_MIN).text() == "19"
-    assert watch.table.item(0, COL_MAX).text() == "25.25"
+    row = watch.row_widget(0)
+    assert row.lbl_value.text() == "25.25"
+    meta = row.lbl_meta.text()
+    assert "0x0010" in meta and "19" in meta and "25.25" in meta
 
 
 def test_a_watched_address_missing_from_the_map_says_so(watch):
-    from gui_watch import COL_NAME
     watch.add(0x99)
-    assert watch.table.item(0, COL_NAME).text() == watch.ctx.t("watchNotInMap")
+    assert watch.row_widget(0).lbl_name.text() == watch.ctx.t("watchNotInMap")
 
 
 def test_writing_from_the_watch_window(watch):
-    from gui_watch import COL_NEW
     watch.add(0x12)
     sent = []
     watch.write_requested.connect(lambda a, v: sent.append((a, v)))
-    watch.table.item(0, COL_NEW).setText("42")
-    assert sent == [(0x12, "42")]
-    watch.add(0x10)                                         # read-only: no editor
-    assert not watch.table.item(1, COL_NEW).flags() & Qt.ItemFlag.ItemIsEditable
+    row = watch.row_widget(0)
+    row.ed_write.setText("42")
+    row.ed_write.returnPressed.emit()
+    assert sent == [(0x12, "42")] and row.ed_write.text() == ""
+    watch.add(0x10)                                         # read-only: no field
+    assert watch.row_widget(1).ed_write.isHidden()
+
+
+def test_watch_window_has_its_own_chrome(watch):
+    """The native title bar was a white strip over a dark app."""
+    from PyQt6.QtCore import Qt as _Qt
+    assert watch.windowFlags() & _Qt.WindowType.FramelessWindowHint
+    assert watch.btn_close is not None and watch.grip is not None
 
 
 @pytest.fixture()
@@ -289,7 +296,6 @@ def win(tmp_path, monkeypatch):
 
 def test_table_menu_adds_to_watch_and_values_flow(win, monkeypatch):
     from gui_table import COL_NAME
-    from gui_watch import COL_VALUE
     labels = []
     monkeypatch.setattr(QMenu, "exec", lambda self, *a: labels.append(
         [x.text() for x in self.actions()]))
@@ -304,7 +310,7 @@ def test_table_menu_adds_to_watch_and_values_flow(win, monkeypatch):
     from gui_table import COL_CURRENT
     shown = rt.item(rt.addr_to_row[0x10], COL_CURRENT).text()
     # The watch window shows exactly what the table shows.
-    assert win.watch_window.table.item(0, COL_VALUE).text() == shown == "21.5"
+    assert win.watch_window.row_widget(0).lbl_value.text() == shown == "21.5"
 
 
 def test_dashboard_widget_can_be_watched(win):

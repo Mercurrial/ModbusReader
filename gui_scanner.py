@@ -110,7 +110,9 @@ class ScannerView(QWidget):
         hh.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         lo.addWidget(self.table, 1)
         self.empty = EmptyState("radar", t("scanEmptyTitle"), t("scanEmptyBody"))
-        self.empty.add_action("  " + t("scanStart"), self._toggle_scan, primary=True)
+        # Outline, not filled: the toolbar right above already carries the
+        # same action as the page's one accent button.
+        self.empty.add_action(t("scanStart"), self._toggle_scan)
         self.empty.apply_theme(self.ctx.theme_tokens())
         self._empty_ov = EmptyOverlay(
             self.table, self.empty,
@@ -239,7 +241,7 @@ class ScannerView(QWidget):
         self.lbl_from.setText(t("scanFrom"))
         self.lbl_to.setText(t("scanTo"))
         self.empty.set_content(t("scanEmptyTitle"), t("scanEmptyBody"))
-        self.empty.buttons[0].setText("  " + t("scanStart"))
+        self.empty.buttons[0].setText(t("scanStart"))
         self.lbl_sid.setText(t("slaveIdLbl"))
         # Never overwrite a live/finished status line with "ready".
         running = bool(self._worker and self._worker.isRunning())

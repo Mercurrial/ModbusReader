@@ -101,7 +101,9 @@ class SnifferView(QWidget):
         lo.addWidget(self.table, 1)
 
         self.empty = EmptyState("eye", t("snifEmptyTitle"), t("snifEmptyBody"))
-        self.empty.add_action("  " + t("snifStart"), self._toggle, primary=True)
+        # Outline, not filled: the toolbar right above already carries the
+        # same action as the page's one accent button.
+        self.empty.add_action(t("snifStart"), self._toggle)
         self.empty.apply_theme(self.ctx.theme_tokens())
         self._empty_ov = EmptyOverlay(
             self.table, self.empty,
@@ -254,7 +256,7 @@ class SnifferView(QWidget):
         self.lbl_port.setText(t("port"))
         self.lbl_baud.setText(t("baudrate"))
         self.empty.set_content(t("snifEmptyTitle"), t("snifEmptyBody"))
-        self.empty.buttons[0].setText("  " + t("snifStart"))
+        self.empty.buttons[0].setText(t("snifStart"))
         if not running and self.lbl_status.property("state") != "error":
             self.lbl_status.setText(t("snifIdle"))
         self._set_headers()

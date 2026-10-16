@@ -131,7 +131,8 @@ class ReorderableTable(QTableWidget):
         self._grabbed = False     # explicit viewport mouse-grab is active
         self._ghost = None        # floating translucent row snapshot
         self._slot = None         # dashed "landing slot" over the dragged row
-        self._anims: set = set()  # live displaced-row slide animations
+        # live displaced-row slide animations -> their snapshot labels
+        self._anims: dict = {}
 
     # ── visual-order helpers ─────────────────────────────────────────
     def visual_order(self) -> list[int]:
@@ -261,9 +262,9 @@ class ReorderableTable(QTableWidget):
         def _done(l=lbl, a=anim):
             if not sip.isdeleted(l):
                 l.deleteLater()
-            self._anims.discard(a)
+            self._anims.pop(a, None)
         anim.finished.connect(_done)
-        self._anims.add(anim)
+        self._anims[anim] = lbl
         anim.start()
 
     # ── drag lifecycle ───────────────────────────────────────────────
@@ -274,8 +275,13 @@ class ReorderableTable(QTableWidget):
             self._grabbed = False
         self._dragging = self._armed = False
         self._drag_logical = -1
-        for a in list(self._anims):          # stop() emits finished -> cleanup
+        # stop() does NOT emit finished(): delete the snapshots here, or a
+        # release mid-glide leaves stale pictures of rows over the table.
+        for a, lbl in list(self._anims.items()):
             a.stop()
+            if not sip.isdeleted(lbl):
+                lbl.hide()
+                lbl.deleteLater()
         self._anims.clear()
         if self._slot is not None:
             self._slot.deleteLater()
@@ -479,13 +485,24 @@ class ProfileEditorDialog(QDialog):
                 color: {c["text_1"]};
             }}
             QLabel#statBadge {{
-                background: {c["bg_2"]};
-                color: {c["text_3"]};
-                border-radius: 4px;
-                padding: 4px 8px;
+                background: transparent;
+                color: {c["text_4"]};
+                padding: 0 2px;
                 font-size: {max(7, fs - 1)}pt;
-                font-weight: 600;
             }}
+            QWidget#peFooter {{
+                background: {c["bg_1"]};
+                border-top: 1px solid {c["line_soft"]};
+            }}
+            QPushButton#peToggle {{
+                background: transparent;
+                color: {c["text_2"]};
+                border: none;
+                border-radius: 6px;
+                padding: 6px 10px;
+            }}
+            QPushButton#peToggle:hover {{ background: {c["bg_3"]}; color: {c["text_1"]}; }}
+            QPushButton#peToggle:checked {{ background: {c["bg_3"]}; color: {c["text_1"]}; }}
             QSpinBox {{
                 background: transparent;
                 border: 1px solid transparent;
@@ -640,32 +657,51 @@ class ProfileEditorDialog(QDialog):
         row_top.addWidget(lbl_title_ico)
         row_top.addWidget(lbl_title)
         row_top.addWidget(sep_dot)
-        row_top.addWidget(self.name_edit, 1)
+        # Row 1 — what you are editing: the name, the unsaved dot, the counts
+        # (quiet text, not three bordered pills crowding the corner).
+        self.name_edit.setMaximumWidth(320)
+        row_top.addWidget(self.name_edit)
         row_top.addWidget(self.lbl_dirty)
-        row_top.addStretch(1)
+        row_top.addSpacing(10)
         row_top.addWidget(self.lbl_stats_total)
         row_top.addWidget(self.lbl_stats_rw)
         row_top.addWidget(self.lbl_stats_ro)
         row_top.addWidget(self.ico_warn)
         row_top.addWidget(self.lbl_stats_warn)
-        # Row 2 — build the table: load a file, then edit rows … finish.
-        row_act.addWidget(self.btn_open_json)
-        row_act.addWidget(self.btn_import)
-        row_act.addSpacing(4)
-        row_act.addWidget(_vsep())
-        row_act.addSpacing(4)
+        row_top.addStretch(1)
+        # Row 2 — the tools that change the table.
         row_act.addWidget(btn_add)
         row_act.addWidget(btn_del)
         row_act.addWidget(self.btn_clear)
-        row_act.addStretch(1)
-        row_act.addWidget(self.btn_save)
-        row_act.addWidget(self.btn_save_as)
         row_act.addSpacing(4)
         row_act.addWidget(_vsep())
         row_act.addSpacing(4)
-        row_act.addWidget(self.btn_apply)
-        row_act.addWidget(btn_close)
+        row_act.addWidget(self.btn_open_json)
+        row_act.addWidget(self.btn_import)
+        row_act.addStretch(1)
+        self.btn_json = QPushButton("  " + self.t("jsonToggle"))
+        self.btn_json.setObjectName("peToggle")
+        self.btn_json.setCheckable(True)
+        self.btn_json.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_json.setIcon(icons.icon("code", icon_col, 15))
+        self.btn_json.setToolTip(self.t("jsonPreview"))
+        self.btn_json.toggled.connect(self._set_json_visible)
+        row_act.addWidget(self.btn_json)
         root.addWidget(tb)
+        # The commit actions live in a footer, exactly like Settings (Cancel /
+        # Save at the bottom right) — not in the top-right corner under the
+        # window's own Connect button, where two accent buttons stacked up.
+        self._footer = QWidget()
+        self._footer.setObjectName("peFooter")
+        self._footer.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        fl = QHBoxLayout(self._footer)
+        fl.setContentsMargins(16, 10, 16, 10)
+        fl.setSpacing(8)
+        fl.addWidget(self.btn_save)
+        fl.addWidget(self.btn_save_as)
+        fl.addStretch(1)
+        fl.addWidget(btn_close)
+        fl.addWidget(self.btn_apply)
 
         # Undo / redo: no buttons (removed by request), shortcuts still active.
         sc_undo = QShortcut(QKeySequence("Ctrl+Z"), self)
@@ -719,6 +755,14 @@ class ProfileEditorDialog(QDialog):
         area_hdr = self.table.horizontalHeaderItem(COL_AREA)
         if area_hdr is not None:
             area_hdr.setToolTip(self.t("colAreaHint"))
+        # A heading sits where its column's text sits: left over left-aligned
+        # names and combos, centred only over the centred cells (#, address,
+        # size). Centred headings over left text read as misaligned.
+        left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        for col in range(self.table.columnCount()):
+            hdr = self.table.horizontalHeaderItem(col)
+            if hdr is not None and col not in (COL_GRIP, COL_ADDR, COL_LEN):
+                hdr.setTextAlignment(left)
         self.table.verticalHeader().setVisible(False)
         self.table.setAlternatingRowColors(False)
         self.table.itemChanged.connect(self._on_item_changed)
@@ -751,14 +795,20 @@ class ProfileEditorDialog(QDialog):
         self.table.setColumnWidth(
             COL_GRIP, 44 + QFontMetrics(grip_font).horizontalAdvance(" 0000"))
         self.table.setColumnWidth(COL_ADDR, 84)
-        self.table.setColumnWidth(COL_AREA, 116)
-        self.table.setColumnWidth(COL_RU, 220)
-        self.table.setColumnWidth(COL_EN, 180)
-        self.table.setColumnWidth(COL_TYPE, 120)
-        self.table.setColumnWidth(COL_LEN, 92)
-        self.table.setColumnWidth(COL_ACC, 96)
-        self.table.setColumnWidth(COL_UNIT, 72)
-        self.table.setColumnWidth(COL_DEF, 96)
+        self.table.setColumnWidth(COL_AREA, 110)
+        self.table.setColumnWidth(COL_RU, 200)
+        self.table.setColumnWidth(COL_EN, 170)
+        self.table.setColumnWidth(COL_TYPE, 98)
+        self.table.setColumnWidth(COL_LEN, 74)
+        self.table.setColumnWidth(COL_ACC, 78)
+        self.table.setColumnWidth(COL_UNIT, 64)
+        self.table.setColumnWidth(COL_DEF, 90)
+        # The two NAME columns take the spare width (the comment keeps a
+        # modest share) until the user drags one of them — before, the names
+        # elided at 200 px while an empty COMMENT column held half the row.
+        self._names_user_sized = False
+        hh.sectionResized.connect(self._on_editor_section_resized)
+        self.table.viewport().installEventFilter(self)
 
         # Context menu
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -767,12 +817,12 @@ class ProfileEditorDialog(QDialog):
         # Del key
         sc_del = QShortcut(QKeySequence("Del"), self.table)
         sc_del.activated.connect(self._delete_selected)
-        # NOTE: Esc is handled by the generic overlay shortcut in
-        # gui_main._show_overlay. Do NOT register a second Escape shortcut here
-        # — two identical WidgetWithChildren shortcuts make Qt treat the key as
+        # NOTE: Esc is handled by QDialog (focus inside) and by the main
+        # window's keyPressEvent (focus elsewhere). Do NOT register an Escape
+        # shortcut here — two identical shortcuts make Qt treat the key as
         # ambiguous and fire neither, which silently breaks Esc.
 
-        json_wrap = QWidget()
+        json_wrap = self._json_wrap = QWidget()
         json_l = QVBoxLayout(json_wrap)
         json_l.setContentsMargins(0, 0, 0, 0)
         json_l.setSpacing(0)
@@ -788,12 +838,55 @@ class ProfileEditorDialog(QDialog):
 
         splitter.addWidget(self.table)
         splitter.addWidget(json_wrap)
-        splitter.setSizes([760, 280])
+        splitter.setSizes([760, 320])
+        # The JSON is a power-user view: off by default, so the table gets the
+        # width (with it on, eleven columns did not fit and scrolled sideways).
+        show_json = bool(self.ctx.settings.get("editor_json", False))
+        json_wrap.setVisible(show_json)
+        self.btn_json.blockSignals(True)
+        self.btn_json.setChecked(show_json)
+        self.btn_json.blockSignals(False)
 
         editor_lo.addWidget(splitter)
         self.stacked.addWidget(editor_page)
 
         root.addWidget(self.stacked, 1)
+        root.addWidget(self._footer)
+
+    def _set_json_visible(self, on: bool):
+        self._json_wrap.setVisible(bool(on))
+        self.ctx.settings["editor_json"] = bool(on)
+        if on:
+            self._update_json_preview()
+
+    # ── Name columns take the spare width ─────────────────────
+
+    def eventFilter(self, obj, event):
+        if (event.type() == event.Type.Resize
+                and obj is self.table.viewport()):
+            self._fit_name_columns()
+        return super().eventFilter(obj, event)
+
+    def _on_editor_section_resized(self, col: int, _old: int, _new: int):
+        if col in (COL_RU, COL_EN) and not getattr(self, "_fitting_names", False):
+            self._names_user_sized = True
+
+    def _fit_name_columns(self):
+        if self._names_user_sized:
+            return
+        vp = self.table.viewport().width()
+        others = sum(self.table.columnWidth(c) for c in range(self.table.columnCount())
+                     if c not in (COL_RU, COL_EN, COL_COMMENT)
+                     and not self.table.isColumnHidden(c))
+        spare = vp - others - 130              # the comment keeps ~130 px
+        ru = max(200, int(spare * 0.55))
+        en = max(170, spare - ru)
+        self._fitting_names = True
+        try:
+            self.table.setColumnWidth(COL_RU, ru)
+            self.table.setColumnWidth(COL_EN, en)
+        finally:
+            self._fitting_names = False
 
     # ── History ────────────────────────────────────────────────
 
@@ -1178,8 +1271,11 @@ class ProfileEditorDialog(QDialog):
         ro_count = total - rw_count
 
         self.lbl_stats_total.setText(f"{total} {self.t('registers')}")
-        self.lbl_stats_rw.setText(f"{rw_count} RW")
-        self.lbl_stats_ro.setText(f"{ro_count} RO")
+        self.lbl_stats_rw.setText(f"·  {rw_count} RW")
+        self.lbl_stats_ro.setText(f"·  {ro_count} RO")
+        # "0 регистров · 0 RW · 0 RO" over an empty page is noise.
+        for lbl in (self.lbl_stats_total, self.lbl_stats_rw, self.lbl_stats_ro):
+            lbl.setVisible(total > 0)
         self._update_validation()
 
     def _update_validation(self):
@@ -1206,6 +1302,8 @@ class ProfileEditorDialog(QDialog):
         self.lbl_stats_warn.setVisible(True)
 
     def _update_json_preview(self):
+        if hasattr(self, "btn_json") and not self.btn_json.isChecked():
+            return                    # hidden: don't re-serialise on every edit
         self.json_edit.setPlainText(
             json.dumps(self._export_list(), indent=2, ensure_ascii=False))
 

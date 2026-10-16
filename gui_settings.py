@@ -186,6 +186,11 @@ class SettingsDialog(QDialog):
         return page, lo
 
     def _section(self, parent_lo: QVBoxLayout, title: str, desc: str = "") -> QVBoxLayout:
+        # Air ABOVE every section but the first. (A QSS margin-bottom on the
+        # wrapper did nothing — layouts ignore it — so "Опрос" sat glued to
+        # the last row of the section before.)
+        if parent_lo.count():
+            parent_lo.addSpacing(36)
         wrap = QWidget()
         wrap.setObjectName("stSection")
         v = QVBoxLayout(wrap)
@@ -211,6 +216,10 @@ class SettingsDialog(QDialog):
         h.setSpacing(28)
 
         label_col = QVBoxLayout()
+        # Zero margins: a layout set on a widget gets the style's default
+        # ~9 px, which pushed every label in from the section title and made
+        # each row a tall slab.
+        label_col.setContentsMargins(0, 0, 0, 0)
         label_col.setSpacing(3)
         nm = QLabel(name)
         nm.setObjectName("stFieldName")
@@ -557,7 +566,7 @@ class SettingsDialog(QDialog):
         hero = QWidget()
         hero.setObjectName("stFieldLabel")
         hl = QHBoxLayout(hero)
-        hl.setContentsMargins(0, 0, 0, 22)
+        hl.setContentsMargins(0, 0, 0, 0)       # _section adds the air below
         hl.setSpacing(18)
         mark = QLabel()
         mark.setObjectName("stFieldLabel")

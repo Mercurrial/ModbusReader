@@ -244,6 +244,8 @@ class MacroWindow(QWidget):
         lower.setHandleWidth(1)
 
         self.table = QTableWidget(0, 0)
+        self.table.horizontalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setAlternatingRowColors(True)
@@ -267,6 +269,8 @@ class MacroWindow(QWidget):
         self.log.setObjectName("mLog")
         self.log.setFont(_mono(9))
         self.log.setMaximumBlockCount(2000)
+        self.log.setPlaceholderText(self.L("Здесь появится вывод log()",
+                                           "Output of log() appears here"))
         log_wrap = self._titled(self.L("Журнал", "Log"), self.log)
         lower.addWidget(log_wrap)
         lower.setSizes([420, 160])

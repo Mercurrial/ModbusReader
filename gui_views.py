@@ -58,6 +58,7 @@ class ConsoleView(QWidget):
         self.log_view.rebuild()
 
     def apply_settings(self):
+        self.log_view.apply_theme()
         self.log_view.rebuild()
 
     def showEvent(self, e):

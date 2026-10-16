@@ -21,7 +21,8 @@ styles.py targets, so both surfaces share one look.
 import html
 
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit,
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTextEdit, QLineEdit,
+    QFileDialog,
 )
 from PyQt6.QtCore import Qt, QDateTime, QSize, QObject, pyqtSignal
 
@@ -112,6 +113,7 @@ class LogView(QWidget):
         self.ctx = ctx
         self.store = store
         self._filter = "all"
+        self._needle = ""
         lo = QVBoxLayout(self)
         lo.setContentsMargins(0, 0, 0, 0)
         lo.setSpacing(0)
@@ -131,6 +133,17 @@ class LogView(QWidget):
             self._tabs[key] = btn
             self.tab_bar_layout.addWidget(btn)
         self.tab_bar_layout.addStretch()
+        # The tools every log viewer has: find a line, keep the log, start
+        # clean. (The full-screen console had none of them.)
+        self.ed_search = QLineEdit()
+        self.ed_search.setObjectName("logSearch")
+        self.ed_search.setFixedWidth(200)
+        self.ed_search.setClearButtonEnabled(True)
+        self.ed_search.textChanged.connect(self._on_search)
+        self.tab_bar_layout.addWidget(self.ed_search)
+        self.tab_bar_layout.addSpacing(4)
+        self.btn_save = self._tool("download", self.save_to_file)
+        self.btn_clear = self._tool("trash", self.store.clear)
         lo.addWidget(tab_bar)
 
         self.view = QTextEdit()
@@ -143,8 +156,51 @@ class LogView(QWidget):
         store.reset.connect(self.rebuild)
         self.set_filter("all")
 
+    def _tool(self, icon_name: str, slot) -> QPushButton:
+        b = QPushButton()
+        b.setObjectName("logTab")
+        b.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        b.setCursor(Qt.CursorShape.PointingHandCursor)
+        b.setIconSize(QSize(14, 14))
+        b.setProperty("icon_name", icon_name)
+        b.clicked.connect(slot)
+        self.tab_bar_layout.addWidget(b)
+        self.paint_tool(b)
+        return b
+
+    def paint_tool(self, b: QPushButton):
+        b.setIcon(icons.icon(b.property("icon_name"),
+                             get_theme(self.ctx.theme)["text_3"], 14))
+
+    def apply_theme(self):
+        for b in (self.btn_save, self.btn_clear):
+            self.paint_tool(b)
+
+    def _on_search(self, text: str):
+        self._needle = text.strip().lower()
+        self.rebuild()
+
+    def save_to_file(self):
+        """The log as plain text («time [LEVEL] message» per line)."""
+        from dialogs import themed_info
+        t = self.ctx.t
+        stamp = QDateTime.currentDateTime().toString("yyyyMMdd_HHmmss")
+        path, _ = QFileDialog.getSaveFileName(
+            self, t("logSave"), f"modbusreader_log_{stamp}.txt",
+            t("logSaveFilter"))
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                for lv, ts, msg in self.store.entries:
+                    f.write(f"{ts} [{lv}] {msg}\n")
+        except OSError as e:
+            themed_info(self, self.ctx.theme, "error", t("logSave"), str(e))
+
     # ── filtering ─────────────────────────────────────────────────
-    def _should_show(self, level: str) -> bool:
+    def _should_show(self, level: str, message: str = "") -> bool:
+        if self._needle and self._needle not in f"{level} {message}".lower():
+            return False
         f = self._filter
         if f == "tx":
             return level == "TX"
@@ -167,7 +223,7 @@ class LogView(QWidget):
         return bool(self.ctx.settings.get("log_autoscroll", True))
 
     def _on_appended(self, lv: str, ts: str, message: str):
-        if not self._should_show(lv):
+        if not self._should_show(lv, message):
             return
         sb = self.view.verticalScrollBar()
         keep = sb.value()
@@ -182,7 +238,7 @@ class LogView(QWidget):
         theme switch with a full log)."""
         theme = self.ctx.theme
         lines = [render_entry(theme, lv, ts, m) for lv, ts, m in self.store.entries
-                 if self._should_show(lv)]
+                 if self._should_show(lv, m)]
         self.view.setHtml("<br>".join(lines))
         sb = self.view.verticalScrollBar()
         sb.setValue(sb.maximum() if self._autoscroll() else 0)
@@ -192,6 +248,9 @@ class LogView(QWidget):
             if key in self._tabs:
                 self._tabs[key].setText(t(i18n_key))
         self.view.setPlaceholderText(t("logPlaceholder"))
+        self.ed_search.setPlaceholderText(t("logSearch"))
+        self.btn_save.setToolTip(t("logSave"))
+        self.btn_clear.setToolTip(t("logClear"))
 
 
 class LogPanel(QWidget):
@@ -261,6 +320,7 @@ class LogPanel(QWidget):
     def apply_settings(self):
         """Re-apply log_max / verbosity / theme after the settings dialog."""
         self._paint_console_icon()
+        self.log_view.apply_theme()
         self.store.apply_settings()          # trims + every view re-renders
 
     def retranslate(self, t):

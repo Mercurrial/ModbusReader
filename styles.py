@@ -44,6 +44,11 @@ QMainWindow {{
    background via #id selectors below (higher specificity wins). */
 QLabel {{
     background: transparent;
+    /* A label with any QSS padding / border gets Qt's automatic indent
+       (half an "x") on its aligned edge — section titles, hints and badges
+       sat ~5 px in from the labels they line up with. Text starts at the
+       padding edge, as in CSS. */
+    qproperty-indent: 0;
 }}
 
 /* ─── FRAME: rail | header / page ────────────────────────────────── */
@@ -467,6 +472,11 @@ QLineEdit#searchInput {{
 }}
 
 /* ─── REGISTER TABLE ─────────────────────────────────────────────── */
+/* No grid at all: even a transparent one reserves a pixel between cells, and
+   on a zebra stripe that pixel showed through as a dark seam per column. */
+QTableView {{
+    qproperty-showGrid: 0;
+}}
 QTableWidget {{
     background: {c["bg_0"]};
     alternate-background-color: {c["bg_1"]};
@@ -480,6 +490,10 @@ QTableWidget {{
 QTableWidget::item {{
     padding: 4px 8px;
     border-bottom: 1px solid {c["line_soft"]};
+}}
+/* Stripes OR row lines — never both (RegisterTable sets [zebra]). */
+QTableWidget[zebra="true"]::item {{
+    border-bottom: none;
 }}
 QTableWidget::item:selected {{
     background: {c["bg_3"]};
@@ -508,21 +522,34 @@ QHeaderView::section {{
     letter-spacing: 0.5px;
     text-transform: uppercase;
 }}
+/* No vertical dividers in the header: each one stopped dead at the header's
+   lower edge — a line leading nowhere over the data. Columns still resize by
+   dragging the gap between titles (the cursor shows it). */
 QHeaderView::section:horizontal {{
-    border-right: 1px solid {c["line_soft"]};
+    border-right: none;
 }}
+/* Row numbers sit ON the grid (bg_0), quiet and right-aligned — not on a
+   band of their own with its own edge. */
+QHeaderView:vertical {{
+    background: {c["bg_0"]};
+}}
+/* Transparent: RowNumberHeader paints the row's own zebra colour first. */
 QHeaderView::section:vertical {{
-    background: {c["bg_1"]};
+    background: transparent;
     color: {c["text_4"]};
     border: none;
-    border-right: 1px solid {c["line_soft"]};
-    padding: 0 8px;
+    padding: 0 6px 0 8px;
+    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-size: {fs_small};
+    font-weight: 400;
+}}
+QTableWidget[zebra="false"] QHeaderView::section:vertical {{
+    border-bottom: 1px solid {c["line_soft"]};
 }}
 QTableView QTableCornerButton::section {{
     background: {c["bg_1"]};
     border: none;
-    border-right: 1px solid {c["line_soft"]};
-    border-bottom: 1px solid {c["line_soft"]};
+    border-bottom: 1px solid {c["line"]};
 }}
 /* In-cell editor. MUST be opaque: the table keeps painting the old item text
    underneath while the editor is open, so a transparent editor draws the newly
@@ -607,12 +634,24 @@ QWidget#logTabBar {{
     max-height: 36px;
     min-height: 36px;
 }}
+QLineEdit#logSearch {{
+    background: {c["bg_0"]};
+    border: 1px solid {c["line"]};
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: {fs_small};
+    min-height: 22px;
+    max-height: 22px;
+}}
+QLineEdit#logSearch:focus {{
+    border-color: {focus_ring};
+}}
 QTextEdit#txLog {{
     background: {c["bg_0"]};
     color: {c["text_2"]};
     border: none;
     font-family: "JetBrains Mono", "Consolas", monospace;
-    font-size: {fs_small};
+    font-size: {fs};
     padding: 8px;
     selection-background-color: {c["bg_4"]};
 }}
@@ -1047,7 +1086,6 @@ QScrollArea {{
 }}
 QWidget#stSection {{
     background: transparent;
-    margin-bottom: 28px;
 }}
 QLabel#stSectionTitle {{
     color: {c["text_1"]};
@@ -1162,11 +1200,80 @@ QSpinBox#stInput:focus {{
     background: {c["bg_0"]};
 }}
 /* Watch window */
+/* Watch panel (frameless: its own chrome, card + shadow). */
 QWidget#watchWin {{
-    background: {c["bg_0"]};
+    background: transparent;
+}}
+QFrame#watchCard {{
+    background: {c["bg_1"]};
+    border: 1px solid {c["line"]};
+    border-radius: 12px;
 }}
 QWidget#watchBar {{
-    background: {c["bg_1"]};
+    background: transparent;
+    border-bottom: 1px solid {c["line_soft"]};
+}}
+QLabel#wTitle {{
+    color: {c["text_1"]};
+    font-weight: 600;
+}}
+QLabel#wCount {{
+    color: {c["text_4"]};
+    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-size: {fs_small};
+}}
+QScrollArea#watchScroll, QWidget#watchList {{
+    background: transparent;
+}}
+QFrame#watchRow {{
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+}}
+QFrame#watchRow:hover {{
+    background: {c["bg_2"]};
+}}
+QFrame#watchRow[selected="true"] {{
+    background: {c["bg_2"]};
+    border-color: {c["line"]};
+}}
+QLabel#wName {{
+    color: {c["text_1"]};
+}}
+QLabel#wName[missing="true"] {{
+    color: {c["text_4"]};
+    font-style: italic;
+}}
+QLabel#wValue {{
+    color: {c["text_1"]};
+    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-size: {font_size + 4}pt;
+    font-weight: 600;
+}}
+QLabel#wValue[state="none"] {{
+    color: {c["text_4"]};
+}}
+QLabel#wUnit {{
+    color: {c["text_3"]};
+}}
+QLabel#wMeta {{
+    color: {c["text_4"]};
+    font-size: {fs_small};
+}}
+QLineEdit#wWrite {{
+    background: {c["bg_0"]};
+    border: 1px solid {c["line"]};
+    border-radius: 6px;
+    padding: 2px 8px;
+    color: {c["text_1"]};
+    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-size: {fs_small};
+}}
+QLineEdit#wWrite:focus {{
+    border-color: {focus_ring};
+}}
+QSizeGrip#watchGrip {{
+    background: transparent;
 }}
 QPushButton#iconBtn:checked {{
     background: {c["accent_tint"]};

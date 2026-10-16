@@ -628,13 +628,31 @@ class ModernScadaApp(QMainWindow):
         if nav_id:
             self._set_nav(nav_id)
 
-        # Esc closes the overlay immediately, even before the user clicks into
-        # it. A WidgetWithChildren-scoped shortcut fires whenever the overlay or
-        # any child holds focus, so we grab focus right away.
-        esc = QShortcut(QKeySequence(Qt.Key.Key_Escape), widget)
-        esc.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        esc.activated.connect(widget.reject)
+        # Esc: with focus inside the page, QDialog's own Escape handling calls
+        # reject() — AFTER the focused child had its chance (an in-cell editor
+        # cancels its edit first). With focus nowhere or outside the page —
+        # what Windows hands back after Alt+Tab — keyPressEvent below closes
+        # it. The scoped QShortcut used before fired only while a child of
+        # the page held focus, so after Alt+Tab Esc did nothing.
         widget.setFocus()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape and self._overlay_page is not None:
+            self._overlay_page.reject()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        # Back from Alt+Tab: put the focus back INTO an open page, so its keys
+        # (Esc, Ctrl+Z in the editor…) reach it without a click first.
+        if (event.type() == event.Type.ActivationChange and self.isActiveWindow()
+                and self._overlay_page is not None):
+            fw = QApplication.focusWidget()
+            page = self._overlay_page
+            if fw is None or (fw is not page and not page.isAncestorOf(fw)):
+                page.setFocus()
 
     def _close_overlay(self):
         """Switch back to the underlying view and drop the overlay page."""
@@ -1781,6 +1799,11 @@ class ModernScadaApp(QMainWindow):
         if edit_current and self.profile_path:
             # Save writes straight back to the file the map came from.
             dlg.set_source_file(self.profile_path)
+        elif edit_current and self.project_name:
+            # A project's map has no file of its own: name it after the
+            # project, not «Безымянная карта».
+            dlg.profile_name = self.project_name
+            dlg.name_edit.setText(self.project_name)
         dlg.accepted.connect(lambda: self._on_editor_accepted(dlg))
         dlg.rejected.connect(self._close_overlay)
         self._show_overlay(dlg, "view_map")
