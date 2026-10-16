@@ -50,6 +50,46 @@ REGISTERS = [
 ]
 
 
+def _w(kind, reg_id, title, x, y, w, h, **extra):
+    """One dashboard widget, bound to *reg_id* (datatypes.reg_id)."""
+    cfg = {"kind": kind, "reg_id": reg_id, "title": title, "name": title,
+           "x": x, "y": y, "w": w, "h": h}
+    cfg.update(extra)
+    return cfg
+
+
+# A ready-made control panel, 3 rows on a grid that fits the dashboard page
+# of a 1440-px window: columns 290 · 570 (or 290 + 127 + 121) · 260.
+DASHBOARD = [
+    _w("gauge", "0x0000", "Температура", 12, 12, 290, 230,
+       unit="°C", vmin=0, vmax=60, ahi=45, reg_type="FLOAT"),
+    _w("chart", "0x0000", "Температура", 318, 12, 570, 230,
+       unit="°C", vmin=15, vmax=35, reg_type="FLOAT"),
+    _w("value", "0x0002", "Уставка", 904, 12, 260, 107,
+       unit="°C", reg_type="FLOAT"),
+    _w("value", "0x0005", "Мощность нагревателя", 904, 135, 260, 107,
+       unit="%", reg_type="UINT16"),
+    _w("bar", "0x10000", "Напряжение питания", 12, 258, 290, 130,
+       unit="В", vmin=0, vmax=30, reg_type="UINT16"),
+    _w("bits", "0x0008", "Слово состояния", 318, 258, 290, 130,
+       reg_type="BITS16"),
+    _w("led", "0x20000", "Нагреватель", 624, 258, 127, 130,
+       thr=0.5, invert=False, reg_type="BOOL"),
+    _w("led", "0x30000", "Дверь", 767, 258, 121, 130,
+       thr=0.5, invert=False, reg_type="BOOL"),
+    _w("value", "0x10001", "Ток датчика", 904, 258, 260, 130,
+       unit="мА", reg_type="SHORT"),
+    _w("select", "0x0004", "Режим", 12, 404, 290, 115, reg_type="UINT16",
+       options=[[0, "Стоп"], [1, "Работа"], [2, "Авария"]]),
+    _w("slider", "0x0002", "Уставка", 318, 404, 570, 115,
+       unit="°C", vmin=15, vmax=40, step=0.5, live=False, reg_type="FLOAT"),
+    _w("toggle", "0x20001", "Вентилятор", 904, 404, 260, 115,
+       value_on=1, value_off=0, reg_type="BOOL"),
+]
+for _i, _cfg in enumerate(DASHBOARD, 1):       # stable ids: a diff stays small
+    _cfg["uid"] = f"demo{_i:02d}"
+
+
 def main():
     import datatypes
     for r in REGISTERS:                    # what the map editor writes
@@ -58,7 +98,9 @@ def main():
     settings.update({"port": "COM1", "baudrate": "115200", "slave_id": 1})
     path = os.path.join(ROOT, "examples", "demo.mbproj")
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    formats.dump_project(path, "Демо-термоконтроллер", settings, REGISTERS)
+    formats.dump_project(path, "Демо-термоконтроллер", settings, REGISTERS,
+                         dashboards=[{"name": "Пульт", "widgets": DASHBOARD,
+                                      "links": []}])
     print("written:", path)
 
 

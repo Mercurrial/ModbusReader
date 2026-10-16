@@ -205,3 +205,30 @@ def test_demo_project_opens_clean(tmp_path, monkeypatch):
         w._closing_for_update = True
         w.close()
         _pump()
+
+
+def test_demo_project_button_opens_a_private_copy(tmp_path, monkeypatch):
+    """«Демо-проект» on the empty map: one click to a working example, as
+    the user's own copy (the bundled file would be wiped by an update)."""
+    import settings_manager
+    import gui_main
+    monkeypatch.setattr(settings_manager, "SETTINGS_FILE",
+                        str(tmp_path / "settings.json"), raising=False)
+    monkeypatch.setattr(gui_main, "demo_copy_dir", lambda: str(tmp_path / "docs"))
+    w = gui_main.ModernScadaApp()
+    try:
+        labels = [b.text() for b in w.map_empty.buttons]
+        assert w.t("emptyDemo") in labels
+        w._set_profile([], "")
+        btn = next(b for b in w.map_empty.buttons if b.text() == w.t("emptyDemo"))
+        btn.click()
+        _pump()
+        copy = tmp_path / "docs" / (w.t("demoFileName") + ".mbproj")
+        assert copy.exists()
+        assert w.project_path == str(copy)
+        assert w.register_table.rowCount() >= 10
+        assert len(w.dash_view.cards) >= 10          # it ships with a dashboard
+    finally:
+        w._closing_for_update = True
+        w.close()
+        _pump()

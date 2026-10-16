@@ -31,6 +31,23 @@ from gui_snapshot import SnapshotView
 from gui_logger import LoggerView
 from gui_watch import WatchWindow
 from gui_update import UpdateController
+
+
+def demo_project_path() -> str:
+    """examples/demo.mbproj next to the sources or inside the build ("" if
+    this copy was built without it)."""
+    import sys
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(base, "examples", "demo.mbproj")
+    return path if os.path.isfile(path) else ""
+
+
+def demo_copy_dir() -> str:
+    """Where «Демо-проект» puts the user's own copy (Documents/ModbusReader)."""
+    from PyQt6.QtCore import QStandardPaths
+    docs = QStandardPaths.writableLocation(
+        QStandardPaths.StandardLocation.DocumentsLocation) or os.path.expanduser("~")
+    return os.path.join(docs, "ModbusReader")
 from dialogs import themed_info, themed_message, themed_input
 from qt_utils import later
 import datatypes
@@ -227,6 +244,9 @@ class ModernScadaApp(QMainWindow):
                                   primary=True)
         self.map_empty.add_action(t("emptyOpenMap"), self._open_profile)
         self.map_empty.add_action(t("emptyNewMap"), self._create_config)
+        # One click to see what the app does, without a device or a file.
+        if demo_project_path():
+            self.map_empty.add_action(t("emptyDemo"), self._open_demo)
         self.map_empty.apply_theme(self.ctx.theme_tokens())
         self._map_empty_ov = EmptyOverlay(self.register_table, self.map_empty)
 
@@ -1332,7 +1352,8 @@ class ModernScadaApp(QMainWindow):
         if hasattr(self, "map_empty"):
             self.map_empty.set_content(t("emptyMapTitle"), t("emptyMapBody"))
             for b, key in zip(self.map_empty.buttons,
-                              ("emptyOpenProject", "emptyOpenMap", "emptyNewMap")):
+                              ("emptyOpenProject", "emptyOpenMap", "emptyNewMap",
+                               "emptyDemo")):
                 b.setText(t(key))
         if hasattr(self, "btn_edit_map"):
             self.btn_edit_map.setText("  " + t("editMap"))
@@ -1807,6 +1828,26 @@ class ModernScadaApp(QMainWindow):
         self.close()
         QApplication.quit()
         return True
+
+    def _open_demo(self):
+        """«Демо-проект»: the bundled made-up controller (examples/demo.mbproj)
+        with its dashboard — the quickest look at the app.
+
+        Opened as the user's OWN copy in Documents/ModbusReader: the bundled
+        file sits inside the program folder, where a Save would write and the
+        next update would wipe it. An existing copy (maybe edited) is kept."""
+        import shutil
+        src = demo_project_path()
+        if not src:
+            return
+        dst = os.path.join(demo_copy_dir(), self.t("demoFileName") + ".mbproj")
+        try:
+            if not os.path.exists(dst):
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                shutil.copyfile(src, dst)
+        except OSError:
+            dst = src                        # read-only Documents: open it as is
+        self._open_project(dst)
 
     def _create_config(self):
         """«Создать карту»: the editor opens EMPTY for a brand-new map."""

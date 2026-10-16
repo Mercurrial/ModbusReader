@@ -72,6 +72,18 @@ def _file_argument(argv: list) -> str:
     return ""
 
 
+def startup_document(argv: list, first_run: bool) -> tuple:
+    """What to open once the window is up: ("project", path) for a file
+    handed over by Explorer, ("demo", "") on the very first launch — a new
+    user lands in a working example, not in an empty grid — else (None, "")."""
+    path = _file_argument(argv)
+    if path:
+        return "project", path
+    if first_run:
+        return "demo", ""
+    return None, ""
+
+
 def main():
     # Second half of a portable self-update: THIS exe is the new version,
     # started by the old one just before it quit (updater.finish_update —
@@ -87,6 +99,9 @@ def main():
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
 
+    # First launch = no settings file yet (an update keeps it, so people who
+    # already use the app never get the demo pushed at them).
+    first_run = not os.path.exists(settings_manager.SETTINGS_FILE)
     app = QApplication(sys.argv)
     app.setApplicationName("ModbusReader")
     app.setApplicationVersion(APP_VERSION)
@@ -138,10 +153,11 @@ def main():
             f"{type(e).__name__}: {e}\n\n{error_log_path()}")
         sys.exit(1)
     _close_splash()                      # the window is up: drop the splash
-    path = _file_argument(sys.argv)
-    if path:
+    kind, path = startup_document(sys.argv, first_run)
+    if kind:
         from PyQt6.QtCore import QTimer
-        QTimer.singleShot(0, lambda: window._open_project(path))
+        QTimer.singleShot(0, (lambda: window._open_project(path)) if kind == "project"
+                          else window._open_demo)
     sys.exit(app.exec())
 
 

@@ -152,8 +152,191 @@
     {
       "format": "modbusreader.dashboard",
       "version": 1,
-      "name": "",
-      "widgets": [],
+      "name": "Пульт",
+      "widgets": [
+        {
+          "kind": "gauge",
+          "reg_id": "0x0000",
+          "title": "Температура",
+          "name": "Температура",
+          "x": 12,
+          "y": 12,
+          "w": 290,
+          "h": 230,
+          "unit": "°C",
+          "vmin": 0,
+          "vmax": 60,
+          "ahi": 45,
+          "reg_type": "FLOAT",
+          "uid": "demo01"
+        },
+        {
+          "kind": "chart",
+          "reg_id": "0x0000",
+          "title": "Температура",
+          "name": "Температура",
+          "x": 318,
+          "y": 12,
+          "w": 570,
+          "h": 230,
+          "unit": "°C",
+          "vmin": 15,
+          "vmax": 35,
+          "reg_type": "FLOAT",
+          "uid": "demo02"
+        },
+        {
+          "kind": "value",
+          "reg_id": "0x0002",
+          "title": "Уставка",
+          "name": "Уставка",
+          "x": 904,
+          "y": 12,
+          "w": 260,
+          "h": 107,
+          "unit": "°C",
+          "reg_type": "FLOAT",
+          "uid": "demo03"
+        },
+        {
+          "kind": "value",
+          "reg_id": "0x0005",
+          "title": "Мощность нагревателя",
+          "name": "Мощность нагревателя",
+          "x": 904,
+          "y": 135,
+          "w": 260,
+          "h": 107,
+          "unit": "%",
+          "reg_type": "UINT16",
+          "uid": "demo04"
+        },
+        {
+          "kind": "bar",
+          "reg_id": "0x10000",
+          "title": "Напряжение питания",
+          "name": "Напряжение питания",
+          "x": 12,
+          "y": 258,
+          "w": 290,
+          "h": 130,
+          "unit": "В",
+          "vmin": 0,
+          "vmax": 30,
+          "reg_type": "UINT16",
+          "uid": "demo05"
+        },
+        {
+          "kind": "bits",
+          "reg_id": "0x0008",
+          "title": "Слово состояния",
+          "name": "Слово состояния",
+          "x": 318,
+          "y": 258,
+          "w": 290,
+          "h": 130,
+          "reg_type": "BITS16",
+          "uid": "demo06"
+        },
+        {
+          "kind": "led",
+          "reg_id": "0x20000",
+          "title": "Нагреватель",
+          "name": "Нагреватель",
+          "x": 624,
+          "y": 258,
+          "w": 127,
+          "h": 130,
+          "thr": 0.5,
+          "invert": false,
+          "reg_type": "BOOL",
+          "uid": "demo07"
+        },
+        {
+          "kind": "led",
+          "reg_id": "0x30000",
+          "title": "Дверь",
+          "name": "Дверь",
+          "x": 767,
+          "y": 258,
+          "w": 121,
+          "h": 130,
+          "thr": 0.5,
+          "invert": false,
+          "reg_type": "BOOL",
+          "uid": "demo08"
+        },
+        {
+          "kind": "value",
+          "reg_id": "0x10001",
+          "title": "Ток датчика",
+          "name": "Ток датчика",
+          "x": 904,
+          "y": 258,
+          "w": 260,
+          "h": 130,
+          "unit": "мА",
+          "reg_type": "SHORT",
+          "uid": "demo09"
+        },
+        {
+          "kind": "select",
+          "reg_id": "0x0004",
+          "title": "Режим",
+          "name": "Режим",
+          "x": 12,
+          "y": 404,
+          "w": 290,
+          "h": 115,
+          "reg_type": "UINT16",
+          "options": [
+            [
+              0,
+              "Стоп"
+            ],
+            [
+              1,
+              "Работа"
+            ],
+            [
+              2,
+              "Авария"
+            ]
+          ],
+          "uid": "demo10"
+        },
+        {
+          "kind": "slider",
+          "reg_id": "0x0002",
+          "title": "Уставка",
+          "name": "Уставка",
+          "x": 318,
+          "y": 404,
+          "w": 570,
+          "h": 115,
+          "unit": "°C",
+          "vmin": 15,
+          "vmax": 40,
+          "step": 0.5,
+          "live": false,
+          "reg_type": "FLOAT",
+          "uid": "demo11"
+        },
+        {
+          "kind": "toggle",
+          "reg_id": "0x20001",
+          "title": "Вентилятор",
+          "name": "Вентилятор",
+          "x": 904,
+          "y": 404,
+          "w": 260,
+          "h": 115,
+          "value_on": 1,
+          "value_off": 0,
+          "reg_type": "BOOL",
+          "uid": "demo12"
+        }
+      ],
       "links": []
     }
   ],

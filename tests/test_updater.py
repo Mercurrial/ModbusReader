@@ -476,3 +476,31 @@ def test_next_calendar_version():
     # the updater sees every step as newer
     chain = ["2.2.0", "26.10.0", "26.10.1", "26.11.0", "27.1.0"]
     assert all(updater.is_newer(b, a) for a, b in zip(chain, chain[1:]))
+
+
+def test_update_notes_box_fits_its_text(win):
+    """The notes were measured before the label had its width and font —
+    the last line sat on the box's bottom edge."""
+    import gui_update
+    rel = _rel(notes="• Чтение блоками: вся карта одним запросом\n"
+                     "• Тревоги по порогам прямо в таблице\n"
+                     "• Исправлено: Esc в редакторе после Alt+Tab")
+    dlg = gui_update.UpdateDialog(win.ctx, rel, "installed", win)
+    dlg.show()
+    _wait(lambda: False, 0.2)
+    sc, lbl = dlg._notes_sc, dlg._notes_lbl
+    assert sc.viewport().height() >= lbl.heightForWidth(lbl.width()) + 18
+    # …and it is not clipped by its container: the window grew with it
+    wrap = dlg._notes_wrap
+    assert sc.geometry().bottom() < wrap.height()
+    assert dlg.height() >= dlg.sizeHint().height()
+    dlg.close()
+
+
+def test_first_launch_opens_the_demo_but_a_file_wins(tmp_path):
+    import main
+    p = tmp_path / "plant.mbproj"
+    p.write_text("{}", encoding="utf-8")
+    assert main.startup_document(["ModbusReader.exe"], first_run=True) == ("demo", "")
+    assert main.startup_document(["ModbusReader.exe", str(p)], first_run=True) == ("project", str(p))
+    assert main.startup_document(["ModbusReader.exe"], first_run=False) == (None, "")
