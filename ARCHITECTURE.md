@@ -381,8 +381,12 @@ keeps one release, always the latest: a new version replaces its
 names the updater looks for; the installer's never changes, so
 `releases/latest/download/ModbusReader-Setup.exe` is a permanent link) and then
 moves it to the version's tag `vYY.MM.N` — files first, so no copy ever sees
-the new number next to the old build. Earlier versions stay as tags. Commit messages carry a type prefix (`feat`, `fix`, `ui`, `refactor`,
-`docs`, `tools`, `release`) and each commit passes the test suite.
+the new number next to the old build. The previous tag is then deleted: one
+release, one tag. `tools/release.py` re-points the CHANGELOG links of earlier
+versions from their tags to their commits (`…/tree/<sha>`) while the tags
+still exist, and prints the remaining steps. Commit messages carry a type
+prefix (`feat`, `fix`, `ui`, `refactor`, `docs`, `tools`, `release`) and each
+commit passes the test suite.
 
 ## 11. Known limitations
 

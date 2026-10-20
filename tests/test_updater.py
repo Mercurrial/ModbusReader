@@ -567,19 +567,43 @@ def test_release_tool_writes_version_and_changelog(tmp_path):
         'APP_VERSION = "26.10.0"\nRELEASE_DATE = "2026-10-16"\n', encoding="utf-8")
     (tmp_path / "README.md").write_text("# x\n", encoding="utf-8")
     (tmp_path / "CHANGELOG.md").write_text(
-        "# История\n\n## [Не выпущено]\n\n### Добавлено\n- что-то\n\n"
-        "## [2.2.0] — 2026-10-15\n\n"
+        "# История\n\n## [Не выпущено]\n\nГотовится к выпуску как 26.10.1.\n\n"
+        "### Добавлено\n- что-то\n\n"
+        "## [2.2.0] — 2026-10-15\n\n## [2.1.0] — 2026-10-13\n\n"
         "[Не выпущено]: https://github.com/Mercurrial/ModbusReader/compare/v2.2.0...HEAD\n"
-        "[2.2.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v2.2.0\n",
+        "[2.2.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v2.2.0\n"
+        "[2.1.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v2.1.0\n",
         encoding="utf-8")
-    rel.apply("26.10.1", "2026-10-20", root=str(tmp_path))
+    # One release, one tag: the old tags are about to go, so their links are
+    # pinned to the commits (v2.1.0 is already gone here: left as it was).
+    tags = {"v2.2.0": "a" * 40}
+    rel.apply("26.10.1", "2026-10-20", root=str(tmp_path), resolve=tags.get)
     v = (tmp_path / "app" / "version.py").read_text(encoding="utf-8")
     assert 'APP_VERSION = "26.10.1"' in v and 'RELEASE_DATE = "2026-10-20"' in v
     c = (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "## [26.10.1] — 2026-10-20" in c and "## [Не выпущено]" not in c
+    assert "Готовится к выпуску" not in c
+    assert "## [26.10.1] — 2026-10-20\n\n### Добавлено" in c
     assert "[26.10.1]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.1" in c
+    assert "[2.2.0]: https://github.com/Mercurrial/ModbusReader/tree/" + "a" * 40 in c
+    assert "[2.1.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v2.1.0" in c
     assert "compare/v26.10.1...HEAD" in c
     assert c.index("[26.10.1]:") < c.index("[2.2.0]:")
-    rel.apply("26.10.1", "2026-10-21", root=str(tmp_path))     # re-run: new date
+    rel.apply("26.10.1", "2026-10-21", root=str(tmp_path),     # re-run: new date
+              resolve=tags.get)
     c = (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "## [26.10.1] — 2026-10-21" in c and c.count("[26.10.1]:") == 1
+    assert "releases/tag/v26.10.1" in c          # the current one keeps its tag link
+
+
+def test_release_tool_finds_a_tags_commit():
+    import importlib.util
+    import os
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    spec = importlib.util.spec_from_file_location(
+        "release_tool3", os.path.join(root, "tools", "release.py"))
+    rel = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rel)
+    assert rel.git_commit("no-such-tag-anywhere", root) is None
+    head = rel.git_commit("HEAD", root)
+    assert head is None or len(head) == 40      # None: a source copy without git

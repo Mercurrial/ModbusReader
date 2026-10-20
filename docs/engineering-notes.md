@@ -973,3 +973,7 @@ page, menu, dialog and settings page headless for the next review.
   to the old build for a moment, and a copy updating then would install the
   old build and be offered the update again. Local downloads still carry the
   version (`updater._download_name`), which `cleanup_downloads` relies on.
+  Old TAGS go too (the user's call, same day): `tools/release.py` pins the
+  CHANGELOG links of earlier versions to their commits (`git_commit(tag)` →
+  `…/tree/<sha>`) while the tags still exist, and drops the «Готовится к
+  выпуску» line under the released heading.
