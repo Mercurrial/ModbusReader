@@ -121,15 +121,16 @@ def test_highlight_disabled_no_flash(table):
 
 
 def test_mono_values_toggle_applies_font(table):
+    from app.fonts import mono_family
     table.populate(PROFILE)
     row = table.addr_to_row[5]
-    assert table.item(row, COL_CURRENT).font().family() in ("JetBrains Mono", "Consolas")
+    assert table.item(row, COL_CURRENT).font().family() == mono_family()
     table.ctx.settings["mono_values"] = False
     table.apply_settings()
     assert table.item(row, COL_CURRENT).font().family() == table.font().family()
     table.ctx.settings["mono_values"] = True
     table.apply_settings()
-    assert table.item(row, COL_CURRENT).font().family() in ("JetBrains Mono", "Consolas")
+    assert table.item(row, COL_CURRENT).font().family() == mono_family()
 
 
 def test_format_value_edges():

@@ -21,6 +21,7 @@ from PyQt6.QtGui import QFont, QColor, QPainter, QTextOption
 from core.macro_engine import MacroRunner
 from gui.dialogs import themed_message, themed_info
 from gui import icons
+from app.fonts import MONO_CSS, mono_family
 
 
 DEFAULT_MACRO = """# Пример: час замеров раз в секунду (карта — examples/demo.mbproj).
@@ -64,9 +65,7 @@ log("Readings finished")
 
 
 def _mono(size=10) -> QFont:
-    f = QFont("JetBrains Mono")
-    if not f.exactMatch():
-        f.setFamily("Consolas")
+    f = QFont(mono_family())
     f.setPointSize(size)
     return f
 
@@ -318,7 +317,7 @@ class MacroWindow(QWidget):
         QLabel#mSectionTitle {{ color: {c['text_3']}; font-size: 8pt; font-weight: 600;
             text-transform: uppercase; letter-spacing: 1px; }}
         QLabel#mStatus {{ color: {c['text_3']}; }}
-        QLabel#mRowCount {{ color: {c['text_4']}; font-family: "JetBrains Mono","Consolas",monospace; }}
+        QLabel#mRowCount {{ color: {c['text_4']}; font-family: {MONO_CSS}; }}
         QPushButton#mBtn, QPushButton#mPrimary {{
             border: 1px solid transparent; border-radius: 6px; padding: 0 12px;
             min-height: 30px; max-height: 30px;
@@ -331,7 +330,7 @@ class MacroWindow(QWidget):
         QFrame#mSep {{ background: {c['line']}; border: none; }}
         QPlainTextEdit {{ background: {c['bg_0']}; color: {c['text_1']};
             border: none; selection-background-color: {c['accent_soft']};
-            font-family: "JetBrains Mono", "Consolas", monospace; }}
+            font-family: {MONO_CSS}; }}
         QPlainTextEdit#mLog {{ background: {c['bg_0']}; color: {c['text_2']}; }}
         QTableWidget#mTable {{ background: {c['bg_0']}; alternate-background-color: {c['bg_1']};
             gridline-color: {c['line_soft']}; color: {c['text_1']};
@@ -806,7 +805,7 @@ class _MacroHelpDialog(QDialog):
             desc = ru if self.lang == "ru" else en
             rows.append(
                 f"<div style='margin:0 0 14px 0;'>"
-                f"<div style='font-family:JetBrains Mono,Consolas,monospace;"
+                f"<div style='font-family:{MONO_CSS};"
                 f"font-size:11pt;color:{c['accent']};font-weight:600;'>{sig}</div>"
                 f"<div style='color:{c['text_2']};font-size:10pt;"
                 f"margin-top:2px;'>{desc}</div></div>")
@@ -838,6 +837,6 @@ class _MacroHelpDialog(QDialog):
             f"{L('Пример', 'Example')}</h3>"
             f"<pre style='background:{c['bg_1']};color:{c['text_1']};"
             f"border-radius:8px;padding:12px;margin:0 12px 16px;"
-            f"font-family:JetBrains Mono,Consolas,monospace;font-size:10pt;"
+            f"font-family:{MONO_CSS};font-size:10pt;"
             f"white-space:pre-wrap;'>{example}</pre>"
             f"</body>")

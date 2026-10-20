@@ -2,6 +2,7 @@
 
 from gui import icons
 from gui.theme_manager import get_theme, _mix
+from app.fonts import MONO_CSS
 
 def get_stylesheet(theme_name: str = "Dark", font_family: str = "Inter, Segoe UI, system-ui, sans-serif", font_size: int = 9, accent: str | None = None) -> str:
     """Returns the complete QSS stylesheet based on the current theme and settings."""
@@ -84,7 +85,7 @@ QPushButton#linkChip {{
     border-radius: 6px;
     padding: 0 12px 0 10px;
     color: {c["text_3"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
     min-height: 30px;
     max-height: 30px;
@@ -260,7 +261,7 @@ QPushButton#segBtn {{
     border-radius: 10px;
     padding: 0 9px;
     color: {c["text_3"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
     letter-spacing: 1px;
     min-height: 20px;
@@ -307,7 +308,7 @@ QLabel#sbItem {{
 }}
 QLabel#sbVal {{
     color: {c["text_2"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
     padding: 0 4px;
 }}
@@ -341,7 +342,7 @@ QLabel#statsKey {{
 }}
 QLabel#statsVal {{
     color: {c["text_1"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
 }}
 QLabel#statsVal[state="error"] {{
@@ -382,7 +383,7 @@ QLineEdit#sbIdInput {{
     border: 1px solid {c["accent"]};
     border-radius: 4px;
     color: {c["text_1"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
     padding: 0 4px;
     max-width: 40px;
@@ -539,7 +540,7 @@ QHeaderView::section:vertical {{
     color: {c["text_4"]};
     border: none;
     padding: 0 6px 0 8px;
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
     font-weight: 400;
 }}
@@ -562,7 +563,7 @@ QTableWidget QLineEdit {{
     color: {c["text_1"]};
     selection-background-color: {c["accent_soft"]};
     selection-color: {c["text_1"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs};
 }}
 
@@ -578,7 +579,7 @@ QLabel#consoleLabel {{
 }}
 QLabel#consoleCrc {{
     color: {c["text_4"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs};
     min-width: 90px;
 }}
@@ -593,7 +594,7 @@ QLineEdit#consoleInput {{
     border: 1px solid {c["line"]};
     border-radius: 4px;
     padding: 2px 8px;
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs};
     selection-background-color: {c["accent_soft"]};
 }}
@@ -650,7 +651,7 @@ QTextEdit#txLog {{
     background: {c["bg_0"]};
     color: {c["text_2"]};
     border: none;
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs};
     padding: 8px;
     selection-background-color: {c["bg_4"]};
@@ -707,7 +708,7 @@ QLabel#gTitle {{
 /* THE number of the card: large, monospace, the live reading. */
 QLabel#gValue {{
     color: {c["text_1"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {font_size + 9}pt;
     font-weight: 600;
 }}
@@ -723,7 +724,7 @@ QLabel#gUnit {{
 }}
 QLabel#gDelta {{
     color: {c["text_3"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
 }}
 QLabel#gDelta[state="stale"] {{
@@ -737,7 +738,7 @@ QLabel#gDelta[state="paused"] {{
 }}
 QLabel#gMeta {{
     color: {c["text_4"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
 }}
 QLabel#gStatLbl {{
@@ -746,7 +747,7 @@ QLabel#gStatLbl {{
 }}
 QLabel#gStatVal {{
     color: {c["text_2"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
 }}
 QLabel#gWait {{
@@ -778,7 +779,7 @@ QPushButton#twBtn {{
     border-radius: 4px;
     padding: 2px 8px;
     color: {c["text_3"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
     min-width: 26px;
     max-height: 20px;
@@ -1178,7 +1179,7 @@ QSlider::handle:horizontal:hover {{
 }}
 QLabel#sliderVal {{
     color: {c["text_2"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
 }}
 
@@ -1219,7 +1220,7 @@ QLabel#wTitle {{
 }}
 QLabel#wCount {{
     color: {c["text_4"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
 }}
 QScrollArea#watchScroll, QWidget#watchList {{
@@ -1246,7 +1247,7 @@ QLabel#wName[missing="true"] {{
 }}
 QLabel#wValue {{
     color: {c["text_1"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {font_size + 4}pt;
     font-weight: 600;
 }}
@@ -1266,7 +1267,7 @@ QLineEdit#wWrite {{
     border-radius: 6px;
     padding: 2px 8px;
     color: {c["text_1"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
 }}
 QLineEdit#wWrite:focus {{
@@ -1337,7 +1338,7 @@ QLineEdit#dashInput {{
     border-radius: 6px;
     padding: 4px 8px;
     color: {c["text_1"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
 }}
 QLineEdit#dashInput:focus {{
     border: 1px solid {focus_ring};
@@ -1379,7 +1380,7 @@ QLabel#stAboutKey {{
 }}
 QLabel#stAboutVal {{
     color: {c["text_2"]};
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
 }}
 QLabel#kbdPill {{
@@ -1388,7 +1389,7 @@ QLabel#kbdPill {{
     border: 1px solid {c["line"]};
     border-radius: 4px;
     padding: 2px 7px;
-    font-family: "JetBrains Mono", "Consolas", monospace;
+    font-family: {MONO_CSS};
     font-size: {fs_small};
 }}
 

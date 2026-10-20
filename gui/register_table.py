@@ -104,18 +104,12 @@ _MINW = {
 }
 
 
-_MONO_FAMILY = None
-
-
 def mono_font(size: int | None = None) -> QFont:
     """Monospace face for addresses/values. Sized like the UI font (Settings →
     Внешний вид → размер) — it used to be pinned at 9 pt, so at a 13 pt UI the
     numbers were the smallest text on screen."""
-    global _MONO_FAMILY
-    if _MONO_FAMILY is None:
-        probe = QFont("JetBrains Mono")
-        _MONO_FAMILY = "JetBrains Mono" if probe.exactMatch() else "Consolas"
-    f = QFont(_MONO_FAMILY)
+    from app.fonts import mono_family
+    f = QFont(mono_family())
     f.setPointSize(int(size) if size else 9)
     return f
 

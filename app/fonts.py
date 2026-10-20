@@ -78,3 +78,28 @@ def safe_family(family: str, default: str = "") -> str:
     if default and default in installed and not is_symbol_font(default):
         return default
     return default_family()
+
+
+# ── monospace: addresses, values, frames, code ─────────────────────────
+# One list for every place that wants a fixed-width face. Windows has
+# Consolas; macOS has SF Mono / Menlo; Linux has DejaVu Sans Mono. Before
+# the last three were listed, macOS fell back to a PROPORTIONAL face (it has
+# no "monospace" alias) and Linux to whatever fontconfig picked.
+MONO_FAMILIES = ("JetBrains Mono", "Consolas", "SF Mono", "Menlo",
+                 "DejaVu Sans Mono", "Liberation Mono")
+MONO_CSS = ", ".join(f'"{f}"' for f in MONO_FAMILIES) + ", monospace"
+
+_mono_cache: list = []
+
+
+def mono_family() -> str:
+    """The first installed face of MONO_FAMILIES, else the system's own
+    fixed-width font."""
+    if not _mono_cache:
+        installed = set(QFontDatabase.families())
+        pick = next((f for f in MONO_FAMILIES if f in installed), "")
+        if not pick:
+            pick = QFontDatabase.systemFont(
+                QFontDatabase.SystemFont.FixedFont).family() or "monospace"
+        _mono_cache.append(pick)
+    return _mono_cache[0]

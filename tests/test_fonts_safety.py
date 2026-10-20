@@ -88,3 +88,18 @@ def test_schema_validates_the_family_it_writes(monkeypatch):
     derived = ss._derive_font_family("Wingdings")
     assert "Wingdings" not in derived["font_family"]
     assert "Segoe UI" in derived["font_family"]
+
+
+def test_monospace_falls_back_to_each_systems_own_face(monkeypatch):
+    """Consolas exists only on Windows. macOS has no "monospace" alias, so
+    the values there came out in a PROPORTIONAL face until SF Mono / Menlo
+    (and DejaVu Sans Mono for Linux) were listed."""
+    from app import fonts
+    for installed, want in ((["Segoe UI", "Consolas"], "Consolas"),
+                            (["Helvetica", "Menlo", "SF Mono"], "SF Mono"),
+                            (["DejaVu Sans", "DejaVu Sans Mono"], "DejaVu Sans Mono")):
+        monkeypatch.setattr(fonts.QFontDatabase, "families", staticmethod(lambda i=installed: i))
+        fonts._mono_cache.clear()
+        assert fonts.mono_family() == want
+    fonts._mono_cache.clear()
+    assert all(f'"{f}"' in fonts.MONO_CSS for f in ("Consolas", "Menlo", "DejaVu Sans Mono"))

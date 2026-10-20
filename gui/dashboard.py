@@ -653,9 +653,8 @@ class DashCard(QWidget):
             return None
 
     def _mono(self, size, bold=True) -> QFont:
-        f = QFont("JetBrains Mono")
-        if not f.exactMatch():
-            f.setFamily("Consolas")
+        from app.fonts import mono_family
+        f = QFont(mono_family())
         f.setPointSize(size)
         f.setBold(bold)
         return f

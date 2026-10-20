@@ -18,6 +18,7 @@ from gui.theme_manager import get_theme
 from core.profile_manager import (find_overlaps, find_duplicate_names,
                              chained_flags, rechain, is_contiguous)
 from gui import icons
+from app.fonts import MONO_CSS
 from core import formats
 from gui.dialogs import themed_message, themed_info
 from gui.qt_utils import later
@@ -422,7 +423,7 @@ class ProfileEditorDialog(QDialog):
                 background: {c["bg_1"]};
                 color: {c["text_2"]};
                 border: none;
-                font-family: "JetBrains Mono", "Consolas", monospace;
+                font-family: {MONO_CSS};
                 font-size: {fs}pt;
                 padding: 12px;
             }}

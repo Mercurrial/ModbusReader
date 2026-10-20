@@ -20,6 +20,7 @@ from gui.theme_manager import get_theme
 from app.i18n import get_translator
 from core import datatypes
 from gui import icons
+from app.fonts import MONO_CSS, mono_family
 from gui.dialogs import themed_info
 
 
@@ -132,9 +133,8 @@ def _gradient_brush(color: str, top_alpha: int = 90):
 
 
 def _mono(size_pt: float, bold: bool = False) -> QFont:
-    f = QFont("JetBrains Mono")
+    f = QFont(mono_family())
     f.setStyleHint(QFont.StyleHint.Monospace)
-    f.setFamilies(["JetBrains Mono", "Consolas", "monospace"])
     f.setPointSizeF(size_pt)
     if bold:
         f.setWeight(QFont.Weight.DemiBold)
@@ -724,7 +724,7 @@ class ChartExpandDialog(QDialog):
         meta = QLabel(datatypes.id_label(self._card.reg_id))
         meta.setStyleSheet(
             f"color: {self.theme['text_3']}; background: transparent; "
-            f"font-family:'JetBrains Mono','Consolas',monospace; font-size: 11px;")
+            f"font-family:{MONO_CSS}; font-size: 11px;")
 
         seg = QWidget()
         sl = QHBoxLayout(seg)
@@ -776,7 +776,7 @@ class ChartExpandDialog(QDialog):
             color = self.color if key == "cur" else self.theme["text_1"]
             v.setStyleSheet(
                 f"color: {color}; background: transparent; "
-                f"font-family:'JetBrains Mono','Consolas',monospace; "
+                f"font-family:{MONO_CSS}; "
                 f"font-size: 22px; font-weight: 600;")
             col.addWidget(k)
             col.addWidget(v)
