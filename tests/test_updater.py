@@ -480,6 +480,20 @@ def test_dialog_from_source_points_to_the_page(win):
     assert dlg.outcome == "page"
 
 
+@pytest.mark.parametrize("writable", [True, False])
+def test_an_all_users_install_warns_that_windows_will_ask(win, monkeypatch, writable):
+    """Program Files is not writable without admin rights: its installer
+    elevates itself, so the dialog says a UAC prompt is coming. A per-user
+    install (writable folder) updates without one and says nothing of it."""
+    from gui import update as gui_update
+    monkeypatch.setattr(updater, "can_replace", lambda path: writable)
+    dlg = gui_update.UpdateDialog(win.ctx, _rel(), "installed", win)
+    note = dlg.lbl_note.text()
+    assert win.t("updRestartNote") in note
+    assert (win.t("updAdminNote") in note) is (not writable)
+    assert dlg.btn_go.text() == win.t("updGo")            # still updates itself
+
+
 def test_dialog_download_failure_offers_the_page(win, monkeypatch):
     from gui import update as gui_update
 

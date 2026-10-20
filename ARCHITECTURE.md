@@ -277,7 +277,11 @@ stores for the asset, its size matches and it starts with `MZ`.
   the old exe is started.
 - *installed*: the installer is started with `/SILENT … /WAITPID=<pid>`; its
   `InitializeSetup` waits for the app to exit, and its `[Run]` entry starts the
-  new version.
+  new version. An update keeps the install mode (`UsePreviousPrivileges`); an
+  all-users copy's installer elevates itself, so Windows asks (UAC) — the
+  update dialog says so beforehand. The app must never start the installer
+  elevated: only a self-elevated Setup can start the new version again
+  without admin rights (`postinstall` runs as the original user).
 
 `ModernScadaApp.quit_for_update()` asks everything a normal close would ask
 before starting the new copy, and keeps the window if the start fails.
@@ -285,10 +289,14 @@ Children are started with `updater.child_env()` (no inherited bundle paths,
 `PYINSTALLER_RESET_ENVIRONMENT=1`). A source checkout never checks by itself.
 
 **Installer.** `ModbusReader_setup.spec` builds the one-folder program;
-`installer/ModbusReader.iss` packs it for the current user (no administrator
-rights) with Start-menu and desktop shortcuts, the `.mbproj` association and an
-uninstaller. An installed copy keeps its settings in `%APPDATA%\ModbusReader`;
-a portable copy keeps them next to the exe. The demo project is copied to
+`installer/ModbusReader.iss` packs it. Setup asks for the install mode: for all
+users (the default) into `C:\Program Files\ModbusReader` with administrator
+rights, or for the current user only into `%LOCALAPPDATA%\Programs\ModbusReader`
+without them (`/ALLUSERS`, `/CURRENTUSER` answer it on the command line). It
+adds Start-menu and desktop shortcuts, the `.mbproj` association and an
+uninstaller. An installed copy keeps its settings in
+`%APPDATA%\ModbusReader` of each user; a portable copy keeps them next to the
+exe. The demo project is copied to
 `Documents\ModbusReader` before it is opened.
 
 ## 8. Rules and known pitfalls

@@ -206,7 +206,13 @@ class UpdateDialog(QDialog):
         # Why this copy cannot update itself (then the main button opens the
         # release page instead) — or what pressing it will do.
         self._blocker = self._blocking_reason()
-        self.lbl_note = QLabel(self._blocker or self.t("updRestartNote"))
+        note = self._blocker or self.t("updRestartNote")
+        if (not self._blocker and self.kind == "installed"
+                and not updater.can_replace(sys.executable)):
+            # Installed for all users (Program Files): the installer elevates
+            # itself, so Windows asks — say so before the UAC prompt does.
+            note += " " + self.t("updAdminNote")
+        self.lbl_note = QLabel(note)
         self.lbl_note.setObjectName("updNote")
         self.lbl_note.setWordWrap(True)
         lay.addWidget(self.lbl_note)

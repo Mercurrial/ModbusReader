@@ -988,3 +988,18 @@ page, menu, dialog and settings page headless for the next review.
   QObject (queued to the GUI thread); `shutdown()` just disconnects it.
   Rule: never let a QThread that may block on the network be destroyed with
   its owner.
+
+## Unreleased
+
+- **Install mode** (2026-10-20, the user: "%LOCALAPPDATA%\Programs is a strange
+  path"): `PrivilegesRequired=admin` + `PrivilegesRequiredOverridesAllowed=
+  dialog` — Setup asks "for all users (recommended) / only for me"; the
+  former goes to C:\Program Files with UAC, the latter stays per user.
+  `UsePreviousPrivileges=yes` makes an update keep the mode without asking
+  (checked in the local Inno help: it looks the AppId up in the registry).
+  The app keeps starting the installer NON-elevated: Setup elevates itself,
+  and only then can the `postinstall` [Run] entry restart the app as the
+  original, non-admin user (Inno help, runasoriginaluser: no effect when
+  Setup was started elevated). The update dialog adds `updAdminNote` when
+  the program folder is not writable. Unattended installs must pass
+  `/CURRENTUSER` or `/ALLUSERS` (silent + admin default = a UAC prompt).

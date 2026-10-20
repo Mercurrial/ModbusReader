@@ -1,4 +1,4 @@
-﻿; installer/ModbusReader.iss — the per-user installer.
+﻿; installer/ModbusReader.iss — the installer.
 ;
 ; Build: python tools/build_installer.py   (one-folder PyInstaller build, then
 ; ISCC with /DAppVersion from version.py). Output: dist\ModbusReader-Setup.exe —
@@ -6,16 +6,23 @@
 ; (releases/latest/download/ModbusReader-Setup.exe). The version is in the
 ; file's properties and on the wizard's pages.
 ;
-; Per user, no administrator rights: %LOCALAPPDATA%\Programs\ModbusReader,
-; Start-menu shortcut, desktop shortcut (a checkbox), .mbproj opens in the app,
-; an uninstaller in "Apps & features". Settings live in %APPDATA%\ModbusReader
-; (the app sees unins000.exe beside itself and keeps its files there), so an
-; update or an uninstall never touches them.
+; Two install modes, asked at the start (/ALLUSERS or /CURRENTUSER skip the
+; question): for all users — C:\Program Files\ModbusReader, administrator
+; rights (the default, the usual place) — or for me only —
+; %LOCALAPPDATA%\Programs\ModbusReader, no rights needed. Either way: Start-menu
+; shortcut, desktop shortcut (a checkbox), .mbproj opens in the app, an
+; uninstaller in "Apps & features". Settings live in %APPDATA%\ModbusReader of
+; each user (the app sees unins000.exe beside itself and keeps its files
+; there), so an update or an uninstall never touches them.
 ;
 ; Self-update (updater.py): the running app starts the new installer with
 ;   /SILENT /SUPPRESSMSGBOXES /NORESTART /SP- /WAITPID=<its pid>
 ; and quits; InitializeSetup below waits for that pid, the install runs with
 ; only a progress bar, and the [Run] entry (no skipifsilent) starts the app.
+; An update keeps the install mode (UsePreviousPrivileges); for an all-users
+; install Setup elevates itself, so Windows asks for confirmation (UAC), and
+; the postinstall [Run] entry still starts the app WITHOUT admin rights — the
+; reason the app must never start the installer elevated itself.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -41,7 +48,9 @@ DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 DisableDirPage=auto
 DisableReadyPage=yes
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
+PrivilegesRequiredOverridesAllowed=dialog
+UsePreviousPrivileges=yes
 OutputDir=..\dist
 OutputBaseFilename=ModbusReader-Setup
 SetupIconFile=..\assets\app.ico
