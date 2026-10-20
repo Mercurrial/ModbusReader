@@ -218,6 +218,8 @@ Linux / macOS: те же шаги (`source .venv/bin/activate`, `python main.py`
 <details>
 <summary><b>Сборка exe и установщика</b></summary>
 
+Нужны PyInstaller и [Inno Setup 6](https://jrsoftware.org/isinfo.php).
+
 ```bash
 .venv\Scripts\pip install pyinstaller
 .venv\Scripts\python tools/build_installer.py --portable   # установщик + оба exe
@@ -227,7 +229,7 @@ Linux / macOS: те же шаги (`source .venv/bin/activate`, `python main.py`
 упаковывает её Inno Setup'ом (`installer/ModbusReader.iss`) в
 `dist/ModbusReader-Setup.exe`, а с `--portable` — ещё и одиночные
 `ModbusReader.exe` / `ModbusReader_debug.exe` (с консолью). Сведения о версии
-exe берутся из `version.py`; иконка и заставка — `tools/make_icon.py`,
+exe берутся из `app/version.py`; иконка и заставка — `tools/make_icon.py`,
 `tools/make_splash.py`.
 </details>
 
@@ -256,7 +258,7 @@ CHANGELOG в раздел выпуска со ссылкой на него.
 .venv\Scripts\python -m pytest
 ```
 
-Около 890 тестов, полностью без экрана (`QT_QPA_PLATFORM=offscreen` ставится
+Около 900 тестов, полностью без экрана (`QT_QPA_PLATFORM=offscreen` ставится
 автоматически). Тесты никогда не читают и не пишут ваш настоящий
 `app_settings.json`.
 </details>

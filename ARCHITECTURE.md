@@ -346,7 +346,7 @@ Each of these was learned from a real defect; most are pinned by tests.
 .venv\Scripts\python -m pytest
 ```
 
-About 890 tests run headless (`QT_QPA_PLATFORM=offscreen` is set by
+About 900 tests run headless (`QT_QPA_PLATFORM=offscreen` is set by
 `tests/conftest.py`), which also points the settings file at a temporary
 directory for the whole session. Conventions:
 
