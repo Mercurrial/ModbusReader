@@ -69,6 +69,28 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Name: "ru"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "en"; MessagesFile: "compiler:Default.isl"
 
+[Messages]
+; The install-mode question, shorter than Inno's stock wording ("… может быть
+; установлена либо для всех пользователей (требуются привилегии
+; администратора), либо только для вас"): the shield icon on the first choice
+; already says that it needs administrator rights.
+ru.PrivilegesRequiredOverrideTitle=Установка — {#AppName}
+ru.PrivilegesRequiredOverrideInstruction=Для кого установить {#AppName}?
+ru.PrivilegesRequiredOverrideText1=
+ru.PrivilegesRequiredOverrideText2=
+ru.PrivilegesRequiredOverrideAllUsers=Для &всех пользователей
+ru.PrivilegesRequiredOverrideAllUsersRecommended=Для &всех пользователей (рекомендуется)
+ru.PrivilegesRequiredOverrideCurrentUser=Только для &меня
+ru.PrivilegesRequiredOverrideCurrentUserRecommended=Только для &меня (рекомендуется)
+en.PrivilegesRequiredOverrideTitle=Setup — {#AppName}
+en.PrivilegesRequiredOverrideInstruction=Install {#AppName} for
+en.PrivilegesRequiredOverrideText1=
+en.PrivilegesRequiredOverrideText2=
+en.PrivilegesRequiredOverrideAllUsers=&All users
+en.PrivilegesRequiredOverrideAllUsersRecommended=&All users (recommended)
+en.PrivilegesRequiredOverrideCurrentUser=Only &me
+en.PrivilegesRequiredOverrideCurrentUserRecommended=Only &me (recommended)
+
 [CustomMessages]
 ru.ProjectFile=Проект ModbusReader
 en.ProjectFile=ModbusReader project
