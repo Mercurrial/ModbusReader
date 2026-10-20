@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Mercurrial/ModbusReader/releases/latest"><img src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F%20Windows-e8577f?style=for-the-badge&logo=windows&logoColor=white" alt="Скачать для Windows" height="40"></a>
+  <a href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe"><img src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20%D0%B4%D0%BB%D1%8F%20Windows-e8577f?style=for-the-badge&logo=windows&logoColor=white" alt="Скачать для Windows" height="40"></a>
 </p>
 
 <p align="center">
@@ -157,11 +157,15 @@
 
 ## Установка
 
-Скачайте последнюю версию на странице **[Releases](https://github.com/Mercurrial/ModbusReader/releases/latest)**:
+Установщик всегда лежит по одной и той же ссылке —
+**[ModbusReader-Setup.exe](https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe)**; портативная версия — на странице
+**[Releases](https://github.com/Mercurrial/ModbusReader/releases/latest)**.
+Установленная программа сразу после запуска проверяет, нет ли версии новее,
+и предлагает обновиться.
 
 | | Установщик | Портативная версия |
 |---|:---:|:---:|
-| Файл | `ModbusReader-Setup-X.Y.Z.exe` | `ModbusReader.exe` |
+| Файл | `ModbusReader-Setup.exe` | `ModbusReader.exe` |
 | Права администратора | не нужны | не нужны |
 | Ярлыки в «Пуске» и на рабочем столе | ✓ | — |
 | `.mbproj` открывается двойным щелчком | ✓ | — |
@@ -221,7 +225,7 @@ Linux / macOS: те же шаги (`source .venv/bin/activate`, `python main.py`
 
 `tools/build_installer.py` собирает программу папкой (`ModbusReader_setup.spec`),
 упаковывает её Inno Setup'ом (`installer/ModbusReader.iss`) в
-`dist/ModbusReader-Setup-X.Y.Z.exe`, а с `--portable` — ещё и одиночные
+`dist/ModbusReader-Setup.exe`, а с `--portable` — ещё и одиночные
 `ModbusReader.exe` / `ModbusReader_debug.exe` (с консолью). Сведения о версии
 exe берутся из `version.py`; иконка и заставка — `tools/make_icon.py`,
 `tools/make_splash.py`.
@@ -235,10 +239,11 @@ exe берутся из `version.py`; иконка и заставка — `tool
 номер, записывает его в `app/version.py` и превращает раздел «Не выпущено» в
 CHANGELOG в раздел выпуска со ссылкой на него.
 
-Чтобы выпуск подхватило автообновление, в нём должны быть файлы
-`ModbusReader-Setup-X.Y.Z.exe`, `ModbusReader.exe` и `ModbusReader_debug.exe`
-(тег `vX.Y.Z`, не pre-release). Скачанное программа сверяет с SHA-256,
-который GitHub считает при загрузке файла.
+В репозитории один выпуск — всегда последний: новая версия заменяет в нём
+файлы `ModbusReader-Setup.exe`, `ModbusReader.exe` и `ModbusReader_debug.exe`
+и переносит его на свой тег `vX.Y.Z` (не pre-release); прежние версии остаются
+тегами в истории. Скачанное программа сверяет с SHA-256, который GitHub
+считает при загрузке файла.
 
 Картинки этого README — `python tools/readme_shots.py`: они рисуются из
 демо-проекта, а не с реального прибора.

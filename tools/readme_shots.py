@@ -511,8 +511,8 @@ def main():
         "26.11.0", "• Чтение блоками: вся карта одним запросом\n"
                    "• Тревоги по порогам прямо в таблице\n"
                    "• Исправлено: Esc в редакторе после Alt+Tab",
-        "https://github.com/", "ModbusReader-Setup-26.11.0.exe",
-        "https://github.com/x/ModbusReader-Setup-26.11.0.exe", 43_000_000, "a" * 64)
+        "https://github.com/", "ModbusReader-Setup.exe",
+        "https://github.com/x/ModbusReader-Setup.exe", 43_000_000, "a" * 64)
     ud = gui_update.UpdateDialog(w.ctx, rel, "installed", w)
     ud.show()
     pump(0.3)

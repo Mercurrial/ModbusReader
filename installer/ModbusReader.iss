@@ -1,7 +1,10 @@
 ﻿; installer/ModbusReader.iss — the per-user installer.
 ;
 ; Build: python tools/build_installer.py   (one-folder PyInstaller build, then
-; ISCC with /DAppVersion from version.py). Output: dist\ModbusReader-Setup-X.Y.Z.exe
+; ISCC with /DAppVersion from version.py). Output: dist\ModbusReader-Setup.exe —
+; the same name in every release, so one link always downloads the latest
+; (releases/latest/download/ModbusReader-Setup.exe). The version is in the
+; file's properties and on the wizard's pages.
 ;
 ; Per user, no administrator rights: %LOCALAPPDATA%\Programs\ModbusReader,
 ; Start-menu shortcut, desktop shortcut (a checkbox), .mbproj opens in the app,
@@ -35,7 +38,7 @@ DisableDirPage=auto
 DisableReadyPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=ModbusReader-Setup-{#AppVersion}
+OutputBaseFilename=ModbusReader-Setup
 SetupIconFile=..\assets\app.ico
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}

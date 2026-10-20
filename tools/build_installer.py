@@ -6,13 +6,14 @@
 
 1. PyInstaller, ModbusReader_setup.spec → dist/ModbusReader/ (one folder)
 2. Inno Setup (ISCC), installer/ModbusReader.iss with /DAppVersion from
-   version.py → dist/ModbusReader-Setup-X.Y.Z.exe
+   version.py → dist/ModbusReader-Setup.exe
 3. (--portable) ModbusReader.spec + ModbusReader_debug.spec → dist/*.exe
 4. Prints each file with its size and SHA-256.
 
 The release itself (tag vX.Y.Z, not a pre-release) must carry exactly these
-asset names — updater.py picks the build by name:
-    ModbusReader-Setup-X.Y.Z.exe   installed copies
+asset names — updater.py picks the build by name, and the installer's name
+never changes, so one link always downloads the latest:
+    ModbusReader-Setup.exe         installed copies
     ModbusReader.exe               portable copies
     ModbusReader_debug.exe         the console build
 GitHub stores a SHA-256 per asset at upload; the app refuses a download that
@@ -68,7 +69,7 @@ def main():
     py = sys.executable
     run([py, "-m", "PyInstaller", "--noconfirm", "ModbusReader_setup.spec"])
     run([iscc, f"/DAppVersion={APP_VERSION}", os.path.join("installer", "ModbusReader.iss")])
-    outputs = [os.path.join(ROOT, "dist", f"ModbusReader-Setup-{APP_VERSION}.exe")]
+    outputs = [os.path.join(ROOT, "dist", "ModbusReader-Setup.exe")]
     if portable:
         for spec in ("ModbusReader.spec", "ModbusReader_debug.spec"):
             run([py, "-m", "PyInstaller", "--noconfirm", spec])

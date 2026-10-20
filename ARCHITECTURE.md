@@ -258,7 +258,7 @@ are a flat JSON object merged over `DEFAULT_SETTINGS`; unknown keys are kept.
 **Feed.** `core/updater.py` reads the latest (non-draft, non-pre-release)
 GitHub release of `version.UPDATE_REPO` anonymously. A copy updates the way it
 was installed: an installed copy (an `unins*.exe` next to the program) takes the
-`ModbusReader-Setup-*.exe` asset, a portable copy takes the asset with its own
+`ModbusReader-Setup.exe` asset (any `ModbusReader-Setup*` name), a portable copy takes the asset with its own
 file name. A download is accepted only if its SHA-256 matches the digest GitHub
 stores for the asset, its size matches and it starts with `MZ`.
 
@@ -369,10 +369,13 @@ pictures, from the demo project).
 `python tools/build_installer.py --portable` builds all of them and prints the
 SHA-256 of each file. Versions are calendar versions `YY.MM.N`;
 `python tools/release.py` computes the next number and writes it to
-`app/version.py`, the CHANGELOG heading and, if present, the README. A release is
-tagged `vYY.MM.N` and must carry `ModbusReader-Setup-YY.MM.N.exe`,
-`ModbusReader.exe` and `ModbusReader_debug.exe`, which is what the updater looks
-for. Commit messages carry a type prefix (`feat`, `fix`, `ui`, `refactor`,
+`app/version.py`, the CHANGELOG heading and, if present, the README. The repository
+keeps one release, always the latest: a new version replaces its
+`ModbusReader-Setup.exe`, `ModbusReader.exe` and `ModbusReader_debug.exe` (the
+names the updater looks for; the installer's never changes, so
+`releases/latest/download/ModbusReader-Setup.exe` is a permanent link) and then
+moves it to the version's tag `vYY.MM.N` — files first, so no copy ever sees
+the new number next to the old build. Earlier versions stay as tags. Commit messages carry a type prefix (`feat`, `fix`, `ui`, `refactor`,
 `docs`, `tools`, `release`) and each commit passes the test suite.
 
 ## 11. Known limitations

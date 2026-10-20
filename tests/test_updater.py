@@ -38,8 +38,8 @@ def _release_json(ver="99.1.0", **over):
              "browser_download_url": f"https://github.com/o/r/releases/download/v{ver}/ModbusReader.exe"},
             {"name": "ModbusReader_debug.exe", "size": 10, "digest": "sha256:" + "a" * 64,
              "browser_download_url": f"https://github.com/o/r/releases/download/v{ver}/ModbusReader_debug.exe"},
-            {"name": f"ModbusReader-Setup-{ver}.exe", "size": 20, "digest": "sha256:" + "b" * 64,
-             "browser_download_url": f"https://github.com/o/r/releases/download/v{ver}/ModbusReader-Setup-{ver}.exe"},
+            {"name": "ModbusReader-Setup.exe", "size": 20, "digest": "sha256:" + "b" * 64,
+             "browser_download_url": f"https://github.com/o/r/releases/download/v{ver}/ModbusReader-Setup.exe"},
         ],
     }
     data.update(over)
@@ -78,12 +78,26 @@ def test_versions_compare_as_numbers():
     ("portable", "ModbusReader.exe", "ModbusReader.exe"),
     ("portable", "ModbusReader_debug.exe", "ModbusReader_debug.exe"),
     ("portable", "ModbusReader (1).exe", "ModbusReader.exe"),
-    ("installed", "ModbusReader.exe", "ModbusReader-Setup-99.1.0.exe"),
+    ("installed", "ModbusReader.exe", "ModbusReader-Setup.exe"),
 ])
 def test_each_kind_of_copy_gets_its_own_build(kind, exe, want):
     rel = updater.parse_release(_release_json(), kind, exe)
     assert rel.version == "99.1.0" and rel.asset_name == want
     assert len(rel.sha256) == 64
+
+
+def test_the_installer_keeps_its_name_but_a_download_is_versioned():
+    """One permanent link: every release carries ModbusReader-Setup.exe.
+    The local copy still gets the version in its name — that is what lets
+    cleanup_downloads() tell an old download from a pending one."""
+    rel = updater.parse_release(_release_json("99.1.0"), "installed", "ModbusReader.exe")
+    assert rel.asset_name == "ModbusReader-Setup.exe"
+    assert updater._download_name(rel) == "ModbusReader-Setup-99.1.0.exe"
+    old = updater.parse_release(_release_json("99.1.0", assets=[
+        {"name": "ModbusReader-Setup-99.1.0.exe", "size": 20, "digest": "sha256:" + "b" * 64,
+         "browser_download_url": "https://github.com/o/r/releases/download/v99.1.0/x.exe"}]),
+        "installed", "ModbusReader.exe")
+    assert old.asset_name == "ModbusReader-Setup-99.1.0.exe"     # the old style still works
 
 
 def test_release_notes_are_plain_text():

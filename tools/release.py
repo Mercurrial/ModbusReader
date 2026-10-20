@@ -112,8 +112,15 @@ def main():
     print(f'  git commit -am "release: {version}"')
     print(f'  git tag -a v{version} -m "ModbusReader {version}"')
     print("  python tools/build_installer.py --portable")
-    print(f"  gh release create v{version} dist/ModbusReader-Setup-{version}.exe "
+    print("  git push origin main v" + version)
+    # One release, always the latest: replace its files, THEN move it to the
+    # new tag. In that order a copy never sees the new number next to the old
+    # build (it would install the old one and be offered the update again).
+    print("The repository keeps ONE release. <cur> = the tag it carries now:")
+    print("  gh release upload <cur> --clobber dist/ModbusReader-Setup.exe "
           "dist/ModbusReader.exe dist/ModbusReader_debug.exe")
+    print(f'  gh release edit <cur> --tag v{version} --title "ModbusReader {version}" '
+          "--notes-file <notes>")
 
 
 if __name__ == "__main__":

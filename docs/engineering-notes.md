@@ -963,3 +963,13 @@ page, menu, dialog and settings page headless for the next review.
   magenta, so corner pixels are flattened to fully opaque or fully clear
   (no pink fringe). `main._bundle_splash_alive()` stops the live card from
   opening over it.
+- **One release, one installer name** (2026-10-20, the user's call): the
+  installer is `ModbusReader-Setup.exe` in every release (Inno
+  `OutputBaseFilename`), so `releases/latest/download/ModbusReader-Setup.exe`
+  is a permanent download link; the version lives in the file's properties.
+  The repository keeps a single release: a new version `--clobber`-uploads
+  the three files into it and THEN moves it to the new tag (`tools/release.py`
+  prints the commands) — the reverse order would show the new number next
+  to the old build for a moment, and a copy updating then would install the
+  old build and be offered the update again. Local downloads still carry the
+  version (`updater._download_name`), which `cleanup_downloads` relies on.

@@ -10,7 +10,8 @@ so that repository must be public. A release carries the builds as assets:
 
     ModbusReader.exe              the one-file portable build
     ModbusReader_debug.exe        the same with a console (portable)
-    ModbusReader-Setup-X.Y.Z.exe  the installer (per user, no admin rights)
+    ModbusReader-Setup.exe        the installer (per user, no admin rights;
+                                  any name starting so is accepted)
 
 A copy updates the way it was installed: a portable exe is replaced in
 place, an installed copy runs the new installer silently. Every download is
