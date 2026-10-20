@@ -114,7 +114,10 @@ def install_crc_probe(client, stats: LineStats) -> bool:
     def decode(data: bytes):
         result = original(data)
         try:
-            if result[0] == 0 and not result[3] and frame_has_bad_crc(framer, data):
+            # No frame came out (empty payload). pymodbus up to 3.13 leaves a
+            # bad-CRC frame in the buffer (used length 0); 3.16 swallows it
+            # (used length = all) — only "no payload" holds for both.
+            if not result[3] and frame_has_bad_crc(framer, data):
                 stats.crc_flag = True
         except Exception:
             pass                     # the probe must never break the read
