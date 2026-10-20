@@ -504,3 +504,36 @@ def test_first_launch_opens_the_demo_but_a_file_wins(tmp_path):
     assert main.startup_document(["ModbusReader.exe"], first_run=True) == ("demo", "")
     assert main.startup_document(["ModbusReader.exe", str(p)], first_run=True) == ("project", str(p))
     assert main.startup_document(["ModbusReader.exe"], first_run=False) == (None, "")
+
+
+def test_release_tool_writes_version_and_changelog(tmp_path):
+    """tools/release.py turns «## [Не выпущено]» into the release heading,
+    adds the tag link and moves the compare link — in a scratch copy."""
+    import importlib.util
+    import os
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "tools", "release.py")
+    spec = importlib.util.spec_from_file_location("release_tool2", path)
+    rel = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rel)
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "version.py").write_text(
+        'APP_VERSION = "26.10.0"\nRELEASE_DATE = "2026-10-16"\n', encoding="utf-8")
+    (tmp_path / "README.md").write_text("# x\n", encoding="utf-8")
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# История\n\n## [Не выпущено]\n\n### Добавлено\n- что-то\n\n"
+        "## [2.2.0] — 2026-10-15\n\n"
+        "[Не выпущено]: https://github.com/Mercurrial/ModbusReader/compare/v2.2.0...HEAD\n"
+        "[2.2.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v2.2.0\n",
+        encoding="utf-8")
+    rel.apply("26.10.1", "2026-10-20", root=str(tmp_path))
+    v = (tmp_path / "app" / "version.py").read_text(encoding="utf-8")
+    assert 'APP_VERSION = "26.10.1"' in v and 'RELEASE_DATE = "2026-10-20"' in v
+    c = (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "## [26.10.1] — 2026-10-20" in c and "## [Не выпущено]" not in c
+    assert "[26.10.1]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.1" in c
+    assert "compare/v26.10.1...HEAD" in c
+    assert c.index("[26.10.1]:") < c.index("[2.2.0]:")
+    rel.apply("26.10.1", "2026-10-21", root=str(tmp_path))     # re-run: new date
+    c = (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "## [26.10.1] — 2026-10-21" in c and c.count("[26.10.1]:") == 1
