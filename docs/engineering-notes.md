@@ -938,3 +938,16 @@ page, menu, dialog and settings page headless for the next review.
   copy keeps settings in %APPDATA%\ModbusReader
   (`settings_manager.is_installed_dir`). `main._file_argument` opens a
   double-clicked .mbproj.
+- **Start-up card** (`gui/splash.py`): the old splash (a flat picture with
+  square corners and an English "Starting…") looked like a placeholder. The
+  card now follows the README banner — graphite, grid, the mark, the name,
+  a real 8N1 frame (`0A 03 00 10`) on the line ending in the mark's green
+  dot. Installed and source runs show it live (translucent window with a
+  soft shadow, fade in/out, a stage line and a progress hairline:
+  imports ≈ 60 %, building the window ≈ 40 %); it is not topmost and leaves
+  `FINISH_DELAY_MS` after the window is shown, so no bare-desktop beat. The
+  one-file exe keeps PyInstaller's splash for the unpacking seconds, now the
+  same card rendered by `tools/make_splash.py`; its Tk window keys out
+  magenta, so corner pixels are flattened to fully opaque or fully clear
+  (no pink fringe). `main._bundle_splash_alive()` stops the live card from
+  opening over it.

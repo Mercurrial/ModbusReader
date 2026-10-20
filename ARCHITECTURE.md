@@ -90,8 +90,13 @@ glyphs come from `gui/icons.py`. Tests enforce the first and the last.
 3. Creates the `QApplication`, loads the settings, publishes the saved
    appearance (`theme_manager.set_active`) and applies the stylesheet — in that
    order, or the first window would be styled with the default scheme.
-4. Builds `ModernScadaApp` (`gui/main_window.py`) and shows it.
-5. Opens a project passed on the command line (a double-clicked `.mbproj`) or,
+4. Shows the start-up card (`gui/splash.py`) before the heavy imports and
+   moves it through its stages while the window is built. The one-file exe
+   shows the same card as a PyInstaller splash picture from the first instant
+   (`assets/splash.png`, rendered by `tools/make_splash.py` with the same
+   painter) and skips the live one. Either leaves once the window has painted.
+5. Builds `ModernScadaApp` (`gui/main_window.py`), shows it and shows it.
+6. Opens a project passed on the command line (a double-clicked `.mbproj`) or,
    on the first launch, the demo project (`startup_document`).
 
 ### The main window

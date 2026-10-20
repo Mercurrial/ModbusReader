@@ -5,7 +5,7 @@ import sys
 import time
 import traceback
 from PyQt6.QtWidgets import QApplication, QMessageBox
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 
 from app import settings_manager
 from app.settings_manager import load_settings
@@ -14,6 +14,7 @@ from gui.theme_manager import set_active
 from app.version import APP_VERSION
 
 ERROR_LOG_NAME = "modbusreader_errors.log"
+FINISH_DELAY_MS = 120                # the window paints, then the splash goes (as gui.splash)
 
 
 def error_log_path() -> str:
@@ -60,6 +61,17 @@ def _close_splash():
         pyi_splash.close()
     except Exception:
         pass
+
+
+def _bundle_splash_alive() -> bool:
+    """True in the one-file exe: its PyInstaller splash (the same card, as a
+    picture) has been up since the double-click and stays until the window
+    is — a second, live card on top of it would only flicker."""
+    try:
+        import pyi_splash  # type: ignore
+        return bool(pyi_splash.is_alive())
+    except Exception:
+        return False
 
 
 def _file_argument(argv: list) -> str:
@@ -115,8 +127,10 @@ def main():
     font_family  = "Inter, Segoe UI, system-ui, sans-serif"
     font_size    = 9
     accent       = "neutral"
+    lang         = "ru"
     try:
         settings = load_settings()
+        lang         = str(settings.get("lang", lang))
         raw = settings.get("theme", "Dark")
         # Normalise to title-case "Dark" / "Light"
         theme_to_use = "Light" if str(raw).lower() == "light" else "Dark"
@@ -133,11 +147,29 @@ def main():
         # Malformed values (e.g. "font_size": "big") must never prevent startup.
         print("Settings unreadable. Falling back to default 'Dark' theme.")
 
+    # The start-up card (gui/splash.py): up before the heavy imports, so the
+    # double-click answers at once — unless the one-file exe's own picture of
+    # it already is.
+    splash = None
+    if not _bundle_splash_alive():
+        try:
+            from gui.splash import StartupSplash
+            splash = StartupSplash(lang, f"v{APP_VERSION}")
+            splash.show_now()
+        except Exception:
+            splash = None                # a card is never worth not starting
+
+    def stage(key: str, progress: float):
+        if splash is not None:
+            splash.step(key, progress)
+
     app.setStyleSheet(get_stylesheet(theme_to_use, font_family, font_size, accent))
 
     # Инициализация и запуск графического интерфейса
     try:
+        stage("splashModules", 0.12)
         from gui.main_window import ModernScadaApp
+        stage("splashWindow", 0.62)
         window = ModernScadaApp()
         window.show()
         # In front of whatever was active when the user double-clicked (Windows
@@ -147,6 +179,8 @@ def main():
         window.activateWindow()
     except Exception as e:
         _close_splash()
+        if splash is not None:
+            splash.close()
         text = "".join(traceback.format_exception(type(e), e, e.__traceback__))
         print("FATAL ERROR during GUI initialization:\n" + text, file=sys.stderr)
         _write_error_log(text)
@@ -157,10 +191,14 @@ def main():
             f"Не удалось запустить ModbusReader / ModbusReader failed to start:\n\n"
             f"{type(e).__name__}: {e}\n\n{error_log_path()}")
         sys.exit(1)
-    _close_splash()                      # the window is up: drop the splash
+    # The window is up: the card leaves once the window has painted (closing
+    # it at once left a beat of bare desktop between the two).
+    if splash is not None:
+        splash.finish()
+    else:
+        QTimer.singleShot(FINISH_DELAY_MS, _close_splash)
     kind, path = startup_document(sys.argv, first_run)
     if kind:
-        from PyQt6.QtCore import QTimer
         QTimer.singleShot(0, (lambda: window._open_project(path)) if kind == "project"
                           else window._open_demo)
     sys.exit(app.exec())

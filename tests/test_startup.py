@@ -90,3 +90,53 @@ def test_the_window_restores_onto_a_visible_screen(tmp_path, monkeypatch):
     finally:
         w.update_ctl.shutdown()
         w.deleteLater()
+
+
+def test_the_splash_line_carries_a_real_8n1_frame():
+    from gui.splash import frame_bits
+    bits = frame_bits((0x0A,), idle=2)
+    # idle, start, 0x0A LSB first (0 1 0 1 0 0 0 0), stop, idle
+    assert bits == [1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1]
+
+
+def test_the_live_splash_shows_stages_and_leaves_after_the_window():
+    import time
+    from gui import splash as gui_splash
+    s = gui_splash.StartupSplash("en", "v1.2.3")
+    s.show_now()
+    assert s.isVisible() and s.windowOpacity() == 1.0
+    assert s.status == "Starting…"
+    s.step("splashModules", 0.12)
+    assert s.status == "Loading modules…" and s.progress == 0.12
+    closed = []
+    s.destroyed.connect(lambda *_: closed.append(True))
+    s.finish()
+    assert s.progress == 1.0
+    deadline = time.monotonic() + 3
+    while not closed and time.monotonic() < deadline:
+        QApplication.processEvents()
+        time.sleep(0.01)
+    QApplication.sendPostedEvents(None, 0)              # deleteLater
+    assert closed, "the splash must close itself once the window is up"
+
+
+def test_the_splash_never_opens_over_the_one_file_exes_own():
+    import main
+    assert main._bundle_splash_alive() is False      # no pyi_splash from source
+
+
+def test_the_static_splash_has_hard_corners_for_the_tk_window():
+    """PyInstaller's splash keys out magenta: a half-transparent corner pixel
+    would show a pink fringe, so the picture has only opaque or clear ones."""
+    from gui import splash as gui_splash
+    from tools import make_splash
+    img = make_splash.flatten_corners(
+        gui_splash.render_static("Tagline", "Starting…"), gui_splash.RADIUS)
+    assert (img.width(), img.height()) == (gui_splash.W, gui_splash.H)
+    alphas = {img.pixelColor(x, y).alpha()
+              for x in range(0, img.width(), 3) for y in range(0, img.height(), 3)}
+    corner = {img.pixelColor(x, y).alpha()
+              for x in range(gui_splash.RADIUS + 2) for y in range(gui_splash.RADIUS + 2)}
+    assert alphas <= {0, 255} and corner == {0, 255}
+    assert img.pixelColor(0, 0).alpha() == 0                  # rounded off
+    assert img.pixelColor(img.width() // 2, img.height() // 2).alpha() == 255

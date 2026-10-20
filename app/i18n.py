@@ -848,6 +848,10 @@ STRINGS = {
         'watchValue': 'Значение',
         'watchNew': 'Записать',
         'watchNewTip': 'Двойной щелчок — ввести и записать новое значение (Enter)',
+        'splashTagline': 'Наладка и мониторинг приборов по Modbus RTU',
+        'splashStart': 'Запуск…',
+        'splashModules': 'Загрузка модулей…',
+        'splashWindow': 'Подготовка рабочего места…',
     },
     'en': {
         'appName': 'ModbusReader',
@@ -1694,6 +1698,10 @@ STRINGS = {
         'watchValue': 'Value',
         'watchNew': 'Write',
         'watchNewTip': 'Double-click to type a new value and write it (Enter)',
+        'splashTagline': 'Commissioning and monitoring of Modbus RTU devices',
+        'splashStart': 'Starting…',
+        'splashModules': 'Loading modules…',
+        'splashWindow': 'Preparing the workspace…',
     },
 }
 
