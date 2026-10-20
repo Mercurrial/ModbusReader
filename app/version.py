@@ -3,7 +3,7 @@
 
 Calendar versions, YY.MM.N — set by tools/release.py, not by hand."""
 
-APP_VERSION = "26.10.0"
+APP_VERSION = "26.10.1"
 RELEASE_DATE = "2026-10-20"
 
 # Where updates come from: the GitHub repository whose LATEST release carries
