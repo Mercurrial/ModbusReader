@@ -115,7 +115,7 @@ class ModernScadaApp(QMainWindow):
         if not self.settings.get("guide_seen_main"):
             later(500, self, self._maybe_show_onboarding)
 
-        # Updates: a quiet check a few seconds after start-up, then every few
+        # Updates: a quiet check right after start-up, then every few
         # hours; one question when there is something new (gui_update).
         self._closing_for_update = False
         self.update_ctl = UpdateController(self)

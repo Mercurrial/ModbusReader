@@ -2,9 +2,9 @@
 """Updates in the window: the quiet check, the one question, the progress.
 
 UpdateController (one per main window)
-    start()          after the window is up: drop old downloads, check a few
-                     seconds later and then every few hours — frozen builds
-                     only (a source checkout and the tests never go online).
+    start()          after the window is up: drop old downloads, check right
+                     away and then every few hours — frozen builds only (a
+                     source checkout and the tests never go online).
     check(manual)    background check; a manual one always answers ("you are
                      up to date" / why it failed), an automatic one speaks
                      only when there is something to offer.
@@ -23,7 +23,7 @@ import time
 from PyQt6.QtCore import Qt, QThread, QTimer, QUrl, pyqtSignal, QObject
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
-    QDialog, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QApplication, QDialog, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QProgressBar, QScrollArea, QWidget,
 )
 
@@ -36,7 +36,11 @@ from gui.theme_manager import get_theme
 from app.version import APP_VERSION
 
 CHECK_EVERY_MS = 6 * 3600 * 1000      # a window left open for days still hears
-FIRST_CHECK_MS = 8000                 # after start-up, not during it
+# Right after start-up: the installer people download is the same file for
+# months, so the first thing a fresh install does is bring itself up to date.
+# The short pause lets the window paint and the demo open first.
+FIRST_CHECK_MS = 1500
+OFFER_RETRY_MS = 2000                 # an automatic offer waits for a free moment
 
 
 def error_text(t, err: updater.UpdateError) -> str:
@@ -385,6 +389,7 @@ class UpdateController(QObject):
         self.kind = updater.install_kind()
         self._checker = None
         self._offering = False
+        self._pending = None          # an automatic offer waiting for a free moment
         self._status = ""
         self._timer = QTimer(self)
         self._timer.setInterval(CHECK_EVERY_MS)
@@ -414,7 +419,14 @@ class UpdateController(QObject):
 
     @property
     def busy(self) -> bool:
-        return self._checker is not None or self._offering
+        return (self._checker is not None or self._offering
+                or self._pending is not None)
+
+    def _user_occupied(self) -> bool:
+        """The first-launch guide or another modal dialog is up: an automatic
+        offer does not pile a second window on top — it waits."""
+        return (getattr(self.win, "_guide", None) is not None
+                or QApplication.activeModalWidget() is not None)
 
     # ── lifecycle ─────────────────────────────────────────────────
     def start(self):
@@ -434,6 +446,7 @@ class UpdateController(QObject):
 
     def shutdown(self):
         self._timer.stop()
+        self._pending = None
         th, self._checker = self._checker, None
         if th is not None:
             th.done.disconnect()
@@ -474,6 +487,20 @@ class UpdateController(QObject):
         self._set_status(self.t("updAvailable").format(ver=rel.version))
         if not manual and self.settings.get("update_skip") == rel.version:
             return                   # «Пропустить эту версию» — until the next one
+        if not manual and self._user_occupied():
+            self._pending = rel
+            later(OFFER_RETRY_MS, self.win, self._offer_pending)
+            return
+        self.offer(rel)
+
+    def _offer_pending(self):
+        rel = self._pending
+        if rel is None:
+            return
+        if self._user_occupied():
+            later(OFFER_RETRY_MS, self.win, self._offer_pending)
+            return
+        self._pending = None
         self.offer(rel)
 
     # ── offer → install ──────────────────────────────────────────

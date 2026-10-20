@@ -255,6 +255,12 @@ are a flat JSON object merged over `DEFAULT_SETTINGS`; unknown keys are kept.
 
 ## 7. Updates and installation
 
+**When.** A frozen copy checks 1.5 s after start-up (`gui/update.py`
+`FIRST_CHECK_MS` — the downloadable installer is the same file for months, so a
+fresh install updates itself first) and then every six hours. An automatic
+offer never stacks on the first-launch guide or a modal dialog; it waits for
+them (`_pending`). Source checkouts never check by themselves.
+
 **Feed.** `core/updater.py` reads the latest (non-draft, non-pre-release)
 GitHub release of `version.UPDATE_REPO` anonymously. A copy updates the way it
 was installed: an installed copy (an `unins*.exe` next to the program) takes the
