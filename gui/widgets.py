@@ -267,6 +267,12 @@ class EmptyState(QWidget):
         outer.addStretch(2)
         col = QVBoxLayout()
         col.setSpacing(8)
+        # Into the widget FIRST: a label added to a layout that is not yet
+        # attached has no parent, so the setVisible(True) in _fit_body()
+        # showed it as a top-level window — five of them flashed at start-up,
+        # each taking the foreground and handing it back to the previous
+        # program, which then kept it: the main window opened behind it.
+        outer.addLayout(col)
         self.tile = QLabel()
         self.tile.setObjectName("emptyTile")
         self.tile.setFixedSize(52, 52)
@@ -293,7 +299,6 @@ class EmptyState(QWidget):
         self._actions.addStretch(1)
         col.addSpacing(14)
         col.addLayout(self._actions)
-        outer.addLayout(col)
         outer.addStretch(3)
         self.buttons: list[QPushButton] = []
 
