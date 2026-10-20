@@ -293,6 +293,8 @@ def test_finish_update_retries_while_the_file_is_still_held(tmp_path):
     assert rc == 0 and dst.read_bytes() == b"NEW"
 
 
+@pytest.mark.skipif(os.name != "nt", reason="only Windows refuses to replace a file "
+                    "another process has open; there is nothing to give up on elsewhere")
 def test_finish_update_gives_up_cleanly(tmp_path):
     dst, new = tmp_path / "ModbusReader.exe", tmp_path / "n.exe"
     dst.write_bytes(b"OLD")

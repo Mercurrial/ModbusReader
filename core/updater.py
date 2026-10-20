@@ -38,6 +38,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -375,9 +376,33 @@ def _parse_finish_args(argv: list[str]) -> tuple[list[int], str]:
     return pids, target
 
 
+def _posix_alive(pid: int) -> bool:
+    try:
+        # Our own child that has exited is a zombie until reaped — still
+        # "there" for kill(0). Reap it; anyone else's raises ChildProcessError.
+        done, _ = os.waitpid(pid, os.WNOHANG)
+        if done == pid:
+            return False
+    except (ChildProcessError, OSError):
+        pass
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True                        # exists, belongs to another user
+    return True
+
+
 def _wait_for_exit(pids: list[int], timeout_s: float) -> bool:
     """True once every pid has exited (or never existed)."""
     if os.name != "nt":
+        # No handle to wait on: poll (Linux, macOS).
+        deadline = time.monotonic() + timeout_s
+        while any(_posix_alive(int(p)) for p in pids):
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.1)
         return True
     import ctypes
     k32 = ctypes.windll.kernel32
@@ -410,7 +435,6 @@ def finish_update(argv: list[str], source: str | None = None,
     old exe is started anyway: a failed update never leaves the user without
     a working program. Returns the process exit code."""
     import shutil
-    import time
     pids, target = _parse_finish_args(argv)
     source = source or sys.executable
     if not target or os.path.abspath(target) == os.path.abspath(source):
