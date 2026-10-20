@@ -36,7 +36,10 @@ def _total(t):
 
 def test_fills_viewport():
     t = _make()
-    assert abs(_total(t) - t.viewport().width()) <= 2
+    widths = {c: t.columnWidth(c) for c in range(t.columnCount()) if not t.isColumnHidden(c)}
+    assert abs(_total(t) - t.viewport().width()) <= 2, (
+        f"viewport {t.viewport().width()}, columns {widths}, "
+        f"vertical header {t.verticalHeader().width()}, font {t.font().family()}")
 
 
 def test_value_columns_split_equally():
