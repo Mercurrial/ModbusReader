@@ -1,4 +1,4 @@
-# icons.py
+# gui/icons.py
 """Recolorable SVG icons ported 1:1 from the design prototype (data.jsx).
 
 Each icon is a 16x16 stroke icon using `currentColor`; render() swaps the

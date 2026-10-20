@@ -1,4 +1,4 @@
-# i18n.py
+# app/i18n.py
 
 STRINGS = {
     'ru': {

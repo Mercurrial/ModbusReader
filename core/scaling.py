@@ -1,4 +1,4 @@
-# scaling.py
+# core/scaling.py
 """Per-register engineering-unit scaling and enum mapping.
 
 A device reports RAW register values; the operator wants engineering units:

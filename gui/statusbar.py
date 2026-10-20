@@ -1,4 +1,4 @@
-# gui_statusbar.py
+# gui/statusbar.py
 
 from PyQt6.QtWidgets import (
     QStatusBar, QLabel, QFrame, QWidget, QGridLayout, QVBoxLayout,

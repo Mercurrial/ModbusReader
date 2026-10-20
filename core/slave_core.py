@@ -1,4 +1,4 @@
-# slave_core.py
+# core/slave_core.py
 """Slave (device-simulation) mode: the app answers a Modbus RTU master.
 
 Load a register map, type values, and any master on the line — a PLC, a

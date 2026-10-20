@@ -1,4 +1,4 @@
-# snapshots.py
+# core/snapshots.py
 """Freeze the current register values, then see what changed.
 
 The most common commissioning question is "what did that parameter change?".

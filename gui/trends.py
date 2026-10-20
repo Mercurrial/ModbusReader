@@ -1,4 +1,4 @@
-# gui_trends.py
+# gui/trends.py
 """Live-graphs: throttled rendering, per-window stats, design-faithful cards."""
 
 import math
@@ -882,7 +882,7 @@ class TrendsManager(QWidget):
         super().__init__(parent)
         # App-specific manager: reads its initial theme / window / history /
         # translator from the AppContext. (default_window_sec and history_len
-        # are refreshed later by gui_main on a settings change.)
+        # are refreshed later by gui/main_window.py on a settings change.)
         self.ctx                = ctx
         self._autofit_default   = bool(ctx.settings.get("graph_autofit_y", True))
         self.theme              = get_theme(ctx.theme)   # no accent (unchanged)

@@ -1,4 +1,4 @@
-# transports.py
+# core/transports.py
 """Registry of Modbus transports — the single source of truth for *how* the
 pymodbus client is built and how the active link is described.
 

@@ -1,4 +1,4 @@
-# version.py
+# app/version.py
 """Single source of the app version (shown in the rail brand + About).
 
 Calendar versions, YY.MM.N — set by tools/release.py, not by hand."""

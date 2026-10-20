@@ -1,4 +1,4 @@
-# gui_slave.py
+# gui/slave.py
 """Slave view — the app pretends to be a device (slave_core.py does the work).
 
 Top bar: the port it listens on (its OWN port — one port, one owner), line

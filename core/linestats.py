@@ -1,4 +1,4 @@
-# linestats.py
+# core/linestats.py
 """Line statistics — what the serial link is actually doing.
 
 Counted in the core thread for EVERY exchange (poll, macro/scanner ops,

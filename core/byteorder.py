@@ -1,4 +1,4 @@
-# byteorder.py
+# core/byteorder.py
 """Byte/word-order codecs for multi-register Modbus values.
 
 Vendors pack 32-bit values into two 16-bit registers in four common ways.

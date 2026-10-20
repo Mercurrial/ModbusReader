@@ -1,5 +1,5 @@
-# gui_table.py
-"""Register-table widget — the dashboard grid, extracted from gui_main as an
+# gui/register_table.py
+"""Register-table widget — the dashboard grid, extracted from gui/main_window.py as an
 MVC-style view.
 
 `RegisterTable` owns everything *about the table itself*: the column schema

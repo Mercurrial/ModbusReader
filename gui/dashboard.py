@@ -1,4 +1,4 @@
-# gui_dash.py
+# gui/dashboard.py
 """Dashboard — a free-form mini-HMI with wired automation.
 
 Two modes (like every professional editor):
@@ -1795,7 +1795,7 @@ class DashboardView(QWidget):
         self.add_board(doc.get("name", ""), doc.get("widgets"),
                        doc.get("links"))
 
-    # ── project integration (gui_main saves/loads .mbproj) ───────────
+    # ── project integration (gui/main_window.py saves/loads .mbproj) ───────────
     def all_boards(self) -> list:
         """Every dashboard, with the on-screen one up to date."""
         self._persist()

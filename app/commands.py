@@ -1,4 +1,4 @@
-# commands.py
+# app/commands.py
 """Registry of application commands — the single source of truth for the
 top-bar action buttons, their keyboard shortcuts, and their tooltips.
 
@@ -6,9 +6,9 @@ Descriptor + Registry style (mirrors datatypes.py / settings_schema.py): every
 user-triggerable top-bar action is one frozen ``Command`` descriptor and
 ``COMMANDS`` is the ordered registry. From this one place:
 
-  * the toolbar (gui_toolbar.py) builds its buttons — label, icon, order — and
+  * the toolbar (gui/toolbar.py) builds its buttons — label, icon, order — and
     derives every tooltip ("label  (shortcut)");
-  * the main window (gui_main.py) registers the global QShortcuts and dispatches
+  * the main window (gui/main_window.py) registers the global QShortcuts and dispatches
     a triggered command id to the matching handler.
 
 Before, the same knowledge lived in three drifting places: a ``SHORTCUTS`` dict
@@ -17,13 +17,13 @@ hand-wired ``action_*`` signals (for the click handlers). Now the shortcut strin
 label key and icon for each command live here once.
 
 The descriptor holds only DATA. The actual handler is a bound method that lives
-in the controller (gui_main), which maps ``cmd_id -> callable`` exactly once; this
+in the controller (gui/main_window.py), which maps ``cmd_id -> callable`` exactly once; this
 module imports nothing from Qt or the GUI, exactly like the other registries.
 
 To add a page: one ``Command(..., place="view", group=...)`` below plus its
-page in gui_main._view_pages(); to add a header action: one
+page in gui.main_window._view_pages(); to add a header action: one
 ``Command(..., place="button")`` plus ``"cmd_id": self._handler`` in
-gui_main._command_handler_map(). The rail entry / button, its global shortcut
+gui.main_window._command_handler_map(). The rail entry / button, its global shortcut
 and its tooltip all follow automatically.
 """
 
@@ -41,7 +41,7 @@ class Command:
               dynamic moon/sun glyph instead of this static name.
     shortcut  QKeySequence string ("" = none); shown as the "(…)" tooltip hint.
     place     where it appears:
-                "view"   — a page in the left navigation rail (gui_rail.py);
+                "view"   — a page in the left navigation rail (gui/rail.py);
                            gets the [active="true"] highlight while shown.
                 "rail"   — a rail entry pinned to the rail's bottom (settings,
                            help) — the app's own housekeeping, not a page.

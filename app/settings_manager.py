@@ -149,7 +149,7 @@ DEFAULT_SETTINGS = {
 
     # General
     "load_last":        True,
-    # Updates (gui_update): check on start + every few hours; a version the
+    # Updates (gui/update.py): check on start + every few hours; a version the
     # user chose to skip is not offered again until a newer one appears.
     "update_auto":       True,
     "update_skip":       "",
@@ -187,7 +187,7 @@ DEFAULT_SETTINGS = {
     "editor_json":       False,   # map editor: JSON preview panel shown
     # Dashboards: a LIST of {name, widgets, links}; dash_index selects the one
     # on screen. (dash_widgets/dash_links are the pre-1.6 single-dashboard
-    # keys — still read once and migrated, see gui_dash.load_dashboards.)
+    # keys — still read once and migrated, see gui.dashboard.load_dashboards.)
     "dashboards":        [],
     "dash_index":        0,
     "dash_widgets":      [],     # legacy single dashboard (migrated away)

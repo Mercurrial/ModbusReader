@@ -1,4 +1,4 @@
-# gui_log.py
+# gui/log.py
 """Transaction log — ONE buffer, shown in two places.
 
 ``LogStore`` holds the entries (level, time, message) and applies the two
@@ -13,7 +13,7 @@ ignored the verbosity setting and clamped the cap differently, so the "same"
 log showed different lines in the two places.
 
 ``LogPanel`` is the bottom strip: a LogView + the raw-frame console with its
-show/hide toggle. ``gui_views.ConsoleView`` is the same LogView full screen.
+show/hide toggle. ``gui.views.ConsoleView`` is the same LogView full screen.
 
 Object names (``logPanel`` / ``logTabBar`` / ``logTab`` / ``txLog``) are what
 styles.py targets, so both surfaces share one look.

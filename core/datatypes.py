@@ -1,4 +1,4 @@
-# datatypes.py
+# core/datatypes.py
 """Central registry of Modbus register data types — the single source of truth.
 
 Every part of the app that needs to know "how big is this type", "how do I turn

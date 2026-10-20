@@ -1,11 +1,11 @@
-# dash_model.py
+# core/dash_model.py
 """Dashboard model — widget kinds, layout snapping and the automation graph.
 
 PURE module (no Qt, no I/O) so the tricky parts are unit-testable:
 
   * **Kind registry** — one ``WidgetKind`` descriptor per widget type
     (Descriptor+Registry style, like datatypes.py). Adding a widget kind is
-    one entry here plus a paint branch in gui_dash.
+    one entry here plus a paint branch in gui/dashboard.py.
   * **Snapping** — PowerPoint-style alignment: while dragging, a widget's
     edges/centers snap to its neighbours' edges/centers and to the canvas
     center, and the matching guide lines are returned so the view can draw

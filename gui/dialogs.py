@@ -1,4 +1,4 @@
-# dialogs.py
+# gui/dialogs.py
 """Themed message dialogs in the onboarding-card style.
 
 A QMessageBox — even with QSS — keeps the NATIVE window chrome (white title
@@ -32,7 +32,7 @@ _ROLE_REJECT = QMessageBox.ButtonRole.RejectRole
 
 def button_qss(c: dict, kind: str) -> str:
     """Card-dialog button styles, shared with the other card dialogs
-    (gui_update). kind: "primary" | "destructive" | "plain" | "ghost"."""
+    (gui/update.py). kind: "primary" | "destructive" | "plain" | "ghost"."""
     if kind == "primary":
         return (f"QPushButton {{ color:{c['accent_fg']}; background:{c['accent']};"
                 f" border:none; border-radius:7px; font-size:13px;"

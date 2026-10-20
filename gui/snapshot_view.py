@@ -1,4 +1,4 @@
-# gui_snapshot.py
+# gui/snapshot_view.py
 """Snapshot / compare view — "what did that knob actually change?".
 
 Take a snapshot of every current value, change something on the device, then

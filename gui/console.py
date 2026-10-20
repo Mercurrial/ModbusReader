@@ -1,4 +1,4 @@
-# gui_console.py
+# gui/console.py
 """Raw-frame console — the command input strip under the transaction log.
 
 Two rows:

@@ -1,4 +1,4 @@
-# gui_sniffer.py
+# gui/sniffer.py
 """Passive RTU sniffer view — watch a bus without transmitting a byte.
 
 Owns its OWN serial port via SnifferWorker (sniffer_core.py). The

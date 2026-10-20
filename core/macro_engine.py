@@ -1,4 +1,4 @@
-# macro_engine.py
+# core/macro_engine.py
 """Macro engine — runs a user-written *real Python* script in a worker thread.
 
 The script gets a small domain API (reg / read / write / wait / record /

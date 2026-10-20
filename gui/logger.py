@@ -1,4 +1,4 @@
-# gui_logger.py
+# gui/logger.py
 """Data-logger view — write register values to CSV for hours or days.
 
 Sampling is driven by a timer here rather than by the poll callback on purpose:

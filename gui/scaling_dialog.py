@@ -1,4 +1,4 @@
-# gui_scaling_dialog.py
+# gui/scaling_dialog.py
 """Engineering-units editor for one register: scale/offset/unit + enum map.
 
 Opened from the profile editor's row context menu. Returns result_cfg with the

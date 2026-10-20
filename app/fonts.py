@@ -1,4 +1,4 @@
-# fonts.py
+# app/fonts.py
 """Which system fonts are safe to dress the UI in.
 
 The font picker lists what the machine has installed, and a machine has plenty

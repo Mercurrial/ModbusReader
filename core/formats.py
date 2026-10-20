@@ -1,4 +1,4 @@
-# formats.py
+# core/formats.py
 """Versioned file formats + a migration registry — the "lay the foundation
 once" module.
 

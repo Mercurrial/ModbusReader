@@ -1,4 +1,4 @@
-# gui_import_dialog.py
+# gui/import_dialog.py
 """Column-mapping dialog for importing a register map from CSV / XLSX.
 
 The layout follows the order of the decisions: pick the sheet, say where the

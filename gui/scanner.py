@@ -1,4 +1,4 @@
-# gui_scanner.py
+# gui/scanner.py
 """Bus scanner view — find devices on the line / live registers on a device.
 
 Runs a ScannerWorker (scanner_engine.py) which enqueues "probe" ops onto the

@@ -1,7 +1,7 @@
-# gui_toolbar.py
+# gui/toolbar.py
 """The header bar above every page.
 
-Since 2.2 the pages live in the left rail (gui_rail.py); this bar carries what
+Since 2.2 the pages live in the left rail (gui/rail.py); this bar carries what
 is true for the WHOLE window:
 
     [project ▾]  /  Page title                ● COM3 · 115200 · 8N1 · ID 10  [Подключить]   ⌕ RU|EN ☾ ▤
@@ -15,7 +15,7 @@ is true for the WHOLE window:
 * then the small utilities: watch window, language, theme, layout.
 
 Actions are still driven by the command registry: a click emits
-``command_triggered(cmd_id)`` and gui_main dispatches it.
+``command_triggered(cmd_id)`` and gui/main_window.py dispatches it.
 """
 
 from PyQt6.QtWidgets import (

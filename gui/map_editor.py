@@ -1,4 +1,4 @@
-# profile_editor.py
+# gui/map_editor.py
 
 import json
 import copy
@@ -611,7 +611,7 @@ class ProfileEditorDialog(QDialog):
         # No setShortcut("Ctrl+S") here: the main window owns Ctrl+S (save
         # project) and two window-level shortcuts on one key are AMBIGUOUS to
         # Qt — neither fires. The window routes Ctrl+S to this editor while
-        # it is open (gui_main._save_shortcut).
+        # it is open (gui.main_window._save_shortcut).
         # "Save" replaces the file in place once it has a path, so saving a
         # COPY needed its own button (Ctrl+Shift+S), not a hidden mode.
         self.btn_save_as = _btn("download", self.t("saveAs"), self._save_as_file,

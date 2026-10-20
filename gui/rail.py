@@ -1,4 +1,4 @@
-# gui_rail.py
+# gui/rail.py
 """The left navigation rail — every page of the app, always visible.
 
 Replaces the horizontal tab strip of 1.x/2.0, which held ten pages, five
@@ -13,7 +13,7 @@ things:
 
 Built from the command registry like the toolbar was: one entry per
 descriptor, its label/icon/shortcut from the descriptor, and one
-``command_triggered(cmd_id)`` signal that gui_main dispatches. The rail can
+``command_triggered(cmd_id)`` signal that gui/main_window.py dispatches. The rail can
 collapse to icons only (``settings["rail_collapsed"]``); the labels then move
 into the tooltips.
 

@@ -1,9 +1,9 @@
-# app_context.py
+# app/app_context.py
 """Application context — the one object that owns the cross-cutting services the
 whole UI shares: the settings dict, the Modbus worker thread, the active
 translator, and the theme/accent.
 
-This is the first step in dissolving the `gui_main` "god object". Instead of
+This is the first step in dissolving the `gui/main_window.py` "god object". Instead of
 every child widget reaching back into the main window for settings / translator /
 core / theme, it receives ONE ``AppContext``. The window itself sources these
 through the context too — its ``settings`` / ``modbus_core`` / ``lang`` / ``t``

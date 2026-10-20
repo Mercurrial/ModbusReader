@@ -1,4 +1,4 @@
-# gui_widgets.py
+# gui/widgets.py
 """Reusable design-system controls: Segmented, ToggleSwitch, LabeledSlider, SwatchPicker.
 
 These mirror the React prototype's Seg / Toggle / Slider / swatch controls so the

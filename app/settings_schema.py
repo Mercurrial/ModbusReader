@@ -1,4 +1,4 @@
-# settings_schema.py
+# app/settings_schema.py
 """Declarative schema for the Settings dialog — the single source of truth for
 *what* settings exist, how they are grouped into pages/sections, and how each one
 maps to a control.
@@ -6,12 +6,12 @@ maps to a control.
 Descriptor + Registry style (mirrors datatypes.py): every editable setting is one
 frozen `Field` descriptor; fields group into `Section`s, sections into `Page`s,
 and `PAGES` is the registry the dialog renders itself from. The dialog
-(gui_settings.py) contains *no per-setting code* — it walks this schema.
+(gui/settings.py) contains *no per-setting code* — it walks this schema.
 
 To add a setting:
     1. add its key + default to settings_manager.DEFAULT_SETTINGS;
     2. add ONE Field(...) to the relevant Section here (+ i18n keys if needed).
-Nothing in gui_settings.py changes.
+Nothing in gui/settings.py changes.
 
 Text is an ``i18n.STRINGS`` key resolved by `tr()`; a string that is not a key
 is used literally (brand names, "9600", " px"). Legacy ``(ru, en)`` tuples are
@@ -284,7 +284,7 @@ PAGES: tuple = (
                          [("Dark", "dark"), ("Light", "light")],
                          default="Dark"),
                     # Whole surface family. The combo is refiltered per theme
-                    # in gui_settings — a light scheme on a dark base would be
+                    # in gui/settings.py — a light scheme on a dark base would be
                     # unreadable, so it is never offered.
                     Field("scheme", "combo", "colorScheme", hint="colorSchemeHint",
                           options=tuple(SCHEME_LABELS), width=200,
@@ -299,7 +299,7 @@ PAGES: tuple = (
                 )),
         Section("typography", fields=(
             # System-font picker with a live preview (kind="font" renders a
-            # QFontComboBox + sample text in gui_settings).
+            # QFontComboBox + sample text in gui/settings.py).
             Field("font_choice", "font", "uiFont", hint="uiFontHint",
                   width=240, default="inter",
                   to_widget=_font_to_family, from_widget=_font_from_widget,

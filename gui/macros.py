@@ -1,4 +1,4 @@
-# gui_macros.py
+# gui/macros.py
 """Macro window — write & run real-Python automation scripts against the device.
 
 Layout:  toolbar (Run/Stop/Clear/Export/Save/Open)  ·  code editor with line

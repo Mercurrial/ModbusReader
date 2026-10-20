@@ -1,4 +1,4 @@
-# qt_utils.py
+# gui/qt_utils.py
 """Small Qt helpers — currently the safe deferred-call primitive.
 
 Why this exists: a `QTimer.singleShot(ms, callback)` whose callback touches a

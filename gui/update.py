@@ -1,4 +1,4 @@
-# gui_update.py
+# gui/update.py
 """Updates in the window: the quiet check, the one question, the progress.
 
 UpdateController (one per main window)

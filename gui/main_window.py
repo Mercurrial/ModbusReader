@@ -1,4 +1,4 @@
-# gui_main.py
+# gui/main_window.py
 
 import os
 
@@ -58,7 +58,7 @@ from gui import icons
 # ═══════════════════════════════════════════════════════════════════
 #  MAIN WINDOW
 #  The register grid (table widget, columns, state dot, value formatting,
-#  interaction) lives in gui_table.RegisterTable; the window routes its
+#  interaction) lives in gui.register_table.RegisterTable; the window routes its
 #  intent signals to the core / trends / status bar / memory viewer.
 # ═══════════════════════════════════════════════════════════════════
 class ModernScadaApp(QMainWindow):
@@ -116,7 +116,7 @@ class ModernScadaApp(QMainWindow):
             later(500, self, self._maybe_show_onboarding)
 
         # Updates: a quiet check right after start-up, then every few
-        # hours; one question when there is something new (gui_update).
+        # hours; one question when there is something new (gui/update.py).
         self._closing_for_update = False
         self.update_ctl = UpdateController(self)
         self.update_ctl.start()
@@ -1577,7 +1577,7 @@ class ModernScadaApp(QMainWindow):
             viewer.set_real_data(words)
 
     # ===========================================================
-    #  TABLE INTENT ROUTING  (signals from gui_table.RegisterTable)
+    #  TABLE INTENT ROUTING  (signals from gui.register_table.RegisterTable)
     # ===========================================================
 
     def _on_write_requested(self, addr: int, dtype: str, value: str):

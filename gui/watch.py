@@ -1,4 +1,4 @@
-# gui_watch.py
+# gui/watch.py
 """Watch window — the handful of registers you care about, in one place.
 
 A register map can run to hundreds of rows, and the ones that matter during

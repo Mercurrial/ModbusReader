@@ -1,4 +1,4 @@
-# datalog.py
+# core/datalog.py
 """Long-run value logging to CSV.
 
 Design decisions, and why — these are the ones that are painful to change once

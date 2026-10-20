@@ -1,8 +1,8 @@
-# updater.py
+# core/updater.py
 """Self-update: find a newer release, download it, hand over to it.
 
 Logic only — urllib and subprocess, no widgets (the dialog and the
-check-on-start live in gui_update.py).
+check-on-start live in gui/update.py).
 
 Where updates come from: the LATEST (not draft, not pre-release) GitHub
 release of ``version.UPDATE_REPO``, read anonymously through the REST API —

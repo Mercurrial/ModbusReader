@@ -1,4 +1,4 @@
-# gui_settings.py
+# gui/settings.py
 """Settings dialog — design-faithful: icon sidebar, sectioned content,
 segmented / toggle / slider controls.
 
@@ -92,7 +92,7 @@ class SettingsDialog(QDialog):
         root.setSpacing(0)
 
         # No header bar at all: the top-bar nav highlight says where you are,
-        # Esc closes (overlay-level shortcut in gui_main) and F1 opens the
+        # Esc closes (overlay-level shortcut in gui/main_window.py) and F1 opens the
         # settings guide (_show_help delegates to the open overlay).
         body = QHBoxLayout()
         body.setContentsMargins(0, 0, 0, 0)
@@ -687,7 +687,7 @@ class SettingsDialog(QDialog):
 
     def _about_updates(self, lo: QVBoxLayout):
         """«Обновления»: where the last check stands + «Проверить сейчас».
-        The controller lives on the main window (gui_update)."""
+        The controller lives on the main window (gui/update.py)."""
         # Embedded as an overlay the dialog is re-parented into the page
         # stack, so look up the chain for the window that owns the controller.
         owner = self.parent()

@@ -1,4 +1,4 @@
-# sniffer_core.py
+# core/sniffer_core.py
 """Passive Modbus RTU bus sniffer.
 
 Listens on a serial port WITHOUT ever transmitting, splits the byte stream
@@ -11,7 +11,7 @@ Pure, testable pieces:
     crc16(data)          — Modbus CRC-16 (poly 0xA001, init 0xFFFF)
     decode_frame(raw)    — bytes -> dict (slave, fc, kind, describe, crc_ok)
 The `SnifferWorker` QThread owns the serial port (its OWN port — the
-one-port-one-owner rule holds: gui_sniffer refuses to open the port the
+one-port-one-owner rule holds: gui/sniffer.py refuses to open the port the
 master is currently polling)."""
 
 import time

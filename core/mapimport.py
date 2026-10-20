@@ -1,4 +1,4 @@
-# mapimport.py
+# core/mapimport.py
 """Import a register map from a spreadsheet — CSV or XLSX.
 
 Every vendor ships a different table, so this module deliberately does NOT try
@@ -7,7 +7,7 @@ column is which, and then hands the mapping to the user to correct. The guess is
 a convenience; the mapping is the contract.
 
 PURE module (no Qt): reading, guessing, converting and validating are all
-testable headless, and the dialog in gui_import_dialog.py only renders them.
+testable headless, and the dialog in gui/import_dialog.py only renders them.
 
 Three things here are more subtle than they look:
 

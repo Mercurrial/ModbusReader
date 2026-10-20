@@ -1,12 +1,12 @@
-# gui_views.py
-"""Full-screen secondary views for the nav switcher (gui_main content stack).
+# gui/views.py
+"""Full-screen secondary views for the nav switcher (gui/main_window.py content stack).
 
 ConsoleView   — the exchange terminal: the SAME log store as the bottom panel
-                (gui_log.LogStore), shown full screen with its own filter tabs,
+                (gui.log.LogStore), shown full screen with its own filter tabs,
                 plus the raw packet console strip at the bottom. Its
-                RawConsole re-emits send_requested so gui_main routes frames to
+                RawConsole re-emits send_requested so gui/main_window.py routes frames to
                 the core exactly like the bottom-strip console.
-(The slave / device-emulator view lives in gui_slave.py.)
+(The slave / device-emulator view lives in gui/slave.py.)
 """
 
 from PyQt6.QtWidgets import QWidget, QVBoxLayout

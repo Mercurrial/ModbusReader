@@ -1,4 +1,4 @@
-# theme_manager.py
+# gui/theme_manager.py
 """Theme/accent registry. Each theme is one entry in ``THEMES`` (a flat dict of
 color tokens consumed by ``styles.get_stylesheet`` and the widgets). Accents
 overlay a few tokens from ``ACCENT_PALETTES``.

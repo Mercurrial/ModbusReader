@@ -1,4 +1,4 @@
-# styles.py
+# gui/styles.py
 
 from gui import icons
 from gui.theme_manager import get_theme, _mix
@@ -1278,7 +1278,7 @@ QSizeGrip#watchGrip {{
 QPushButton#iconBtn:checked {{
     background: {c["accent_tint"]};
 }}
-/* Empty states (gui_widgets.EmptyState): a tile, a title, a sentence, the
+/* Empty states (gui.widgets.EmptyState): a tile, a title, a sentence, the
    first step. Transparent — it floats over the empty grid or canvas. */
 QWidget#emptyPane {{
     background: transparent;

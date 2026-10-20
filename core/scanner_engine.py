@@ -1,4 +1,4 @@
-# scanner_engine.py
+# core/scanner_engine.py
 """Bus scanner worker — finds devices and live registers.
 
 Two modes, both built on ModbusCore's synchronous op channel (the serial port

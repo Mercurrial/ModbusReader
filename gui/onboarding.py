@@ -1,4 +1,4 @@
-# gui_onboarding.py
+# gui/onboarding.py
 """First-run / Help coach-mark overlay.
 
 A dim layer over the main window that spotlights one widget at a time and shows

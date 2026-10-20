@@ -1,4 +1,4 @@
-# gui_dash_dialog.py
+# gui/dashboard_dialog.py
 """Add / edit dialog for one dashboard widget.
 
 The kind is chosen from a **tile picker** (icon + name, grouped by section) —
