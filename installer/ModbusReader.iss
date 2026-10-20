@@ -72,24 +72,25 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 [Messages]
 ; The install-mode question, shorter than Inno's stock wording ("… может быть
 ; установлена либо для всех пользователей (требуются привилегии
-; администратора), либо только для вас"): the shield icon on the first choice
-; already says that it needs administrator rights.
+; администратора), либо только для вас"); chosen by the user out of four
+; mock-ups. No "(рекомендуется)": it wrapped the first choice onto two lines,
+; and the default choice is already the framed one that Enter picks.
 ru.PrivilegesRequiredOverrideTitle=Установка — {#AppName}
-ru.PrivilegesRequiredOverrideInstruction=Для кого установить {#AppName}?
-ru.PrivilegesRequiredOverrideText1=
-ru.PrivilegesRequiredOverrideText2=
+ru.PrivilegesRequiredOverrideInstruction=Выберите режим установки
+ru.PrivilegesRequiredOverrideText1=Для всех пользователей нужны права администратора.
+ru.PrivilegesRequiredOverrideText2=Для всех пользователей нужны права администратора.
 ru.PrivilegesRequiredOverrideAllUsers=Для &всех пользователей
-ru.PrivilegesRequiredOverrideAllUsersRecommended=Для &всех пользователей (рекомендуется)
+ru.PrivilegesRequiredOverrideAllUsersRecommended=Для &всех пользователей
 ru.PrivilegesRequiredOverrideCurrentUser=Только для &меня
-ru.PrivilegesRequiredOverrideCurrentUserRecommended=Только для &меня (рекомендуется)
+ru.PrivilegesRequiredOverrideCurrentUserRecommended=Только для &меня
 en.PrivilegesRequiredOverrideTitle=Setup — {#AppName}
-en.PrivilegesRequiredOverrideInstruction=Install {#AppName} for
-en.PrivilegesRequiredOverrideText1=
-en.PrivilegesRequiredOverrideText2=
-en.PrivilegesRequiredOverrideAllUsers=&All users
-en.PrivilegesRequiredOverrideAllUsersRecommended=&All users (recommended)
-en.PrivilegesRequiredOverrideCurrentUser=Only &me
-en.PrivilegesRequiredOverrideCurrentUserRecommended=Only &me (recommended)
+en.PrivilegesRequiredOverrideInstruction=Choose how to install
+en.PrivilegesRequiredOverrideText1=Installing for all users needs administrator rights.
+en.PrivilegesRequiredOverrideText2=Installing for all users needs administrator rights.
+en.PrivilegesRequiredOverrideAllUsers=For &all users
+en.PrivilegesRequiredOverrideAllUsersRecommended=For &all users
+en.PrivilegesRequiredOverrideCurrentUser=For &me only
+en.PrivilegesRequiredOverrideCurrentUserRecommended=For &me only
 
 [CustomMessages]
 ru.ProjectFile=Проект ModbusReader
