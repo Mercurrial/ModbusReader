@@ -160,8 +160,12 @@ def main():
             splash = None                # a card is never worth not starting
 
     def stage(key: str, progress: float):
+        nonlocal splash
         if splash is not None:
-            splash.step(key, progress)
+            try:
+                splash.step(key, progress)
+            except Exception:            # never let the card stop the start
+                splash = None
 
     app.setStyleSheet(get_stylesheet(theme_to_use, font_family, font_size, accent))
 
@@ -194,9 +198,11 @@ def main():
     # The window is up: the card leaves once the window has painted (closing
     # it at once left a beat of bare desktop between the two).
     if splash is not None:
-        splash.finish()
-    else:
-        QTimer.singleShot(FINISH_DELAY_MS, _close_splash)
+        try:
+            splash.finish()
+        except Exception:
+            splash.hide()
+    QTimer.singleShot(FINISH_DELAY_MS, _close_splash)   # the one-file exe's picture
     kind, path = startup_document(sys.argv, first_run)
     if kind:
         QTimer.singleShot(0, (lambda: window._open_project(path)) if kind == "project"
