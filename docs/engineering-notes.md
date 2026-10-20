@@ -977,3 +977,14 @@ page, menu, dialog and settings page headless for the next review.
   CHANGELOG links of earlier versions to their commits (`git_commit(tag)` →
   `…/tree/<sha>`) while the tags still exist, and drops the «Готовится к
   выпуску» line under the released heading.
+- **Closing during an update check crashed** (found by the release smoke
+  test, 2026-10-20): the check was a QThread owned by the controller;
+  `shutdown()` waited 3 s, then the window's destruction destroyed the
+  still-running thread and Qt aborted the process (exit 0xC0000409). Rare
+  with the old 8 s first check, common once the check runs right after
+  start-up on a laptop without internet (a dropped connection takes up to
+  `TIMEOUT` per step). The check is now a daemon `threading.Thread`
+  (`gui/update._check_worker`) reporting through a parentless `_CheckResult`
+  QObject (queued to the GUI thread); `shutdown()` just disconnects it.
+  Rule: never let a QThread that may block on the network be destroyed with
+  its owner.

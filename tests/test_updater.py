@@ -407,6 +407,40 @@ def test_manual_check_answers_when_there_is_nothing_new(win, monkeypatch):
     assert said[0][2] == "success" and APP_VERSION in said[0][4]
 
 
+def test_closing_during_a_check_neither_waits_nor_crashes(win, monkeypatch):
+    """The check now starts right after launch, so «closed while the network
+    has not answered yet» is common (no internet on a commissioning laptop).
+    It used to wait 3 s and then destroy a running QThread — Qt aborts the
+    process for that (exit 0xC0000409). The check must simply be let go."""
+    import threading
+    gate = threading.Event()
+    started = []
+
+    def stuck(**kw):
+        started.append(threading.current_thread())
+        gate.wait(10)
+        return _rel()
+    monkeypatch.setattr(updater, "fetch_latest", stuck)
+    from gui import update as gui_update
+    shown = []
+    monkeypatch.setattr(gui_update.UpdateDialog, "exec",
+                        lambda dlg: shown.append(dlg) or 0)
+    win.settings["update_auto"] = True
+    win.update_ctl.check(manual=False)
+    assert _wait(lambda: started)
+    assert started[0].daemon                   # never holds up the exit
+    t0 = time.monotonic()
+    win.update_ctl.shutdown()
+    assert time.monotonic() - t0 < 0.5
+    assert win.update_ctl._checker is None and not win.update_ctl.busy
+    gate.set()                                 # the answer arrives after all…
+    started[0].join(5)
+    for _ in range(20):
+        QApplication.processEvents()
+        time.sleep(0.01)
+    assert shown == [] and win.update_ctl._checker is None   # …nobody acts on it
+
+
 def test_failed_check_is_explained_only_when_asked(win, monkeypatch):
     from gui import update as gui_update
 

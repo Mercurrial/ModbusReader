@@ -55,22 +55,28 @@ def _mb(n: int) -> str:
     return f"{n / 1_048_576:.1f}"
 
 
-class _CheckThread(QThread):
+class _CheckResult(QObject):
     done = pyqtSignal(object, object)          # Release | None, UpdateError | None
 
-    def __init__(self, kind: str, exe_name: str, parent=None):
-        super().__init__(parent)
-        self.kind, self.exe_name = kind, exe_name
 
-    def run(self):
-        try:
-            rel = updater.fetch_latest(kind=self.kind, exe_name=self.exe_name)
-        except updater.UpdateError as e:
-            self.done.emit(None, e)
-        except Exception as e:                 # never let a check kill the app
-            self.done.emit(None, updater.UpdateError("http", repr(e)))
-        else:
-            self.done.emit(rel, None)
+def _check_worker(kind: str, exe_name: str, result: _CheckResult):
+    """One check, in a DAEMON Python thread. It used to be a QThread owned by
+    the controller: closing the window while the check still waited on the
+    network (no internet, a firewall that drops packets — up to TIMEOUT per
+    step) destroyed a running QThread, and Qt aborts the process for that
+    (exit 0xC0000409). A daemon thread holds nothing up and is simply
+    abandoned at exit; *result* is parentless, so it lives as long as this
+    thread references it, and after shutdown() nothing listens to it."""
+    try:
+        rel, err = updater.fetch_latest(kind=kind, exe_name=exe_name), None
+    except updater.UpdateError as e:
+        rel, err = None, e
+    except Exception as e:                     # never let a check kill the app
+        rel, err = None, updater.UpdateError("http", repr(e))
+    try:
+        result.done.emit(rel, err)             # queued to the GUI thread
+    except RuntimeError:
+        pass                                   # the application is going away
 
 
 class _DownloadThread(QThread):
@@ -447,10 +453,12 @@ class UpdateController(QObject):
     def shutdown(self):
         self._timer.stop()
         self._pending = None
-        th, self._checker = self._checker, None
-        if th is not None:
-            th.done.disconnect()
-            th.wait(3000)
+        result, self._checker = self._checker, None
+        if result is not None:                 # a check still in flight: let it go
+            try:
+                result.done.disconnect()
+            except TypeError:
+                pass
 
     # ── check ─────────────────────────────────────────────────────
     def check(self, manual: bool = False):
@@ -459,16 +467,15 @@ class UpdateController(QObject):
         if not manual and not self.settings.get("update_auto", True):
             return
         self._set_status(self.t("updChecking"))
-        th = _CheckThread(self.kind, os.path.basename(sys.executable), self)
-        th.done.connect(lambda rel, err: self._on_checked(rel, err, manual))
-        th.finished.connect(th.deleteLater)
-        self._checker = th
-        th.start()
+        result = _CheckResult()                # no parent: see _check_worker
+        result.done.connect(lambda rel, err: self._on_checked(rel, err, manual))
+        self._checker = result
+        threading.Thread(target=_check_worker, name="update-check", daemon=True,
+                         args=(self.kind, os.path.basename(sys.executable), result)
+                         ).start()
 
     def _on_checked(self, rel, err, manual: bool):
-        th, self._checker = self._checker, None
-        if th is not None:
-            th.wait(1000)
+        self._checker = None
         self.settings["update_last_check"] = int(time.time())
         theme = self.win.ctx.theme
         if err is not None:
