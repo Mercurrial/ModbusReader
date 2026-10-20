@@ -11,20 +11,21 @@ The number says how fresh a copy is; it only ever grows (26.x > the 2.x of
 the semantic-version era), which is all the updater compares.
 
 Writes app/version.py (APP_VERSION, RELEASE_DATE) and the CHANGELOG: the
-upcoming section "## [Не выпущено]" becomes "## [26.10.0] — 2026-10-16"
-(re-running for the same version refreshes the date) and a link reference
-"[26.10.0]: …/releases/tag/v26.10.0" is added at the bottom. The repository
-keeps one release and one tag, so the links of earlier versions are pinned to
-their commits ("…/tree/<sha>") while their tags still exist — after the old
-tag is deleted, a tag link would lead nowhere. A README
-«Версия **X**» line, if present, is kept in step (the README normally shows a
-release badge).
-It does not commit, tag or publish — it prints those steps.
+upcoming section "## [Не выпущено]" becomes "## [26.10.1] — 2026-10-21"
+(re-running for the same version refreshes the date), a link reference
+"[26.10.1]: …/releases/tag/v26.10.1" is added under "[Не выпущено]", which
+then compares against the new tag. A README «Версия **X**» line, if
+present, is kept in step.
+
+Publishing: every version gets its own tag vYY.MM.N, which stays in the
+history — but there is only ONE GitHub release. A new version replaces that
+release's files and moves it to the new tag, so the installer is always the
+same single download (releases/latest/download/ModbusReader-Setup.exe). This
+script does not commit, tag or publish — it prints those steps.
 """
 import datetime
 import os
 import re
-import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,6 +33,8 @@ sys.path.insert(0, ROOT)
 
 REPO_URL = "https://github.com/Mercurrial/ModbusReader"
 UNRELEASED = "Не выпущено"
+ASSETS = ("dist/ModbusReader-Setup.exe", "dist/ModbusReader.exe",
+          "dist/ModbusReader_debug.exe")
 _VERSION_RE = re.compile(r"^\d{2}\.(?:[1-9]|1[0-2])\.\d+$")
 
 
@@ -61,21 +64,7 @@ def _write(path: str, text: str):
         f.write(text)
 
 
-def git_commit(tag: str, root: str = ROOT) -> str | None:
-    """The commit a tag points to, or None (no such tag / not a checkout)."""
-    try:
-        out = subprocess.run(["git", "-C", root, "rev-parse", "--verify", "-q",
-                              f"{tag}^{{commit}}"], capture_output=True, text=True,
-                             timeout=20)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    sha = out.stdout.strip()
-    return sha if out.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", sha) else None
-
-
-def apply(version: str, date: str, root: str = ROOT, resolve=None):
-    """*resolve(tag)* → commit sha or None; defaults to git in *root*."""
-    resolve = resolve or (lambda tag: git_commit(tag, root))
+def apply(version: str, date: str, root: str = ROOT):
     p = os.path.join(root, "app", "version.py")
     s = open(p, encoding="utf-8").read()
     s = _sub_once(r'^APP_VERSION = ".*"$', f'APP_VERSION = "{version}"', s, "APP_VERSION")
@@ -101,13 +90,7 @@ def apply(version: str, date: str, root: str = ROOT, resolve=None):
             s = s[:refs.start()] + link + "\n" + s[refs.start():]
         else:
             s = s.rstrip("\n") + "\n\n" + link + "\n"
-    # Earlier versions: from their tag (to be deleted) to their commit.
-    def _pin(m):
-        sha = resolve(f"v{m.group(1)}")
-        return f"[{m.group(1)}]: {REPO_URL}/tree/{sha}" if sha else m.group(0)
-    s = re.sub(r"^\[((?!" + re.escape(version) + r"\])[\d.]+)\]: "
-               + re.escape(REPO_URL) + r"/releases/tag/v[\d.]+$", _pin, s, flags=re.M)
-    # "[Не выпущено]" compares against the newest release from now on.
+    # "[Не выпущено]" compares against the newest tag from now on.
     s = re.sub(r"^\[" + re.escape(UNRELEASED) + r"\]: .*$",
                f"[{UNRELEASED}]: {REPO_URL}/compare/v{version}...HEAD", s, flags=re.M)
     _write(p, s)
@@ -140,17 +123,14 @@ def main():
     print(f'  git commit -am "release: {version}"')
     print(f'  git tag -a v{version} -m "ModbusReader {version}"')
     print("  python tools/build_installer.py --portable")
-    print("  git push origin main v" + version)
-    # One release, always the latest: replace its files, THEN move it to the
-    # new tag. In that order a copy never sees the new number next to the old
-    # build (it would install the old one and be offered the update again).
-    print("The repository keeps ONE release and ONE tag. <cur> = the tag the")
-    print("release carries now (CHANGELOG already links its commit, not the tag):")
-    print("  gh release upload <cur> --clobber dist/ModbusReader-Setup.exe "
-          "dist/ModbusReader.exe dist/ModbusReader_debug.exe")
+    print(f"  git push origin main v{version}")
+    # ONE release: replace its files, THEN move it to the new tag. In that
+    # order a copy never sees the new number next to the old build (it would
+    # install the old one and be offered the update again). The old tag stays.
+    print("The repository keeps ONE release; <cur> = the tag it carries now:")
+    print("  gh release upload <cur> --clobber " + " ".join(ASSETS))
     print(f'  gh release edit <cur> --tag v{version} --title "ModbusReader {version}" '
           "--notes-file <notes>")
-    print("  git push origin --delete <cur>   &&   git tag -d <cur>")
 
 
 if __name__ == "__main__":

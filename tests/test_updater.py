@@ -105,6 +105,24 @@ def test_release_notes_are_plain_text():
     assert rel.notes == "Новое\n• Чтение блоками\n• ссылка"
 
 
+@pytest.mark.parametrize("name,tag,want", [
+    ("ModbusReader 26.10.1", "v26.10.1", "26.10.1"),  # the usual: both agree
+    ("ModbusReader 26.10.2", "v26.10.1", "26.10.2"),  # renamed before re-tagged
+    ("26.10.1", "latest", "26.10.1"),                 # a tag without a number
+    ("", "v2.2.0", "2.2.0"),                          # no title: the tag
+])
+def test_the_version_comes_from_the_release_title(name, tag, want):
+    """The one release is moved from tag to tag; its title is what a person
+    reads on the page, so it is read first and the tag is the fallback."""
+    rel = updater.parse_release(_release_json(name=name, tag_name=tag), "portable")
+    assert rel is not None and rel.version == want
+
+
+def test_a_release_without_any_version_is_ignored():
+    assert updater.parse_release(_release_json(name="Downloads", tag_name="latest"),
+                                 "portable") is None
+
+
 def test_drafts_and_prereleases_are_not_offered():
     assert updater.parse_release(_release_json(draft=True), "portable") is None
     assert updater.parse_release(_release_json(prerelease=True), "portable") is None
@@ -600,58 +618,69 @@ def test_first_launch_opens_the_demo_but_a_file_wins(tmp_path):
     assert main.startup_document(["ModbusReader.exe"], first_run=False) == (None, "")
 
 
-def test_release_tool_writes_version_and_changelog(tmp_path):
-    """tools/release.py turns «## [Не выпущено]» into the release heading,
-    adds the tag link and moves the compare link — in a scratch copy."""
+def _release_tool(name="release_tool2"):
     import importlib.util
     import os
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "tools", "release.py")
-    spec = importlib.util.spec_from_file_location("release_tool2", path)
+    spec = importlib.util.spec_from_file_location(name, path)
     rel = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(rel)
+    return rel
+
+
+def test_release_tool_writes_version_and_changelog(tmp_path):
+    """tools/release.py turns «## [Не выпущено]» into the release heading,
+    adds the tag link and moves the compare link — in a scratch copy."""
+    rel = _release_tool()
     (tmp_path / "app").mkdir()
     (tmp_path / "app" / "version.py").write_text(
         'APP_VERSION = "26.10.0"\nRELEASE_DATE = "2026-10-16"\n', encoding="utf-8")
     (tmp_path / "README.md").write_text("# x\n", encoding="utf-8")
     (tmp_path / "CHANGELOG.md").write_text(
         "# История\n\n## [Не выпущено]\n\nГотовится к выпуску как 26.10.1.\n\n"
-        "### Добавлено\n- что-то\n\n"
-        "## [2.2.0] — 2026-10-15\n\n## [2.1.0] — 2026-10-13\n\n"
-        "[Не выпущено]: https://github.com/Mercurrial/ModbusReader/compare/v2.2.0...HEAD\n"
-        "[2.2.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v2.2.0\n"
-        "[2.1.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v2.1.0\n",
+        "### Добавлено\n- что-то\n\n## [26.10.0] — 2026-10-20\n\n"
+        "[Не выпущено]: https://github.com/Mercurrial/ModbusReader/compare/v26.10.0...HEAD\n"
+        "[26.10.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.0\n",
         encoding="utf-8")
-    # One release, one tag: the old tags are about to go, so their links are
-    # pinned to the commits (v2.1.0 is already gone here: left as it was).
-    tags = {"v2.2.0": "a" * 40}
-    rel.apply("26.10.1", "2026-10-20", root=str(tmp_path), resolve=tags.get)
+    rel.apply("26.10.1", "2026-10-21", root=str(tmp_path))
     v = (tmp_path / "app" / "version.py").read_text(encoding="utf-8")
-    assert 'APP_VERSION = "26.10.1"' in v and 'RELEASE_DATE = "2026-10-20"' in v
+    assert 'APP_VERSION = "26.10.1"' in v and 'RELEASE_DATE = "2026-10-21"' in v
     c = (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "## [26.10.1] — 2026-10-20" in c and "## [Не выпущено]" not in c
-    assert "Готовится к выпуску" not in c
-    assert "## [26.10.1] — 2026-10-20\n\n### Добавлено" in c
+    assert "## [26.10.1] — 2026-10-21\n\n### Добавлено" in c
+    assert "## [Не выпущено]" not in c and "Готовится к выпуску" not in c
     assert "[26.10.1]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.1" in c
-    assert "[2.2.0]: https://github.com/Mercurrial/ModbusReader/tree/" + "a" * 40 in c
-    assert "[2.1.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v2.1.0" in c
+    assert "[26.10.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.0" in c
     assert "compare/v26.10.1...HEAD" in c
-    assert c.index("[Не выпущено]:") < c.index("[26.10.1]:") < c.index("[2.2.0]:")
-    rel.apply("26.10.1", "2026-10-21", root=str(tmp_path),     # re-run: new date
-              resolve=tags.get)
+    assert c.index("[Не выпущено]:") < c.index("[26.10.1]:") < c.index("[26.10.0]:")
+    rel.apply("26.10.1", "2026-10-22", root=str(tmp_path))     # re-run: new date
     c = (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "## [26.10.1] — 2026-10-21" in c and c.count("[26.10.1]:") == 1
-    assert "releases/tag/v26.10.1" in c          # the current one keeps its tag link
+    assert "## [26.10.1] — 2026-10-22" in c and c.count("[26.10.1]:") == 1
 
 
-def test_release_tool_finds_a_tags_commit():
-    import importlib.util
-    import os
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    spec = importlib.util.spec_from_file_location(
-        "release_tool3", os.path.join(root, "tools", "release.py"))
-    rel = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(rel)
-    assert rel.git_commit("no-such-tag-anywhere", root) is None
-    head = rel.git_commit("HEAD", root)
-    assert head is None or len(head) == 40      # None: a source copy without git
+def test_release_tool_moves_the_one_release_to_the_new_tag():
+    """A tag per version, ONE release: the printed steps tag the version,
+    replace the release's files and only then move it to the new tag — so a
+    copy never sees the new number next to the old build — and never delete
+    a tag."""
+    import contextlib
+    import io as _io
+    import sys as _sys
+    rel = _release_tool("release_tool3")
+    out = _io.StringIO()
+    argv = _sys.argv
+    applied = []
+    rel.apply = lambda *a, **k: applied.append(a)
+    try:
+        _sys.argv = ["release.py", "99.12.0"]
+        with contextlib.redirect_stdout(out):
+            rel.main()
+    finally:
+        _sys.argv = argv
+    text = out.getvalue()
+    assert applied and applied[0][0] == "99.12.0"
+    assert 'git tag -a v99.12.0' in text and "git push origin main v99.12.0" in text
+    up = text.index("gh release upload <cur> --clobber dist/ModbusReader-Setup.exe")
+    ed = text.index("gh release edit <cur> --tag v99.12.0")
+    assert up < ed
+    assert "release create" not in text and "--delete" not in text and "tag -d" not in text

@@ -6,12 +6,14 @@ check-on-start live in gui/update.py).
 
 Where updates come from: the LATEST (not draft, not pre-release) GitHub
 release of ``version.UPDATE_REPO``, read anonymously through the REST API —
-so that repository must be public. A release carries the builds as assets:
+so that repository must be public. There is ONE release — each version
+gets its own tag vYY.MM.N and moves the release to it — titled
+"ModbusReader YY.MM.N"; it carries the builds as assets:
 
     ModbusReader.exe              the one-file portable build
     ModbusReader_debug.exe        the same with a console (portable)
-    ModbusReader-Setup.exe        the installer (per user, no admin rights;
-                                  any name starting so is accepted)
+    ModbusReader-Setup.exe        the installer (any name starting so is
+                                  accepted)
 
 A copy updates the way it was installed: a portable exe is replaced in
 place, an installed copy runs the new installer silently. Every download is
@@ -154,10 +156,15 @@ def _pick_asset(assets: list, kind: str, exe_name: str) -> dict | None:
 
 def parse_release(data: dict, kind: str, exe_name: str = PORTABLE_ASSET) -> Release | None:
     """The GitHub "latest release" JSON → Release, or None if it is not a
-    usable release at all (draft, pre-release, no version in the tag)."""
+    usable release at all (draft, pre-release, no version anywhere).
+
+    The version is read from the release TITLE ("ModbusReader 26.10.1"),
+    the tag (v26.10.1) being the fallback: the repository keeps ONE release,
+    which each version moves to its own tag, and the title is what a person
+    checks on the page."""
     if not isinstance(data, dict) or data.get("draft") or data.get("prerelease"):
         return None
-    ver = parse_version(data.get("tag_name") or data.get("name"))
+    ver = parse_version(data.get("name")) or parse_version(data.get("tag_name"))
     if ver is None:
         return None
     rel = Release(version=".".join(map(str, ver)),
