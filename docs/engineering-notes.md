@@ -1003,3 +1003,15 @@ page, menu, dialog and settings page headless for the next review.
   Setup was started elevated). The update dialog adds `updAdminNote` when
   the program folder is not writable. Unattended installs must pass
   `/CURRENTUSER` or `/ALLUSERS` (silent + admin default = a UAC prompt).
+- **«Обзор…» in Setup**: Inno's own folder dialog has no «New folder» and no
+  context menu; `AppendDefaultDirName=no` would add a button but stop
+  appending the program folder. `[Code]` replaces the button's OnClick with
+  the Explorer folder picker (IFileDialog via `CreateComObject`, FOS_PICKFOLDERS),
+  opened at the nearest existing parent, and appends `\ModbusReader` unless
+  the chosen folder already has that name; falls back to `BrowseForFolder`
+  with a New Folder button. Trap: `GetDisplayName`'s LPWSTR declared as
+  `out String` crashes Pascal Script (access violation) — take it as a
+  Cardinal and copy it with lstrcpynW, then CoTaskMemFree (32-bit Setup).
+  Verified on a hidden desktop by driving the wizard with window messages
+  (BM_CLICK is ignored by an inactive window; WM_COMMAND/BN_CLICKED to the
+  parent with the button's HWND works) and capturing with PrintWindow.

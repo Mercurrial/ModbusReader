@@ -144,3 +144,160 @@ begin
   end;
   Result := True;
 end;
+
+{ ── «Обзор…» on the destination page ──────────────────────────────────
+  Inno's own folder dialog has no «New folder» and no context menu (and its
+  «Make New Folder» variant stops appending the program's folder name). This
+  is the Explorer folder picker instead — new folders, right-click menu,
+  address bar — and the chosen folder still gets \ModbusReader appended, so
+  picking D:\Tools installs into D:\Tools\ModbusReader. If the picker cannot
+  be created (very old Windows), the classic one with a «New folder» button. }
+const
+  CLSID_FileOpenDialog = '{DC1C5A9C-E88A-4DDE-A5A1-60F82A20AEF7}';
+  IID_IShellItem = '{43826D1E-E718-42EE-BC55-A1E261C37BFE}';
+  FOS_PICKFOLDERS = $20;
+  FOS_FORCEFILESYSTEM = $40;
+  FOS_PATHMUSTEXIST = $800;
+  SIGDN_FILESYSPATH = $80058000;
+
+type
+  { Only the methods called here are typed; the dummies keep the vtable order. }
+  IShellItem = interface(IUnknown)
+    '{43826D1E-E718-42EE-BC55-A1E261C37BFE}'
+    procedure DummyBindToHandler;
+    procedure DummyGetParent;
+    { The name comes back as a CoTaskMem LPWSTR: taken as a raw pointer —
+      declared "out String" it crashed (access violation). Setup is 32-bit. }
+    function GetDisplayName(sigdnName: DWORD; out ppszName: Cardinal): HResult;
+    procedure DummyGetAttributes;
+    procedure DummyCompare;
+  end;
+
+  IFileDialog = interface(IUnknown)
+    '{42F85136-DB7E-439C-85F1-E4075D135FC8}'
+    function Show(hwndOwner: HWND): HResult;
+    procedure DummySetFileTypes;
+    procedure DummySetFileTypeIndex;
+    procedure DummyGetFileTypeIndex;
+    procedure DummyAdvise;
+    procedure DummyUnadvise;
+    function SetOptions(fos: DWORD): HResult;
+    function GetOptions(out pfos: DWORD): HResult;
+    procedure DummySetDefaultFolder;
+    function SetFolder(psi: IShellItem): HResult;
+    procedure DummyGetFolder;
+    procedure DummyGetCurrentSelection;
+    procedure DummySetFileName;
+    procedure DummyGetFileName;
+    function SetTitle(pszTitle: String): HResult;
+    procedure DummySetOkButtonLabel;
+    procedure DummySetFileNameLabel;
+    function GetResult(out ppsi: IShellItem): HResult;
+  end;
+
+function SHCreateItemFromParsingName(pszPath: String; pbc: Cardinal;
+  var riid: TGUID; out ppv: IShellItem): HResult;
+  external 'SHCreateItemFromParsingName@shell32.dll stdcall';
+function lstrlenW(lpString: Cardinal): Integer;
+  external 'lstrlenW@kernel32.dll stdcall';
+function lstrcpynW(lpString1: String; lpString2: Cardinal; iMaxLength: Integer): Cardinal;
+  external 'lstrcpynW@kernel32.dll stdcall';
+procedure CoTaskMemFree(pv: Cardinal);
+  external 'CoTaskMemFree@ole32.dll stdcall';
+
+{ A CoTaskMem-allocated LPWSTR into a String; frees it. }
+function TakeWideString(P: Cardinal): String;
+var
+  N: Integer;
+begin
+  Result := '';
+  if P = 0 then
+    Exit;
+  N := lstrlenW(P);
+  SetLength(Result, N);
+  if N > 0 then
+    lstrcpynW(Result, P, N + 1);
+  CoTaskMemFree(P);
+end;
+
+{ The folder to open the picker in: the nearest existing parent of the path
+  in the box (C:\Program Files for the default). }
+function ExistingParent(Path: String): String;
+begin
+  Result := RemoveBackslashUnlessRoot(ExtractFileDir(RemoveBackslashUnlessRoot(Path)));
+  while (Result <> '') and not DirExists(Result) do
+  begin
+    if Result = ExtractFileDir(Result) then
+    begin
+      Result := '';
+      Break;
+    end;
+    Result := ExtractFileDir(Result);
+  end;
+end;
+
+{ D:\Tools → D:\Tools\ModbusReader; a folder already called ModbusReader is
+  taken as it is (reinstalling into the old place). }
+function WithAppFolder(Dir: String): String;
+begin
+  Dir := RemoveBackslashUnlessRoot(Dir);
+  if CompareText(ExtractFileName(Dir), '{#AppName}') = 0 then
+    Result := Dir
+  else
+    Result := AddBackslash(Dir) + '{#AppName}';
+end;
+
+function PickFolderModern(var Dir: String): Boolean;
+var
+  Dlg: IFileDialog;
+  Item, Start: IShellItem;
+  Opts: DWORD;
+  Path: String;
+  Raw: Cardinal;
+  Iid: TGUID;
+  Hr: HResult;
+begin
+  Result := False;
+  Dlg := IFileDialog(CreateComObject(StringToGUID(CLSID_FileOpenDialog)));
+  OleCheck(Dlg.GetOptions(Opts));
+  OleCheck(Dlg.SetOptions(Opts or FOS_PICKFOLDERS or FOS_FORCEFILESYSTEM or FOS_PATHMUSTEXIST));
+  Dlg.SetTitle(SetupMessage(msgBrowseDialogTitle));
+  if Dir <> '' then
+  begin
+    Iid := StringToGUID(IID_IShellItem);
+    if SHCreateItemFromParsingName(Dir, 0, Iid, Start) = 0 then
+      Dlg.SetFolder(Start);
+  end;
+  Hr := Dlg.Show(WizardForm.Handle);
+  if Hr <> 0 then
+    Exit;                                  { cancelled (or failed): keep the path }
+  OleCheck(Dlg.GetResult(Item));
+  OleCheck(Item.GetDisplayName(SIGDN_FILESYSPATH, Raw));
+  Path := TakeWideString(Raw);
+  if Path = '' then
+    Exit;
+  Dir := Path;
+  Result := True;
+end;
+
+procedure DirBrowseClick(Sender: TObject);
+var
+  Dir: String;
+  Picked: Boolean;
+begin
+  Dir := ExistingParent(WizardForm.DirEdit.Text);
+  try
+    Picked := PickFolderModern(Dir);
+  except
+    Log('Explorer folder picker unavailable: ' + GetExceptionMessage);
+    Dir := ExistingParent(WizardForm.DirEdit.Text);
+    Picked := BrowseForFolder(SetupMessage(msgBrowseDialogLabel), Dir, True);
+  end;
+  if Picked then
+    WizardForm.DirEdit.Text := WithAppFolder(Dir);
+end;
+
+procedure InitializeWizard();
+begin
+  WizardForm.DirBrowseButton.OnClick := @DirBrowseClick;
+end;

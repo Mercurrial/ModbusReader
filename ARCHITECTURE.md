@@ -294,7 +294,9 @@ users (the default) into `C:\Program Files\ModbusReader` with administrator
 rights, or for the current user only into `%LOCALAPPDATA%\Programs\ModbusReader`
 without them (`/ALLUSERS`, `/CURRENTUSER` answer it on the command line). It
 adds Start-menu and desktop shortcuts, the `.mbproj` association and an
-uninstaller. An installed copy keeps its settings in
+uninstaller. «Обзор…» on the destination page opens the Explorer folder picker
+(new folders, context menu) through COM from the `[Code]` section, and appends
+`\ModbusReader` to the chosen folder. An installed copy keeps its settings in
 `%APPDATA%\ModbusReader` of each user; a portable copy keeps them next to the
 exe. The demo project is copied to
 `Documents\ModbusReader` before it is opened.
