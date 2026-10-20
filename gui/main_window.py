@@ -48,7 +48,7 @@ def demo_copy_dir() -> str:
         QStandardPaths.StandardLocation.DocumentsLocation) or os.path.expanduser("~")
     return os.path.join(docs, "ModbusReader")
 from gui.dialogs import themed_info, themed_message, themed_input
-from gui.qt_utils import later
+from gui.qt_utils import later, fit_on_screens
 from core import datatypes
 from core import formats
 from app import commands
@@ -1694,12 +1694,21 @@ class ModernScadaApp(QMainWindow):
 
     def _restore_window_geometry(self):
         """Restore size / position / maximized state saved at last exit."""
-        w = self.settings.get("win_w") or 1280
-        h = self.settings.get("win_h") or 780
-        self.resize(int(w), int(h))
+        w = int(self.settings.get("win_w") or 1280)
+        h = int(self.settings.get("win_h") or 780)
         x, y = self.settings.get("win_x"), self.settings.get("win_y")
         if x is not None and y is not None:
-            self.move(int(x), int(y))
+            x, y = int(x), int(y)
+        # Only onto a screen that is still there (gui.qt_utils.fit_on_screens).
+        app = QApplication.instance()
+        primary = app.primaryScreen() if app else None
+        screens = ([primary] if primary else []) + [
+            s for s in (app.screens() if app else []) if s is not primary]
+        x, y, w, h = fit_on_screens(x, y, w, h,
+                                    [s.availableGeometry() for s in screens])
+        self.resize(w, h)
+        if x is not None and y is not None:
+            self.move(x, y)
         if self.settings.get("win_maximized"):
             self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
 

@@ -93,3 +93,27 @@ def set_state(widget, state: str = "") -> None:
     widget.setProperty("state", state)
     widget.style().unpolish(widget)
     widget.style().polish(widget)
+
+
+def fit_on_screens(x, y, w: int, h: int, areas: list) -> tuple:
+    """A saved window rect made safe to restore: ``(x, y, w, h)``.
+
+    ``areas`` are the screens' available rectangles, primary first. A rect
+    saved on a monitor that is no longer there (laptop undocked, projector
+    unplugged) would open the window where nobody can see it — only its
+    taskbar button. Keep the position while a grabbable strip of the title
+    bar is on some screen; otherwise centre the window on the primary one.
+    The size never exceeds the screen it lands on. ``x``/``y`` may be None
+    (nothing saved yet): the result is then centred as well."""
+    if not areas:
+        return x, y, w, h
+    if x is not None and y is not None:
+        for a in areas:
+            # The top 32 px of the window, minus the system buttons' corner.
+            vis_w = min(x + w, a.x() + a.width()) - max(x, a.x())
+            vis_h = min(y + 32, a.y() + a.height()) - max(y, a.y())
+            if vis_w >= 120 and vis_h >= 16:
+                return x, y, min(w, a.width()), min(h, a.height())
+    a = areas[0]
+    w, h = min(w, a.width()), min(h, a.height())
+    return (a.x() + (a.width() - w) // 2, a.y() + (a.height() - h) // 2, w, h)

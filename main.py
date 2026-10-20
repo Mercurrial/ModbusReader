@@ -140,6 +140,11 @@ def main():
         from gui.main_window import ModernScadaApp
         window = ModernScadaApp()
         window.show()
+        # In front of whatever was active when the user double-clicked (Windows
+        # still flashes the taskbar button instead if they have since started
+        # working in another program — their focus wins).
+        window.raise_()
+        window.activateWindow()
     except Exception as e:
         _close_splash()
         text = "".join(traceback.format_exception(type(e), e, e.__traceback__))
