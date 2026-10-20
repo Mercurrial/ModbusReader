@@ -1,0 +1,32 @@
+name: Карта регистров прибора
+description: Поделиться проверенной картой регистров для других пользователей
+labels: ["device map"]
+body:
+  - type: input
+    id: device
+    attributes:
+      label: Производитель и модель
+      placeholder: "ОВЕН ТРМ210"
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Версия прошивки, на которой карта проверена
+  - type: input
+    id: link
+    attributes:
+      label: Параметры связи по умолчанию
+      placeholder: "9600, 8N1, адрес 1"
+  - type: textarea
+    id: notes
+    attributes:
+      label: Примечания
+      description: Порядок байт, особенности прибора, источник (руководство, страница документации).
+  - type: textarea
+    id: file
+    attributes:
+      label: Файл карты
+      description: Приложите `.json` из редактора карты или `.mbproj`. Убедитесь, что в файле нет сведений, которые нельзя раскрывать.
+    validations:
+      required: true

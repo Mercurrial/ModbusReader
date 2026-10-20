@@ -1,0 +1,22 @@
+name: Предложение
+description: Новая возможность или улучшение существующей
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую задачу нужно решить
+      description: Опишите ситуацию в работе, в которой сейчас неудобно или чего-то не хватает.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предлагаемое решение
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Как вы решаете задачу сейчас
+      description: Обходные пути, другие программы, ручные действия.

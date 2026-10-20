@@ -1,0 +1,70 @@
+name: Сообщение об ошибке
+description: Программа работает не так, как ожидается
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что сообщаете об ошибке. О проблемах безопасности не пишите здесь —
+        см. [SECURITY.md](https://github.com/Mercurrial/ModbusReader/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Версия программы
+      description: «Настройки → О программе»
+      placeholder: "26.10.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Способ установки
+      options:
+        - Установщик
+        - Портативный exe
+        - Запуск из исходного кода
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Windows и адаптер RS-485
+      placeholder: "Windows 11 23H2, USB-RS485 на CH340"
+  - type: input
+    id: link
+    attributes:
+      label: Параметры связи
+      placeholder: "COM3, 115200, 8E1, адрес 10"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      placeholder: |
+        1. Открыть проект …
+        2. Нажать «Подключить» …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемый результат
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Фактический результат
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Журнал ошибок
+      description: Содержимое `modbusreader_errors.log`, если файл есть (путь — в «О программе»).
+      render: text
+  - type: textarea
+    id: files
+    attributes:
+      label: Вложения
+      description: Снимки экрана, карта регистров (`.json`) или проект (`.mbproj`), если они нужны для воспроизведения.

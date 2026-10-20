@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Сообщить об уязвимости
+    url: https://github.com/Mercurrial/ModbusReader/security/advisories/new
+    about: Закрыто, до выхода исправления — см. SECURITY.md.
