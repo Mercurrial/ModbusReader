@@ -588,7 +588,7 @@ def test_release_tool_writes_version_and_changelog(tmp_path):
     assert "[2.2.0]: https://github.com/Mercurrial/ModbusReader/tree/" + "a" * 40 in c
     assert "[2.1.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v2.1.0" in c
     assert "compare/v26.10.1...HEAD" in c
-    assert c.index("[26.10.1]:") < c.index("[2.2.0]:")
+    assert c.index("[Не выпущено]:") < c.index("[26.10.1]:") < c.index("[2.2.0]:")
     rel.apply("26.10.1", "2026-10-21", root=str(tmp_path),     # re-run: new date
               resolve=tags.get)
     c = (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")

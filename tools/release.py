@@ -94,8 +94,9 @@ def apply(version: str, date: str, root: str = ROOT, resolve=None):
                r"\1", s, count=1, flags=re.M)
     link = f"[{version}]: {REPO_URL}/releases/tag/v{version}"
     if link not in s:
-        # Newest link first, right above the existing references.
-        refs = re.search(r"^\[[^\]]+\]: ", s, re.M)
+        # Newest version first: right above the earlier versions' links
+        # (below "[Не выпущено]", which stays on top).
+        refs = re.search(r"^\[(?!" + re.escape(UNRELEASED) + r"\])[^\]]+\]: ", s, re.M)
         if refs:
             s = s[:refs.start()] + link + "\n" + s[refs.start():]
         else:
