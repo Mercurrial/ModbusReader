@@ -938,6 +938,18 @@ page, menu, dialog and settings page headless for the next review.
   copy keeps settings in %APPDATA%\ModbusReader
   (`settings_manager.is_installed_dir`). `main._file_argument` opens a
   double-clicked .mbproj.
+- **"The window opens minimized"** (reported 2026-10-20): `EmptyState`
+  showed its body label (`_fit_body` → `setVisible(True)`) before the
+  label's layout was attached to the widget. A parentless widget that is
+  shown is a top-level window: five of them flashed for ~30 ms while the
+  main window was built, each took the foreground and handed it back to the
+  previous program, which kept it — the main window then opened behind it.
+  Found by logging every top-level `Show` on the real platform (offscreen
+  hides it: nothing there takes focus). Rule: attach a layout to its widget
+  before filling it; `tests/test_startup.py` fails on any stray window
+  during construction. Also: the restored rect is checked against the
+  current screens (`qt_utils.fit_on_screens`) and the window raises and
+  activates itself after `show()`.
 - **Start-up card** (`gui/splash.py`): the old splash (a flat picture with
   square corners and an English "Starting…") looked like a placeholder. The
   card now follows the README banner — graphite, grid, the mark, the name,

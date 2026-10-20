@@ -95,7 +95,11 @@ glyphs come from `gui/icons.py`. Tests enforce the first and the last.
    shows the same card as a PyInstaller splash picture from the first instant
    (`assets/splash.png`, rendered by `tools/make_splash.py` with the same
    painter) and skips the live one. Either leaves once the window has painted.
-5. Builds `ModernScadaApp` (`gui/main_window.py`), shows it and shows it.
+5. Builds `ModernScadaApp` (`gui/main_window.py`), shows it, raises and
+   activates it. No widget may be shown before it has a parent: a parentless
+   widget becomes a window of its own, takes the foreground for a moment and
+   hands it to the previous program — the main window then opens behind it
+   (`tests/test_startup.py` guards this).
 6. Opens a project passed on the command line (a double-clicked `.mbproj`) or,
    on the first launch, the demo project (`startup_document`).
 
