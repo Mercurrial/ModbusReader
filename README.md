@@ -305,8 +305,7 @@ ModbusReader бесплатен и таким останется. Если пр�
 
 Не меньше помогают отзывы, сообщения об ошибках, предложения и карты регистров
 приборов — через [Issues](https://github.com/Mercurrial/ModbusReader/issues).
-Как участвовать в разработке — в [CONTRIBUTING.md](CONTRIBUTING.md); о
-найденных уязвимостях — по правилам [SECURITY.md](SECURITY.md).
+О найденных уязвимостях сообщайте по правилам [SECURITY.md](SECURITY.md).
 
 ## Лицензия
 
