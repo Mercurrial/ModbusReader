@@ -22,6 +22,11 @@ def _make(width=900, n=8):
     ctx = AppContext(dict(DEFAULT_SETTINGS))
     t = RegisterTable(ctx)
     t.resize(width, 400)
+    # Shown, as in the app: a hidden widget gets no resize events, so the
+    # re-fit after the row-number column takes its width never came — on
+    # Linux/macOS that width arrives later than on Windows and the test
+    # caught the columns sized for the wider, header-less viewport.
+    t.show()
     _pump()
     t.populate([{"addr": i, "name": f"Register_{i}", "type": "SHORT", "rw": "RW"}
                 for i in range(n)])
