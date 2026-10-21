@@ -35,7 +35,11 @@ sys.path.insert(0, ROOT)
 REPO_URL = "https://github.com/Mercurrial/ModbusReader"
 UNRELEASED = "Не выпущено"
 ASSETS = ("dist/ModbusReader-Setup.exe", "dist/ModbusReader.exe",
-          "dist/ModbusReader_debug.exe")
+          "dist/ModbusReader_debug.exe",
+          # Built by CI for the tag (.github/workflows/build.yml), downloaded
+          # with "gh run download <run> -D dist/ci":
+          "dist/ci/linux/dist/ModbusReader-x86_64.AppImage",
+          "dist/ci/macos/dist/ModbusReader-macOS-arm64.zip")
 _VERSION_RE = re.compile(r"^\d{2}\.(?:[1-9]|1[0-2])\.\d+$")
 
 
@@ -138,6 +142,8 @@ def main():
     print(f'  git tag -a v{version} -m "ModbusReader {version}"')
     print("  python tools/build_installer.py --portable")
     print(f"  git push origin main v{version}")
+    print("  (the tag starts the Linux and macOS builds: Actions → build)")
+    print("  gh run download <build run of the tag> -D dist/ci")
     # ONE release: replace its files, THEN move it to the new tag. In that
     # order a copy never sees the new number next to the old build (it would
     # install the old one and be offered the update again). The old tag stays.

@@ -193,6 +193,46 @@
 > **«Подробнее» → «Выполнить в любом случае»**. Это нужно только при первой
 > установке: обновления программа скачивает сама.
 
+### Linux и macOS
+
+Сборки лежат на той же странице
+**[Releases](https://github.com/Mercurrial/ModbusReader/releases/latest)**. О
+новой версии программа сообщает сама и открывает страницу выпуска; скачивать
+её нужно вручную.
+
+**Linux** — `ModbusReader-x86_64.AppImage`, один файл, 64-битная система с
+glibc 2.35 и новее (Ubuntu 22.04+, Debian 12+, Fedora 36+ и т. п.):
+
+```bash
+chmod +x ModbusReader-x86_64.AppImage && ./ModbusReader-x86_64.AppImage
+```
+
+Чтобы программа видела последовательные порты (`/dev/ttyUSB0`, `/dev/ttyACM0`),
+пользователь должен состоять в группе `dialout` — один раз, затем перезайти в
+систему:
+
+```bash
+sudo usermod -aG dialout $USER
+```
+
+Если при запуске Qt пишет про платформу `xcb`, не хватает пакета
+`libxcb-cursor0` (Debian/Ubuntu) или `xcb-util-cursor` (Fedora, Arch).
+Настройки хранятся в `~/.config/ModbusReader`.
+
+**macOS** — `ModbusReader-macOS-arm64.zip`, компьютеры на Apple Silicon (M1 и
+новее), macOS 12+. Распакуйте и перенесите `ModbusReader.app` в «Программы».
+Сборка не заверена Apple (это платно), поэтому первый запуск macOS
+заблокирует: откройте **«Системные настройки» → «Конфиденциальность и
+безопасность»** и нажмите **«Всё равно открыть»**. Если macOS пишет, что
+программа «повреждена», снимите карантин:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/ModbusReader.app
+```
+
+Порты адаптеров выглядят как `/dev/cu.usbserial-…`. Настройки хранятся в
+`~/Library/Application Support/ModbusReader`.
+
 ## Быстрый старт
 
 1. **Установите и запустите.** При первом запуске сразу откроется

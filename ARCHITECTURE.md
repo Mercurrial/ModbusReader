@@ -381,6 +381,19 @@ pictures, from the demo project).
 | `ModbusReader_debug.spec` | the same with a console |
 | `ModbusReader_setup.spec` | one-folder program for the installer |
 | `installer/ModbusReader.iss` | the installer (Inno Setup 6) |
+| `ModbusReader_unix.spec` | Linux and macOS: the program as a folder / `ModbusReader.app` |
+
+Windows builds are made locally by `tools/build_installer.py`. Linux and
+macOS builds cannot be (PyInstaller does not cross-compile):
+`.github/workflows/build.yml` runs `tools/build_unix.py` on an Ubuntu 22.04
+runner — `ModbusReader-x86_64.AppImage`, built on the oldest supported glibc
+so it runs on newer ones — and a macOS arm64 runner —
+`ModbusReader-macOS-arm64.zip`, ad-hoc signed, not notarized. Each build is
+started under a real windowing system (Xvfb + xcb, the macOS desktop) and kept
+only if it is still running 20 s later with no error log; a screenshot goes
+with it. These builds update by the release page (`install_kind() == "page"`)
+and keep their settings in `~/.config/ModbusReader` /
+`~/Library/Application Support/ModbusReader`.
 
 **Dependencies are pinned.** `requirements.txt` holds the exact runtime
 versions the releases are built with, `requirements-dev.txt` adds pytest and
