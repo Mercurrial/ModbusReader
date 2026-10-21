@@ -52,13 +52,13 @@ def test_even_parity_from_the_settings_page_reaches_the_client():
     client = transports.get("serial").create(
         {"port": "COM99", "baudrate": "9600", "parity": "Even (E)",
          "stopbits": "2"}, 0.5)
-    assert client.comm_params.parity == "E"
-    assert client.comm_params.stopbits == 2
+    assert client.parity == "E"
+    assert client.stopbits == 2
 
 
 def test_garbage_baudrate_does_not_raise_in_the_factory():
     client = transports.get("serial").create({"baudrate": "fast"}, 0.5)
-    assert client.comm_params.baudrate == 115200
+    assert client.baudrate == 115200
 
 
 def test_status_bar_framing_label():

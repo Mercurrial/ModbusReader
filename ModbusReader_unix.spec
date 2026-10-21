@@ -11,7 +11,6 @@ sys.path.insert(0, os.path.abspath(SPECPATH))
 from app.version import APP_VERSION  # noqa: E402
 
 hiddenimports = ['openpyxl', 'PyQt6.QtSvg']
-hiddenimports += collect_submodules('pymodbus')
 # Not pyqtgraph.examples: unused, and importing them (which this collection
 # does) opens Qt windows — on a Linux build machine without a screen that
 # aborts the whole build.

@@ -14,12 +14,12 @@ faults on a real RS-485 line:
                   link is fine, the register map is not;
 * **ok**        — a valid answer.
 
-pymodbus checks the CRC inside its RTU framer and simply drops a bad frame,
-so on its own a CRC error is indistinguishable from a timeout.
-``install_crc_probe`` wraps the framer of a client and raises a flag when a
-COMPLETE frame failed its CRC; the core turns that flag into a "crc" outcome.
+The app's own Modbus client (core/modbus_client) tells these apart itself
+and hands the outcome over with every answer. (With pymodbus, which dropped a
+bad frame inside its RTU framer, a CRC error looked like a timeout unless a
+probe was wrapped around that framer.)
 
-Pure Python apart from the optional pymodbus probe — fully testable.
+Pure Python — fully testable.
 """
 
 import threading
@@ -33,7 +33,6 @@ class LineStats:
 
     def __init__(self):
         self._lock = threading.Lock()
-        self.crc_flag = False           # set by the framer probe per request
         self.reset()
 
     def reset(self):
@@ -46,10 +45,6 @@ class LineStats:
             self._rt_min = None
             self._rt_max = None
             self._since = time.monotonic()
-
-    def begin(self):
-        """A request is about to go out."""
-        self.crc_flag = False
 
     def record(self, outcome: str, rtt: float | None = None):
         """One finished exchange. *rtt* (seconds) only when an answer came."""
@@ -88,57 +83,16 @@ class LineStats:
 
 
 def classify(res) -> str:
-    """pymodbus result → outcome (without the CRC refinement)."""
+    """A client's answer → outcome. core/modbus_client says it outright
+    (.outcome); anything else is judged by isError() and the exception bit
+    of its function code."""
     if res is None:
         return "timeout"
+    outcome = getattr(res, "outcome", None)
+    if outcome in OUTCOMES:
+        return outcome
     is_error = getattr(res, "isError", None)
     if is_error is None or not is_error():
         return "ok"
     fc = getattr(res, "function_code", 0) or 0
     return "exception" if fc >= 0x80 else "timeout"
-
-
-def install_crc_probe(client, stats: LineStats) -> bool:
-    """Wrap the client's RTU framer so a complete frame with a bad CRC sets
-    ``stats.crc_flag``. Returns False (and changes nothing) when the client
-    has no RTU framer — TCP, a stub in tests, a future pymodbus layout."""
-    framer = getattr(client, "framer", None)
-    try:
-        from pymodbus.framer import FramerRTU
-    except ImportError:              # pragma: no cover
-        return False
-    if not isinstance(framer, FramerRTU) or getattr(framer, "_mbr_probe", False):
-        return False
-    original = framer.decode
-
-    def decode(data: bytes):
-        result = original(data)
-        try:
-            # No frame came out (empty payload). pymodbus up to 3.13 leaves a
-            # bad-CRC frame in the buffer (used length 0); 3.16 swallows it
-            # (used length = all) — only "no payload" holds for both.
-            if not result[3] and frame_has_bad_crc(framer, data):
-                stats.crc_flag = True
-        except Exception:
-            pass                     # the probe must never break the read
-        return result
-
-    framer.decode = decode
-    framer._mbr_probe = True
-    return True
-
-
-def frame_has_bad_crc(framer, data: bytes) -> bool:
-    """True when *data* starts with a COMPLETE frame (its length is known from
-    the function code) whose CRC does not match. Partial frames are not
-    errors — more bytes may still be on the way."""
-    if len(data) < 4:
-        return False
-    pdu_class = framer.decoder.lookupPduClass(data)
-    if not pdu_class:
-        return False
-    size = pdu_class.calculateRtuFrameSize(data)
-    if not size or len(data) < size:
-        return False
-    crc_val = (data[size - 2] << 8) | data[size - 1]
-    return not framer.check_CRC(data[:size - 2], crc_val)

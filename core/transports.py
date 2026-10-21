@@ -1,21 +1,23 @@
 # core/transports.py
 """Registry of Modbus transports — the single source of truth for *how* the
-pymodbus client is built and how the active link is described.
+Modbus client is built and how the active link is described.
 
 Descriptor + Registry style (mirrors datatypes.py / commands.py): each transport
 is one frozen ``Transport`` descriptor in ``TRANSPORTS``. ``ModbusCore`` is
-transport-agnostic — it never names a concrete pymodbus class; it picks a
+transport-agnostic — it never names a concrete client class; it picks a
 descriptor by id (the ``transport`` setting) and calls ``.create()`` /
-``.describe()``. The PDU API it uses afterwards (``read_holding_registers`` /
-``write_register``) is identical across serial and TCP clients.
+``.describe()``. The clients are the app's own (core/modbus_client: RtuMaster,
+TcpMaster) and offer the same request API (``read_holding_registers`` /
+``write_register`` …) over both links.
 
 Adding a transport = adding ONE descriptor here. Nothing in ModbusCore changes.
 
 Notes
 -----
-* ``retries=1`` is passed to every client on purpose: ModbusCore keeps its own
-  authoritative "failed polls in a row" counter, and pymodbus' built-in retries
-  would otherwise multiply it (a configured "3" became ~10).
+* ``retries=1`` (one repeat of an unanswered request) is passed on purpose:
+  ModbusCore keeps its own authoritative "failed polls in a row" counter, and
+  more client-side repeats would multiply it (with pymodbus' default a
+  configured "3" once became ~10).
 * ``timeout`` is supplied by ModbusCore (the «Таймаут ответа» setting); the
   factory stays agnostic about where it comes from.
 * TCP is implemented but intentionally **not** surfaced in the Settings UI — the
@@ -37,7 +39,7 @@ class Transport:
 
     transport_id  settings value that selects this transport ("serial" | "tcp")
     label         short, language-neutral name (for logs / a future selector)
-    create        (settings: dict, timeout: float) -> a pymodbus client, not yet
+    create        (settings: dict, timeout: float) -> a Modbus client, not yet
                   connected (the caller calls ``.connect()``)
     describe      (settings: dict) -> human link string, e.g. "COM1 (115200)"
     """
@@ -50,7 +52,7 @@ class Transport:
 # ── serial / RTU ──────────────────────────────────────────────────────
 # Parity reaches us in every shape the app has ever stored: the settings page
 # writes "Even (E)", older files hold "Even" or a bare "E". All of them must
-# become pymodbus' single letter.
+# become the single letter pyserial takes.
 #
 # The first version of this map only knew "None"/"Even"/"Odd" — so the value
 # the Settings page actually saves, "Even (E)", fell through to the default and
@@ -102,9 +104,9 @@ def serial_framing(settings) -> str:
 
 
 def _make_serial(settings, timeout):
-    from pymodbus.client import ModbusSerialClient
-    return ModbusSerialClient(
-        port=str(settings.get("port", "COM1")).strip() or "COM1",
+    from core.modbus_client import RtuMaster
+    return RtuMaster(
+        str(settings.get("port", "COM1")).strip() or "COM1",
         baudrate=baudrate_value(settings.get("baudrate", 115200)),
         stopbits=stopbits_value(settings.get("stopbits", 1)),
         parity=parity_code(settings.get("parity", "N")),
@@ -118,15 +120,13 @@ def _describe_serial(settings):
 
 # ── TCP ───────────────────────────────────────────────────────────────
 def _make_tcp(settings, timeout):
-    from pymodbus.client import ModbusTcpClient
+    from core.modbus_client import TcpMaster
     try:
         port = int(settings.get("tcp_port", 502))
     except (TypeError, ValueError):
         port = 502
-    return ModbusTcpClient(
-        host=settings.get("host", "127.0.0.1"),
-        port=port, timeout=timeout, retries=1,
-    )
+    return TcpMaster(settings.get("host", "127.0.0.1"), port=port,
+                     timeout=timeout, retries=1)
 
 
 def _describe_tcp(settings):

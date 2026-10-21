@@ -16,7 +16,7 @@ updates:
       libraries:
         patterns: ["*"]
         update-types: [minor, patch]
-    # …a major version (pymodbus 4, PyQt7…) in a pull request of its own.
+    # …a major version (PyQt7, numpy 3…) in a pull request of its own.
     open-pull-requests-limit: 5
     commit-message:
       prefix: deps

@@ -161,50 +161,6 @@ def test_stats_snapshot_math():
     assert st.snapshot()["requests"] == 0
 
 
-def test_the_crc_probe_tells_noise_from_silence():
-    from core import sniffer_core
-    from core import transports
-    client = transports.get("serial").create({"port": "COM99"}, 0.5)
-    st = linestats.LineStats()
-    assert linestats.install_crc_probe(client, st)
-    body = bytes([10, 3, 2, 0, 7])
-    crc = sniffer_core.crc16(body)
-    st.begin()
-    client.framer.decode(body + bytes([crc & 0xFF, crc >> 8]))
-    assert st.crc_flag is False
-    st.begin()
-    client.framer.decode(body + b"\x00\x00")
-    assert st.crc_flag is True
-    st.begin()
-    client.framer.decode(body[:3])                          # partial: not an error
-    assert st.crc_flag is False
-
-
-@pytest.mark.parametrize("bad_crc_result", [
-    lambda data: (0, 0, 0, b""),              # pymodbus ≤ 3.13: left in the buffer
-    lambda data: (len(data), 0, 0, b""),      # pymodbus 3.16: swallowed
-])
-def test_the_crc_probe_works_with_either_pymodbus(bad_crc_result):
-    """The probe wraps pymodbus internals. 3.16 changed what decode() returns
-    for a bad CRC, and the probe went silent — found by the first CI run,
-    which installed 3.16 while the builds use 3.13."""
-    from core import sniffer_core
-    from core import transports
-    client = transports.get("serial").create({"port": "COM99"}, 0.5)
-    body = bytes([10, 3, 2, 0, 7])
-    good = body + bytes([sniffer_core.crc16(body) & 0xFF, sniffer_core.crc16(body) >> 8])
-    real = client.framer.decode
-    client.framer.decode = lambda data: real(data) if data == good else bad_crc_result(data)
-    st = linestats.LineStats()
-    assert linestats.install_crc_probe(client, st)
-    st.begin()
-    client.framer.decode(good)
-    assert st.crc_flag is False
-    st.begin()
-    client.framer.decode(body + b"\x00\x00")
-    assert st.crc_flag is True
-
-
 def test_the_core_counts_every_outcome():
     from core.modbus_core import ModbusCore
 

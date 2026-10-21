@@ -206,7 +206,7 @@ class _Res:
 
 
 class _LoopClient:
-    """A pymodbus-shaped client whose every call is answered by the
+    """A client (the shape of core/modbus_client) whose every call is answered by the
     emulator's pure responder — real frames, both directions."""
 
     def __init__(self, store, sid=10):
@@ -231,7 +231,7 @@ class _LoopClient:
             return _Res(err=True)
         data = r["response"][3:-2]
         bits = [bool((data[i // 8] >> (i % 8)) & 1) for i in range(len(data) * 8)]
-        return _Res(bits=bits)                     # padded, like pymodbus
+        return _Res(bits=bits)                     # padded to whole bytes, as on the wire
 
     def read_holding_registers(self, address, count, **kw):
         return self._words(3, address, count)
@@ -415,35 +415,3 @@ def test_the_sniffer_decodes_bit_functions():
     assert sw["describe"] == "coil 0x0003 = ON"
 
 
-def test_pymodbus_itself_understands_the_emulator():
-    """Requests built by pymodbus' own framer, answers decoded by it: the
-    emulator speaks standard Modbus, not just to our own test double."""
-    from pymodbus.framer import FramerRTU
-    from pymodbus.pdu import DecodePDU
-    from pymodbus.pdu.bit_message import (ReadCoilsRequest, ReadDiscreteInputsRequest,
-                                          WriteSingleCoilRequest,
-                                          WriteMultipleCoilsRequest)
-    from pymodbus.pdu.register_message import ReadInputRegistersRequest
-    regs = ([{"addr": i, "name": f"C{i}", "type": "BOOL", "area": "coil"}
-             for i in range(10)]
-            + [{"addr": 5, "name": "I", "area": "input"},
-               {"addr": 0, "name": "D", "area": "discrete"}])
-    st = sc.SlaveStore.from_registers(regs)
-    st.write(dt.parse_key("CO 2"), [1])
-    st.write(dt.parse_key("IR 5"), [1234])
-    st.write(dt.parse_key("DI 0"), [1])
-    framer = FramerRTU(DecodePDU(False))
-
-    def ask(req):
-        resp = sc.build_response(framer.buildFrame(req), st, 10)["response"]
-        return framer.handleFrame(resp, 10, 0)[1]
-
-    assert ask(ReadCoilsRequest(address=0, count=10, dev_id=10)).bits[:10] == \
-        [False, False, True] + [False] * 7
-    assert ask(ReadDiscreteInputsRequest(address=0, count=1, dev_id=10)).bits[0] is True
-    assert ask(ReadInputRegistersRequest(address=5, count=1, dev_id=10)).registers == [1234]
-    ask(WriteSingleCoilRequest(address=7, bits=[True], dev_id=10))
-    assert st.read(dt.parse_key("CO 7"), 1) == [1]
-    r = ask(WriteMultipleCoilsRequest(address=0, bits=[True] * 3 + [False] * 7, dev_id=10))
-    assert (r.address, r.count) == (0, 10)
-    assert st.read(dt.parse_key("CO 0"), 10) == [1, 1, 1] + [0] * 7

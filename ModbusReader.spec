@@ -7,7 +7,6 @@ sys.path.insert(0, os.path.abspath(SPECPATH))
 from tools.version_resource import version_info  # Explorer → Properties → Details
 
 hiddenimports = ['openpyxl', 'PyQt6.QtSvg']
-hiddenimports += collect_submodules('pymodbus')
 hiddenimports += collect_submodules('pyqtgraph')
 
 

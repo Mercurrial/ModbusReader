@@ -2,7 +2,6 @@ import struct
 import time
 import queue
 from PyQt6.QtCore import QThread, pyqtSignal
-from pymodbus.exceptions import ModbusIOException
 
 from core import datatypes
 from core import linestats
@@ -177,14 +176,8 @@ class ModbusCore(QThread):
             res = self._counted_read(int(addr), 1, slave=slave)
         except Exception:
             return "silent"
-        if res is None or isinstance(res, ModbusIOException):
-            return "silent"
-        if not res.isError():
-            return "alive"
-        # isError() covers both exception responses and IO failures; an
-        # exception PDU carries a function code with the high bit set.
-        fc = getattr(res, "function_code", 0)
-        return "exception" if fc and fc >= 0x80 else "silent"
+        return {"ok": "alive", "exception": "exception"}.get(
+            linestats.classify(res), "silent")
 
     def _read_value(self, addr, dtype, slave=None, count=None):
         """Синхронное чтение одного регистра → число. Также обновляет дашборд
@@ -207,7 +200,7 @@ class ModbusCore(QThread):
         return value
 
     def _make_client(self):
-        # The active transport descriptor builds the concrete pymodbus client
+        # The active transport descriptor builds the client (core/modbus_client)
         # from self.settings (retries=1 rationale lives in transports.py).
         return self.transport.create(self.settings, self.timeout)
 
@@ -226,7 +219,6 @@ class ModbusCore(QThread):
         # would sit on "connecting" forever with nothing in the log.
         try:
             self.client = self._make_client()
-            linestats.install_crc_probe(self.client, self.stats)
             opened = bool(self.client.connect())
         except Exception as e:
             self.client = None
@@ -386,7 +378,6 @@ class ModbusCore(QThread):
             self._close_client()
             try:
                 self.client = self._make_client()
-                linestats.install_crc_probe(self.client, self.stats)
                 if self.client.connect():
                     self.log_msg.emit("SYS", self._msg("coreRestored"))
                     self.status_changed.emit(
@@ -403,16 +394,13 @@ class ModbusCore(QThread):
     # ── counted exchanges (line statistics) ───────────────────────────
     def _counted(self, fn, *args, **kwargs):
         """Run one request and record its outcome + response time."""
-        self.stats.begin()
         t0 = time.monotonic()
         try:
             res = fn(*args, **kwargs)
         except Exception:
-            self.stats.record("crc" if self.stats.crc_flag else "timeout")
+            self.stats.record("timeout")           # the link failed (ModbusLinkError)
             raise
         outcome = linestats.classify(res)
-        if outcome == "timeout" and self.stats.crc_flag:
-            outcome = "crc"
         self.stats.record(outcome, time.monotonic() - t0
                           if outcome in ("ok", "exception") else None)
         return res
@@ -427,7 +415,7 @@ class ModbusCore(QThread):
                 return reg
         return None
 
-    # The pymodbus call per Modbus table (FC 03 / 04 / 01 / 02).
+    # The client call per Modbus table (FC 03 / 04 / 01 / 02).
     _READERS = {"holding": "read_holding_registers",
                 "input": "read_input_registers",
                 "coil": "read_coils",
@@ -437,33 +425,17 @@ class ModbusCore(QThread):
         sid = self.slave_id if slave is None else int(slave)
         area = area or datatypes.AREAS[datatypes.DEFAULT_AREA]
         fn = getattr(self.client, self._READERS[area.key])
-        for key in ['device_id', 'slave', 'unit']:
-            try:
-                res = fn(address=addr, count=count, **{key: sid})
-            except TypeError:
-                continue
-            if area.bits and res is not None and not getattr(res, "isError", lambda: True)():
-                # Bits come back packed and padded to whole bytes; the rest of
-                # the app reads one 0/1 "word" per coil.
-                res.registers = [1 if b else 0 for b in list(res.bits)[:count]]
-            return res
-        return None
+        res = fn(address=addr, count=count, device_id=sid)
+        if area.bits and res is not None and not res.isError():
+            # The rest of the app reads one 0/1 "word" per coil.
+            res.registers = [1 if b else 0 for b in list(res.bits)[:count]]
+        return res
 
     def _safe_write_coil(self, addr, on: bool):
-        for key in ['device_id', 'slave', 'unit']:
-            try:
-                return self.client.write_coil(address=addr, value=bool(on), **{key: self.slave_id})
-            except TypeError:
-                continue
-        return None
+        return self.client.write_coil(address=addr, value=bool(on), device_id=self.slave_id)
 
     def _safe_write_single(self, addr, val):
-        for key in ['device_id', 'slave', 'unit']:
-            try:
-                return self.client.write_register(address=addr, value=val, **{key: self.slave_id})
-            except TypeError:
-                continue
-        return None
+        return self.client.write_register(address=addr, value=val, device_id=self.slave_id)
 
     # ==========================================
     # ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ЛОГИРОВАНИЯ ФРЕЙМОВ
@@ -554,7 +526,9 @@ class ModbusCore(QThread):
                     self.log_msg.emit("ERR", self._msg("coreReadErr",
                                                        addr=datatypes.key_label(key)))
                 # Modbus-исключение (прибор ответил кодом ошибки) → связь жива.
-                if res is not None and not isinstance(res, ModbusIOException):
+                # Anything else — no answer, a broken frame — counts towards
+                # "connection lost".
+                if res is not None and linestats.classify(res) == "exception":
                     return False
                 return None
             if verbose:
@@ -612,8 +586,8 @@ class ModbusCore(QThread):
     def _execute_raw(self, frame: bytes):
         """Отправка сырого кадра (консоль) и чтение ответа до «тишины».
 
-        Работает мимо framer'а pymodbus — пишем прямо в последовательный порт
-        (client.socket — это pyserial.Serial). Длина ответа неизвестна (кадр
+        Работает мимо разбора кадров клиента — пишем прямо в последовательный
+        порт (client.socket — это pyserial.Serial). Длина ответа неизвестна (кадр
         может быть и мусорным, и чужого протокола), поэтому читаем всё, что
         приходит, пока линия не замолчит на 50 мс или не истечёт timeout."""
         self.log_msg.emit("TX", f"→ [{self._hex(frame)}]  RAW · "
@@ -622,7 +596,6 @@ class ModbusCore(QThread):
         if sock is None or not hasattr(sock, "in_waiting"):
             self.log_msg.emit("ERR", self._msg("coreRawNoPort"))
             return
-        self.stats.begin()
         t0 = time.monotonic()
         try:
             sock.reset_input_buffer()

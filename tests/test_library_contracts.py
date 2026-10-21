@@ -49,45 +49,21 @@ def test_the_build_refuses_a_drifted_environment():
     assert "no-such-pkg missing (pinned 1.0)" in drift
 
 
-# ── pymodbus ─────────────────────────────────────────────────────────
-@pytest.mark.parametrize("method", ["read_holding_registers", "read_input_registers",
-                                    "read_coils", "read_discrete_inputs",
-                                    "write_register", "write_coil"])
-def test_pymodbus_takes_the_device_address_under_a_known_name(method):
-    """core/modbus_core tries device_id=, then slave=, then unit= (pymodbus
-    renamed it twice). A fourth name would make every request fail."""
-    from pymodbus.client import ModbusSerialClient
-    params = inspect.signature(getattr(ModbusSerialClient, method)).parameters
-    assert {"device_id", "slave", "unit"} & set(params), (method, list(params))
-    assert "address" in params
-
-
-def test_pymodbus_serial_client_exposes_its_port_as_socket():
-    """The raw-frame console writes straight to client.socket (a pyserial
-    Serial once connected) — core/modbus_core._execute_raw."""
-    from core import transports
-    client = transports.get("serial").create({"port": "COM99"}, 0.5)
-    assert hasattr(client, "socket")
-
-
-def test_pymodbus_rtu_framer_internals_used_by_the_crc_probe():
-    """core/linestats.install_crc_probe wraps FramerRTU.decode and re-checks
-    a frame with decoder.lookupPduClass → calculateRtuFrameSize → check_CRC.
-    decode must return (used, device_id, tid, payload)."""
-    from core import transports
-    from pymodbus.framer import FramerRTU
-    client = transports.get("serial").create({"port": "COM99"}, 0.5)
-    framer = client.framer
-    assert isinstance(framer, FramerRTU)
-    assert callable(framer.decode) and callable(framer.check_CRC)
-    assert callable(framer.decoder.lookupPduClass)
-    result = framer.decode(b"\x0a\x03")                    # too short: nothing yet
-    assert isinstance(result, tuple) and len(result) == 4 and not result[3]
-
-
-def test_pymodbus_io_exception_is_where_the_core_imports_it():
-    from pymodbus.exceptions import ModbusIOException      # core/modbus_core
-    assert issubclass(ModbusIOException, Exception)
+# ── Modbus is the app's own (core/modbus_client) ──────────────────────
+def test_pymodbus_is_gone_for_good():
+    """The protocol is implemented in core/modbus_client; the library that
+    once did it must not creep back in — not as an import, not as a pin, not
+    in a build spec."""
+    import glob
+    offenders = []
+    for pattern in ("main.py", "app/*.py", "core/*.py", "gui/*.py", "tools/*.py", "*.spec"):
+        for path in glob.glob(os.path.join(ROOT, pattern)):
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+            if re.search(r"^\s*(import|from)\s+pymodbus|collect_submodules\(.pymodbus", text, re.M):
+                offenders.append(os.path.relpath(path, ROOT))
+    assert offenders == []
+    assert "pymodbus" not in _pins("requirements-dev.txt")
 
 
 # ── pyqtgraph ────────────────────────────────────────────────────────
@@ -99,6 +75,22 @@ def test_pyqtgraph_api_used_by_the_trends():
 
 
 # ── pyserial ─────────────────────────────────────────────────────────
+def test_pyserial_serial_has_what_the_rtu_master_uses():
+    """core/modbus_client.RtuMaster opens serial.Serial(port, baudrate,
+    bytesize, parity, stopbits, timeout, write_timeout) and uses in_waiting,
+    read, write, flush, reset_input_buffer, close and is_open."""
+    import serial
+    # serial.Serial is the platform class (*args); the parameters are SerialBase's.
+    params = inspect.signature(serial.SerialBase.__init__).parameters
+    for name in ("port", "baudrate", "bytesize", "parity", "stopbits", "timeout",
+                 "write_timeout"):
+        assert name in params, name
+    for name in ("in_waiting", "read", "write", "flush", "reset_input_buffer", "close"):
+        assert hasattr(serial.Serial, name), name    # on the class: in_waiting is a property
+    assert serial.Serial().is_open is False         # no port given: nothing is opened
+    assert (serial.PARITY_NONE, serial.PARITY_EVEN, serial.PARITY_ODD) == ("N", "E", "O")
+
+
 def test_pyserial_lists_ports():
     """Settings → port list (app/settings_schema)."""
     from serial.tools import list_ports

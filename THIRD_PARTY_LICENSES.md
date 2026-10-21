@@ -13,7 +13,6 @@ project page or the `*.dist-info/licenses` folder of the installed package).
 | Qt 6 (PyQt6-Qt6) | LGPL-3.0 | https://www.qt.io/ |
 | PyQt6-sip | BSD-2-Clause | https://www.riverbankcomputing.com/software/sip/ |
 | pyqtgraph | MIT | https://www.pyqtgraph.org/ |
-| pymodbus | BSD-3-Clause | https://github.com/pymodbus-dev/pymodbus |
 | pyserial | BSD-3-Clause | https://github.com/pyserial/pyserial |
 | NumPy | BSD-3-Clause (and the licences of its bundled libraries) | https://numpy.org/ |
 | openpyxl | MIT | https://openpyxl.readthedocs.io/ |

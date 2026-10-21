@@ -5,7 +5,7 @@ Load a register map, type values, and any master on the line — a PLC, a
 SCADA, another copy of this program on a second adapter — reads them as if a
 real device were connected; its writes land in the table.
 
-Built as a hand-rolled RTU responder rather than on pymodbus' server:
+Built as a hand-rolled RTU responder rather than on a library's server:
 
 * ``build_response(request, store, slave_id)`` is a PURE function — bytes in,
   bytes out — so every protocol rule is unit-tested without a port;
