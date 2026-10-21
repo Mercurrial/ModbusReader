@@ -328,7 +328,8 @@ ModbusReader бесплатен и таким останется. Если пр�
 </p>
 
 Не меньше помогают отзывы, сообщения об ошибках, предложения и карты регистров
-приборов — через [Issues](https://github.com/Mercurrial/ModbusReader/issues).
+приборов — через [Issues](https://github.com/Mercurrial/ModbusReader/issues);
+вопросы по работе с программой — в [Discussions](https://github.com/Mercurrial/ModbusReader/discussions).
 О найденных уязвимостях сообщайте по правилам [SECURITY.md](SECURITY.md).
 
 ## Лицензия
