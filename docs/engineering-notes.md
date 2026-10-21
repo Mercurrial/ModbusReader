@@ -1017,3 +1017,18 @@ page, menu, dialog and settings page headless for the next review.
   Verified on a hidden desktop by driving the wizard with window messages
   (BM_CLICK is ignored by an inactive window; WM_COMMAND/BN_CLICKED to the
   parent with the button's HWND works) and capturing with PrintWindow.
+- **Linux and macOS** (2026-10-20/21): `.github/workflows/tests.yml` runs
+  the suite on ubuntu-latest for every push and on macos-latest (arm64) by
+  hand or for a tag (10× minutes in a private repo), then renders every
+  screen with `tools/ui_snapshots.py` into an artifact. The first run found
+  four things, none OS-specific in the app's logic: (1) the CRC probe went
+  silent with pymodbus 3.16 — `requirements.txt` allows `<4`, the builds use
+  3.13, CI got 3.16 (decode now swallows a bad frame: used = all, payload
+  empty; "no payload" works for both); (2) `finish_update` did not wait for
+  the old copy outside Windows (now polls, reaping its own zombie children);
+  (3) the "file still held" give-up is Windows-only; (4) a table layout test
+  ran on a hidden widget, which gets no resize events. The screens then
+  showed macOS rendering addresses in a proportional face — the mono lists
+  only had JetBrains Mono / Consolas — now one list in `app/fonts.py`
+  (`MONO_FAMILIES`, `MONO_CSS`, `mono_family()`). Everything else looks the
+  same as on Windows.
