@@ -31,7 +31,16 @@
 
 Программа бесплатна, распространяется с открытым исходным кодом, имеет
 русский и английский интерфейс и обновляется автоматически — с подтверждения
-пользователя.
+пользователя. Это бесплатная альтернатива Modbus Poll и Modbus Slave: мастер,
+эмулятор прибора и сниффер RS-485 в одной программе. Сайт проекта —
+**[mercurrial.github.io/ModbusReader](https://mercurrial.github.io/ModbusReader/)**.
+
+> **In English:** ModbusReader is a free, open-source **Modbus RTU master and
+> slave simulator for Windows** — read and write registers over RS-485, live
+> trends, an HMI-style dashboard, a bus scanner, a sniffer and Python macros.
+> A free alternative to Modbus Poll / Modbus Slave, with an English UI.
+> [Project page](https://mercurrial.github.io/ModbusReader/en/) ·
+> [Download](https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe)
 
 <p align="center">
   <img src="docs/images/main.png" alt="Главное окно: карта регистров, графики, журнал обмена" width="100%">
