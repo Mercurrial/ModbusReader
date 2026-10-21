@@ -18,6 +18,7 @@
   <a href="#возможности">Возможности</a> ·
   <a href="#установка">Установка</a> ·
   <a href="#быстрый-старт">Быстрый старт</a> ·
+  <a href="https://mercurrial.github.io/ModbusReader/">Документация</a> ·
   <a href="#для-разработчиков">Для разработчиков</a> ·
   <a href="#поддержать-проект">Поддержать</a>
 </p>
@@ -32,14 +33,15 @@
 Программа бесплатна, распространяется с открытым исходным кодом, имеет
 русский и английский интерфейс и обновляется автоматически — с подтверждения
 пользователя. Это бесплатная альтернатива Modbus Poll и Modbus Slave: мастер,
-эмулятор прибора и сниффер RS-485 в одной программе. Сайт проекта —
+эмулятор прибора и сниффер RS-485 в одной программе. Руководство, основы
+Modbus и примеры — на сайте
 **[mercurrial.github.io/ModbusReader](https://mercurrial.github.io/ModbusReader/)**.
 
 > **In English:** ModbusReader is a free, open-source **Modbus RTU master and
 > slave simulator for Windows** — read and write registers over RS-485, live
 > trends, an HMI-style dashboard, a bus scanner, a sniffer and Python macros.
 > A free alternative to Modbus Poll / Modbus Slave, with an English UI.
-> [Project page](https://mercurrial.github.io/ModbusReader/en/) ·
+> [Documentation](https://mercurrial.github.io/ModbusReader/en/) ·
 > [Download](https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe)
 
 <p align="center">
@@ -57,7 +59,7 @@
 - **24 типа данных:** SHORT, UINT16, LONG, UINT32, FLOAT, DOUBLE, INT64, BCD,
   битовые слова, строки, BOOL…; порядок байт настраивается для каждого типа.
 - **Все четыре области Modbus:** holding- и input-регистры, coils и discrete
-  inputs (FC 01–06, 15, 16).
+  inputs (чтение FC 01–04, запись FC 05 и 06; эмулятор принимает ещё 15 и 16).
 - **Масштаб и перечисления:** «573 → 57.3 %», «1 → Работа» — в таблице,
   графиках, дашборде и логгере.
 - **Статистика линии** в углу окна: запросы, ответы, таймауты, ошибки CRC,
