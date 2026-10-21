@@ -152,6 +152,7 @@ def test_version_resource_follows_version_py():
     assert version_resource._quad(APP_VERSION)[:3] == tuple(
         int(p) for p in APP_VERSION.split("."))
     pytest.importorskip("PyInstaller")
+    pytest.importorskip("pefile")      # PyInstaller installs it on Windows only
     info = version_resource.version_info("ModbusReader.exe")
     assert APP_VERSION in str(info)
 
