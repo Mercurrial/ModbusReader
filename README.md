@@ -219,15 +219,22 @@ Linux / macOS: те же шаги (`source .venv/bin/activate`, `python main.py`
 
 Чтобы демо-карта «ожила» без прибора, запустите вторую копию программы в
 режиме «Эмулятор (Slave)» на парном виртуальном COM-порту (например, com0com).
+
+Версии библиотек закреплены (`requirements.txt`): новая версия библиотеки
+может незаметно изменить поведение программы. Обновления раз в неделю
+предлагает Dependabot отдельным pull request, тесты проверяют их на Linux, и в
+сборку они попадают только после слияния. Сборка отказывается работать, если
+установленные версии отличаются от закреплённых.
 </details>
 
 <details>
 <summary><b>Сборка exe и установщика</b></summary>
 
-Нужны PyInstaller и [Inno Setup 6](https://jrsoftware.org/isinfo.php).
+Нужен [Inno Setup 6](https://jrsoftware.org/isinfo.php); PyInstaller и pytest — из
+`requirements-dev.txt`.
 
 ```bash
-.venv\Scripts\pip install pyinstaller
+.venv\Scripts\pip install -r requirements-dev.txt
 .venv\Scripts\python tools/build_installer.py --portable   # установщик + оба exe
 ```
 

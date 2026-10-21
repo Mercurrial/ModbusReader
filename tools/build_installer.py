@@ -60,8 +60,48 @@ def run(args: list[str]):
     subprocess.run(args, cwd=ROOT, check=True)
 
 
+def _norm(name: str) -> str:
+    return name.strip().lower().replace("_", "-").replace(".", "-")
+
+
+def pins(path: str) -> dict:
+    """{package: version} from a requirements file's "name==version" lines,
+    following "-r other.txt"."""
+    out = {}
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.split("#", 1)[0].strip()
+            if line.startswith("-r "):
+                out.update(pins(os.path.join(os.path.dirname(path), line[3:].strip())))
+            elif "==" in line:
+                name, ver = line.split("==", 1)
+                out[_norm(name)] = ver.strip()
+    return out
+
+
+def environment_drift(wanted: dict) -> list[str]:
+    """What this Python has that differs from *wanted* ({name: version})."""
+    from importlib import metadata
+    drift = []
+    for name, ver in sorted(wanted.items()):
+        try:
+            have = metadata.version(name)
+        except metadata.PackageNotFoundError:
+            have = None
+        if have != ver:
+            drift.append(f"{name} {have or 'missing'} (pinned {ver})")
+    return drift
+
+
 def main():
     portable = "--portable" in sys.argv
+    # Only the tested versions may be shipped: a build from a drifted
+    # environment would carry libraries no test has seen.
+    drift = environment_drift(pins(os.path.join(ROOT, "requirements-dev.txt")))
+    if drift:
+        sys.exit("The environment differs from the pinned versions:\n  "
+                 + "\n  ".join(drift)
+                 + "\nRun:  python -m pip install -r requirements-dev.txt")
     iscc = find_iscc()
     if not iscc:
         sys.exit("Inno Setup (ISCC.exe) not found — install it first: "

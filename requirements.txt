@@ -1,13 +1,25 @@
-# ModbusReader — runtime dependencies.
-# Python 3.10+ (the code uses `X | None` unions); developed on 3.12.
+# ModbusReader — runtime dependencies, PINNED to the exact versions the
+# releases are built and tested with.
+#
+# A new library version can change behaviour without failing anything
+# (pymodbus 3.16 silenced the line statistics' CRC count), so updates are a
+# decision, not an accident: Dependabot proposes them as a pull request every
+# week, CI runs the tests on them, and only a merged bump reaches a build.
+# tools/build_installer.py refuses to build in an environment that differs
+# from these pins. What the code relies on inside the libraries is listed and
+# tested in tests/test_library_contracts.py.
+#
+# Python 3.10+ (the code uses `X | None` unions); the releases use 3.12.
 # Install:  python -m pip install -r requirements.txt
+# For tests and builds: requirements-dev.txt
 
-PyQt6>=6.6
-pyqtgraph>=0.13
-pymodbus>=3.6,<4
-pyserial>=3.5
-numpy>=1.26
-openpyxl>=3.1        # XLSX: map import + macro result export
-
-# Dev / tests only:
-pytest>=8
+PyQt6==6.11.0
+PyQt6-Qt6==6.11.0
+PyQt6-sip==13.11.1
+pyqtgraph==0.14.0
+colorama==0.4.6          # pyqtgraph's
+numpy==2.4.5
+pymodbus==3.13.0
+pyserial==3.5
+openpyxl==3.1.5          # XLSX: map import + macro result export
+et-xmlfile==2.0.0        # openpyxl's

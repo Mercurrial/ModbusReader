@@ -1032,3 +1032,15 @@ page, menu, dialog and settings page headless for the next review.
   only had JetBrains Mono / Consolas — now one list in `app/fonts.py`
   (`MONO_FAMILIES`, `MONO_CSS`, `mono_family()`). Everything else looks the
   same as on Windows.
+- **Pinned libraries, updates on purpose** (2026-10-21, after pymodbus 3.16
+  silently broke the CRC count): `requirements.txt` pins the exact runtime
+  set the releases are built with (incl. PyQt6-Qt6, PyQt6-sip, colorama,
+  et-xmlfile), `requirements-dev.txt` adds pytest and PyInstaller (its
+  `_internal/` layout, splash and `PYINSTALLER_RESET_ENVIRONMENT` are relied
+  on). Dependabot opens a weekly PR (minor+patch grouped, majors alone) and
+  a monthly one for the Actions; CI tests it on Linux. `tests/
+  test_library_contracts.py` names each assumption about library internals
+  (device-address keyword device_id/slave/unit, `client.socket`, FramerRTU
+  decode tuple + lookupPduClass/check_CRC, pyqtgraph API, list_ports) and
+  fails if the tests do not run on the pins; `build_installer.py` exits on
+  any drift (`pins()` + `environment_drift()`).

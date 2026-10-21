@@ -1,0 +1,11 @@
+# Tests and builds, on top of the runtime pins (see requirements.txt for why
+# everything is pinned). PyInstaller is pinned too: its layout (_internal/),
+# its splash and its environment handling are what the installer and the
+# self-update rely on.
+#
+# Install:  python -m pip install -r requirements-dev.txt
+
+-r requirements.txt
+pytest==9.1.1
+pyinstaller==6.20.0
+pyinstaller-hooks-contrib==2026.5

@@ -382,6 +382,18 @@ pictures, from the demo project).
 | `ModbusReader_setup.spec` | one-folder program for the installer |
 | `installer/ModbusReader.iss` | the installer (Inno Setup 6) |
 
+**Dependencies are pinned.** `requirements.txt` holds the exact runtime
+versions the releases are built with, `requirements-dev.txt` adds pytest and
+PyInstaller. A library update is a reviewed change: Dependabot
+(`.github/dependabot.yml`) opens a weekly pull request — minor and patch
+updates grouped, a major version on its own — and CI runs the suite on it.
+`tests/test_library_contracts.py` checks, one assumption per test, what the
+code relies on inside the libraries (pymodbus' device-address keyword, its
+serial `socket`, the RTU framer internals behind the CRC probe; the pyqtgraph
+API of the trends) and that the tests run on the pinned versions;
+`tools/build_installer.py` refuses to build in an environment that differs
+from the pins.
+
 `python tools/build_installer.py --portable` builds all of them and prints the
 SHA-256 of each file. Versions are calendar versions `YY.MM.N`;
 `python tools/release.py` computes the next number and writes it to

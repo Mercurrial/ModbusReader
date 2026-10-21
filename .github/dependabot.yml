@@ -1,0 +1,29 @@
+# Library updates are proposed, never taken silently: the versions in
+# requirements*.txt are pinned, and once a week Dependabot opens a pull
+# request with newer ones. The tests run on it (Linux); what the code relies
+# on inside the libraries is checked by tests/test_library_contracts.py.
+# Merge when green; a build after that uses the new versions
+# (tools/build_installer.py refuses an environment that differs from the pins).
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      # Minor and patch updates of everything in one pull request…
+      libraries:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    # …a major version (pymodbus 4, PyQt7…) in a pull request of its own.
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
