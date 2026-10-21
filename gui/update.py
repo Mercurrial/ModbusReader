@@ -285,6 +285,8 @@ class UpdateDialog(QDialog):
     def _blocking_reason(self) -> str:
         if self.kind == "source":
             return self.t("updSourceHint")
+        if self.kind == "page":
+            return self.t("updPageHint")
         if not self.rel.asset_url or not self.rel.sha256:
             return self.t("updNoBuildHint")
         if self.kind == "portable" and not updater.can_replace(sys.executable):

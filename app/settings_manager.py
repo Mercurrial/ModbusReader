@@ -24,9 +24,20 @@ def is_installed_dir(d: str) -> bool:
     return bool(glob.glob(os.path.join(d, "unins*.exe")))
 
 
+def _config_base() -> str:
+    """Where this system keeps per-user application data: %APPDATA% on
+    Windows, ~/Library/Application Support on macOS, $XDG_CONFIG_HOME (or
+    ~/.config) on Linux."""
+    home = os.path.expanduser("~")
+    if sys.platform == "win32":
+        return os.environ.get("APPDATA") or home
+    if sys.platform == "darwin":
+        return os.path.join(home, "Library", "Application Support")
+    return os.environ.get("XDG_CONFIG_HOME") or os.path.join(home, ".config")
+
+
 def user_data_dir() -> str:
-    base = os.environ.get("APPDATA") or os.path.expanduser("~")
-    d = os.path.join(base, "ModbusReader")
+    d = os.path.join(_config_base(), "ModbusReader")
     os.makedirs(d, exist_ok=True)
     return d
 
@@ -39,7 +50,11 @@ def _settings_dir() -> str:
     into Program Files by hand) it falls back to %APPDATA% too — otherwise
     every save would fail and the settings would silently reset on the next
     launch. An old file left in the read-only folder is migrated once."""
-    if getattr(sys, "frozen", False) and is_installed_dir(_APP_DIR):
+    if getattr(sys, "frozen", False) and (sys.platform != "win32"
+                                          or is_installed_dir(_APP_DIR)):
+        # Linux / macOS builds too: the program sits in a read-only AppImage
+        # or inside an .app bundle, where a written file breaks the bundle's
+        # signature and is gone with the next version.
         return user_data_dir()
     try:
         probe = os.path.join(_APP_DIR, ".write_probe")

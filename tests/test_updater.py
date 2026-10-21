@@ -313,6 +313,7 @@ def test_finish_update_gives_up_cleanly(tmp_path):
 def test_installed_copy_keeps_settings_in_appdata(tmp_path, monkeypatch):
     app = tmp_path / "Programs" / "ModbusReader"
     app.mkdir(parents=True)
+    monkeypatch.setattr(sys, "platform", "win32")
     monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
     monkeypatch.setattr(settings_manager, "_APP_DIR", str(app))
     monkeypatch.setattr(sys, "frozen", True, raising=False)
@@ -322,6 +323,35 @@ def test_installed_copy_keeps_settings_in_appdata(tmp_path, monkeypatch):
     assert settings_manager._settings_dir() == str(tmp_path / "Roaming" / "ModbusReader")
     monkeypatch.setattr(sys, "executable", str(app / "ModbusReader.exe"))
     assert updater.install_kind() == "installed"
+
+
+@pytest.mark.parametrize("platform,sub", [
+    ("linux", (".config", "ModbusReader")),
+    ("darwin", ("Library", "Application Support", "ModbusReader")),
+])
+def test_linux_and_macos_builds_keep_settings_in_the_users_folder(
+        tmp_path, monkeypatch, platform, sub):
+    """Never beside the program there: an AppImage is read-only and a file
+    written into an .app bundle breaks its signature and is lost on update —
+    even when the folder happens to be writable. And never the Windows exe
+    as an update: the release page is opened instead."""
+    app = tmp_path / "ModbusReader.app" / "Contents" / "MacOS"
+    app.mkdir(parents=True)
+    monkeypatch.setattr(sys, "platform", platform)
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setattr(os.path, "expanduser", lambda p: p.replace("~", str(tmp_path / "home")))
+    monkeypatch.setattr(settings_manager, "_APP_DIR", str(app))
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    assert settings_manager._settings_dir() == str(tmp_path.joinpath("home", *sub))
+    assert updater.install_kind() == "page"
+    rel = updater.parse_release(_release_json(), "page", "ModbusReader")
+    assert rel.version == "99.1.0" and not rel.asset_url        # nothing to run
+
+
+def test_linux_honours_xdg_config_home(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
+    assert settings_manager.user_data_dir() == str(tmp_path / "cfg" / "ModbusReader")
 
 
 def test_file_argument_opens_a_project(tmp_path):
@@ -490,6 +520,15 @@ def test_dialog_downloads_and_hands_over(win, monkeypatch, tmp_path):
     dlg.btn_go.click()
     assert _wait(lambda: dlg.outcome == "install" and not dlg.isVisible())
     assert dlg.path == str(tmp_path / "n.exe")
+
+
+def test_dialog_on_linux_or_macos_points_to_the_page(win):
+    from gui import update as gui_update
+    dlg = gui_update.UpdateDialog(win.ctx, _rel(), "page", win)
+    assert dlg.lbl_note.text() == win.t("updPageHint")
+    assert dlg.btn_go.text() == win.t("updOpenPage")
+    dlg.btn_go.click()
+    assert dlg.outcome == "page"
 
 
 def test_dialog_from_source_points_to_the_page(win):

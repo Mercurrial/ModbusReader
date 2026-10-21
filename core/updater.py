@@ -92,10 +92,16 @@ def is_newer(remote, local=APP_VERSION) -> bool:
 
 # ── what kind of copy is running ───────────────────────────────────
 def install_kind() -> str:
-    """"source" (python main.py), "installed" (put there by the installer)
-    or "portable" (an exe someone copied somewhere)."""
+    """"source" (python main.py), "installed" (put there by the installer),
+    "portable" (an exe someone copied somewhere) or "page" (a Linux / macOS
+    build: the update is offered, its release page opened)."""
     if not getattr(sys, "frozen", False):
         return "source"
+    if sys.platform != "win32":
+        # Linux / macOS builds: no self-replacing yet — the update is offered
+        # and its release page opened (a portable copy would otherwise pick
+        # ModbusReader.exe, the Windows build).
+        return "page"
     from app.settings_manager import is_installed_dir
     return ("installed" if is_installed_dir(os.path.dirname(sys.executable))
             else "portable")
@@ -145,6 +151,8 @@ def _clean_notes(body: str) -> str:
 
 def _pick_asset(assets: list, kind: str, exe_name: str) -> dict | None:
     by_name = {a.get("name", ""): a for a in assets if isinstance(a, dict)}
+    if kind == "page":
+        return None                        # nothing to download and run here
     if kind == "installed":
         for name, a in by_name.items():
             if name.startswith(INSTALLER_PREFIX) and name.lower().endswith(".exe"):
