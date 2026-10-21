@@ -660,6 +660,29 @@ def test_release_tool_writes_version_and_changelog(tmp_path):
     assert "## [26.10.1] — 2026-10-22" in c and c.count("[26.10.1]:") == 1
 
 
+def test_release_tool_keeps_the_project_site_in_step(tmp_path):
+    """The site's schema.org version/date and the sitemap's lastmod follow a
+    release — a search snippet must not advertise an old version."""
+    rel = _release_tool("release_tool4")
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "version.py").write_text(
+        'APP_VERSION = "26.10.1"\nRELEASE_DATE = "2026-10-20"\n', encoding="utf-8")
+    (tmp_path / "README.md").write_text("# x\n", encoding="utf-8")
+    (tmp_path / "CHANGELOG.md").write_text("## [Не выпущено]\n", encoding="utf-8")
+    (tmp_path / "docs" / "en").mkdir(parents=True)
+    page = '{"softwareVersion": "26.10.1", "datePublished": "2026-10-20"}'
+    (tmp_path / "docs" / "index.html").write_text(page, encoding="utf-8")
+    (tmp_path / "docs" / "en" / "index.html").write_text(page, encoding="utf-8")
+    (tmp_path / "docs" / "sitemap.xml").write_text(
+        "<lastmod>2026-10-20</lastmod><lastmod>2026-10-20</lastmod>", encoding="utf-8")
+    rel.apply("26.11.0", "2026-11-03", root=str(tmp_path))
+    for p in ("index.html", "en/index.html"):
+        s = (tmp_path / "docs" / p).read_text(encoding="utf-8")
+        assert '"softwareVersion": "26.11.0"' in s and '"datePublished": "2026-11-03"' in s
+    assert (tmp_path / "docs" / "sitemap.xml").read_text(encoding="utf-8").count(
+        "<lastmod>2026-11-03</lastmod>") == 2
+
+
 def test_release_tool_moves_the_one_release_to_the_new_tag():
     """A tag per version, ONE release: the printed steps tag the version,
     replace the release's files and only then move it to the new tag — so a
