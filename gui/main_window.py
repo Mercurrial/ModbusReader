@@ -33,12 +33,18 @@ from gui.watch import WatchWindow
 from gui.update import UpdateController
 
 
-def demo_project_path() -> str:
-    """examples/demo.mbproj next to the sources or inside the build ("" if
-    this copy was built without it)."""
+def demo_project_path(lang: str = "ru") -> str:
+    """The bundled demo project in the UI language — examples/demo.mbproj, or
+    demo_en.mbproj for English (its units, enum labels and widget titles are
+    English) — next to the sources or inside the build. Falls back to the
+    Russian file; "" if this copy was built without any."""
     from app.paths import resource
-    path = resource("examples", "demo.mbproj")
-    return path if os.path.isfile(path) else ""
+    names = ("demo_en.mbproj", "demo.mbproj") if lang == "en" else ("demo.mbproj",)
+    for name in names:
+        path = resource("examples", name)
+        if os.path.isfile(path):
+            return path
+    return ""
 
 
 def demo_copy_dir() -> str:
@@ -1838,14 +1844,17 @@ class ModernScadaApp(QMainWindow):
         return True
 
     def _open_demo(self):
-        """«Демо-проект»: the bundled made-up controller (examples/demo.mbproj)
-        with its dashboard — the quickest look at the app.
+        """«Демо-проект»: the bundled made-up controller (examples/demo.mbproj,
+        or demo_en.mbproj in the English UI) with its dashboard — the quickest
+        look at the app.
 
         Opened as the user's OWN copy in Documents/ModbusReader: the bundled
         file sits inside the program folder, where a Save would write and the
-        next update would wipe it. An existing copy (maybe edited) is kept."""
+        next update would wipe it. An existing copy (maybe edited) is kept.
+        The copy is named in the UI language too, so each language has its
+        own."""
         import shutil
-        src = demo_project_path()
+        src = demo_project_path(self.lang)
         if not src:
             return
         dst = os.path.join(demo_copy_dir(), self.t("demoFileName") + ".mbproj")

@@ -1,0 +1,355 @@
+{
+  "format": "modbusreader.project",
+  "version": 1,
+  "name": "Demo temperature controller",
+  "connection": {
+    "transport": "serial",
+    "port": "COM1",
+    "baudrate": "115200",
+    "parity": "None (N)",
+    "stopbits": "1",
+    "slave_id": 1,
+    "timeout": 1000,
+    "poll_rate": 500,
+    "interframe_delay": 50,
+    "retry_count": 3,
+    "order_short": "AB",
+    "order_long": "ABCD",
+    "order_float": "BADC"
+  },
+  "profile": {
+    "format": "modbusreader.profile",
+    "version": 2,
+    "name": "Demo temperature controller",
+    "registers": [
+      {
+        "addr": 0,
+        "name": "Температура",
+        "type": "FLOAT",
+        "length": 2,
+        "rw": "R",
+        "name_en": "Temperature",
+        "unit": "°C"
+      },
+      {
+        "addr": 2,
+        "name": "Уставка температуры",
+        "type": "FLOAT",
+        "length": 2,
+        "rw": "RW",
+        "name_en": "Temperature setpoint",
+        "unit": "°C"
+      },
+      {
+        "addr": 4,
+        "name": "Режим",
+        "type": "UINT16",
+        "length": 1,
+        "rw": "RW",
+        "name_en": "Mode",
+        "enum": {
+          "0": "Stop",
+          "1": "Run",
+          "2": "Fault"
+        }
+      },
+      {
+        "addr": 5,
+        "name": "Мощность нагревателя",
+        "type": "UINT16",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Heater power",
+        "unit": "%",
+        "scale": 0.1
+      },
+      {
+        "addr": 6,
+        "name": "Наработка",
+        "type": "UINT32",
+        "length": 2,
+        "rw": "R",
+        "name_en": "Operating hours",
+        "unit": "h"
+      },
+      {
+        "addr": 8,
+        "name": "Слово состояния",
+        "type": "BITS16",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Status word"
+      },
+      {
+        "addr": 9,
+        "name": "Код ошибки",
+        "type": "UINT16",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Error code"
+      },
+      {
+        "addr": 10,
+        "name": "Задержка аварии",
+        "type": "UINT16",
+        "length": 1,
+        "rw": "RW",
+        "name_en": "Alarm delay",
+        "unit": "s",
+        "default": "30"
+      },
+      {
+        "addr": 0,
+        "name": "Напряжение питания",
+        "type": "UINT16",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Supply voltage",
+        "unit": "V",
+        "area": "input",
+        "scale": 0.01
+      },
+      {
+        "addr": 1,
+        "name": "Ток датчика",
+        "type": "SHORT",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Sensor current",
+        "unit": "mA",
+        "area": "input"
+      },
+      {
+        "addr": 0,
+        "name": "Нагреватель",
+        "type": "BOOL",
+        "length": 1,
+        "rw": "RW",
+        "name_en": "Heater",
+        "area": "coil"
+      },
+      {
+        "addr": 1,
+        "name": "Вентилятор",
+        "type": "BOOL",
+        "length": 1,
+        "rw": "RW",
+        "name_en": "Fan",
+        "area": "coil"
+      },
+      {
+        "addr": 0,
+        "name": "Дверь открыта",
+        "type": "BOOL",
+        "length": 1,
+        "rw": "R",
+        "name_en": "Door open",
+        "area": "discrete"
+      }
+    ]
+  },
+  "dashboards": [
+    {
+      "format": "modbusreader.dashboard",
+      "version": 1,
+      "name": "Panel",
+      "widgets": [
+        {
+          "kind": "gauge",
+          "reg_id": "0x0000",
+          "title": "Temperature",
+          "name": "Temperature",
+          "x": 12,
+          "y": 12,
+          "w": 290,
+          "h": 230,
+          "unit": "°C",
+          "vmin": 0,
+          "vmax": 60,
+          "ahi": 45,
+          "reg_type": "FLOAT",
+          "uid": "demo01"
+        },
+        {
+          "kind": "chart",
+          "reg_id": "0x0000",
+          "title": "Temperature",
+          "name": "Temperature",
+          "x": 318,
+          "y": 12,
+          "w": 570,
+          "h": 230,
+          "unit": "°C",
+          "vmin": 15,
+          "vmax": 35,
+          "reg_type": "FLOAT",
+          "uid": "demo02"
+        },
+        {
+          "kind": "value",
+          "reg_id": "0x0002",
+          "title": "Setpoint",
+          "name": "Setpoint",
+          "x": 904,
+          "y": 12,
+          "w": 260,
+          "h": 107,
+          "unit": "°C",
+          "reg_type": "FLOAT",
+          "uid": "demo03"
+        },
+        {
+          "kind": "value",
+          "reg_id": "0x0005",
+          "title": "Heater power",
+          "name": "Heater power",
+          "x": 904,
+          "y": 135,
+          "w": 260,
+          "h": 107,
+          "unit": "%",
+          "reg_type": "UINT16",
+          "uid": "demo04"
+        },
+        {
+          "kind": "bar",
+          "reg_id": "0x10000",
+          "title": "Supply voltage",
+          "name": "Supply voltage",
+          "x": 12,
+          "y": 258,
+          "w": 290,
+          "h": 130,
+          "unit": "V",
+          "vmin": 0,
+          "vmax": 30,
+          "reg_type": "UINT16",
+          "uid": "demo05"
+        },
+        {
+          "kind": "bits",
+          "reg_id": "0x0008",
+          "title": "Status word",
+          "name": "Status word",
+          "x": 318,
+          "y": 258,
+          "w": 290,
+          "h": 130,
+          "reg_type": "BITS16",
+          "uid": "demo06"
+        },
+        {
+          "kind": "led",
+          "reg_id": "0x20000",
+          "title": "Heater",
+          "name": "Heater",
+          "x": 624,
+          "y": 258,
+          "w": 127,
+          "h": 130,
+          "thr": 0.5,
+          "invert": false,
+          "reg_type": "BOOL",
+          "uid": "demo07"
+        },
+        {
+          "kind": "led",
+          "reg_id": "0x30000",
+          "title": "Door",
+          "name": "Door",
+          "x": 767,
+          "y": 258,
+          "w": 121,
+          "h": 130,
+          "thr": 0.5,
+          "invert": false,
+          "reg_type": "BOOL",
+          "uid": "demo08"
+        },
+        {
+          "kind": "value",
+          "reg_id": "0x10001",
+          "title": "Sensor current",
+          "name": "Sensor current",
+          "x": 904,
+          "y": 258,
+          "w": 260,
+          "h": 130,
+          "unit": "mA",
+          "reg_type": "SHORT",
+          "uid": "demo09"
+        },
+        {
+          "kind": "select",
+          "reg_id": "0x0004",
+          "title": "Mode",
+          "name": "Mode",
+          "x": 12,
+          "y": 404,
+          "w": 290,
+          "h": 115,
+          "reg_type": "UINT16",
+          "options": [
+            [
+              0,
+              "Stop"
+            ],
+            [
+              1,
+              "Run"
+            ],
+            [
+              2,
+              "Fault"
+            ]
+          ],
+          "uid": "demo10"
+        },
+        {
+          "kind": "slider",
+          "reg_id": "0x0002",
+          "title": "Setpoint",
+          "name": "Setpoint",
+          "x": 318,
+          "y": 404,
+          "w": 570,
+          "h": 115,
+          "unit": "°C",
+          "vmin": 15,
+          "vmax": 40,
+          "step": 0.5,
+          "live": false,
+          "reg_type": "FLOAT",
+          "uid": "demo11"
+        },
+        {
+          "kind": "toggle",
+          "reg_id": "0x20001",
+          "title": "Fan",
+          "name": "Fan",
+          "x": 904,
+          "y": 404,
+          "w": 260,
+          "h": 115,
+          "value_on": 1,
+          "value_off": 0,
+          "reg_type": "BOOL",
+          "uid": "demo12"
+        }
+      ],
+      "links": []
+    }
+  ],
+  "layout": {
+    "pinned_views": [
+      "view_table",
+      "view_console",
+      "view_scanner",
+      "view_sniffer"
+    ],
+    "last_view": "view_table",
+    "log_height": 150,
+    "show_log": true,
+    "graph_width": 420
+  }
+}

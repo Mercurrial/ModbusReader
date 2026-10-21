@@ -45,7 +45,7 @@ log("Замеры завершены")
 # The same example for the English UI (a Russian sample under English menus
 # was the first thing an English-speaking user saw on this page). Registers
 # can be named in either language (macro_engine indexes name_en too).
-DEFAULT_MACRO_EN = """# Example: an hour of readings, once a second (map: examples/demo.mbproj).
+DEFAULT_MACRO_EN = """# Example: an hour of readings, once a second (map: examples/demo_en.mbproj).
 # Available: reg/read/write/wait/record/read_all/log/now/timestamp.
 # Address registers by their map name or by address: write(0x0002, 25).
 

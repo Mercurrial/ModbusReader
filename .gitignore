@@ -29,8 +29,10 @@ modbusreader_errors.log*
 test.json
 profile.json
 tld_auto.json
-# …except the demo project every checkout ships (tools/make_demo_project.py).
+# …except the demo project every checkout ships, in both languages
+# (tools/make_demo_project.py).
 !examples/demo.mbproj
+!examples/demo_en.mbproj
 
 # ── design hand-off bundles and dev dumps ────────────────────────
 modbusreader/

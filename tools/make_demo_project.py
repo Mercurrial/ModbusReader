@@ -1,12 +1,20 @@
 # tools/make_demo_project.py
-"""Write examples/demo.mbproj — a made-up temperature controller.
+"""Write examples/demo.mbproj — a made-up temperature controller — and its
+English twin examples/demo_en.mbproj.
 
 A public checkout has no real device map (those stay private), so this is
 what a newcomer opens first and what tools/ui_snapshots.py photographs. It
 touches every area and the common types, a scaled value and an enum:
 
     python tools/make_demo_project.py
+
+Register names are bilingual in both files (name + name_en: the table shows
+the one of the UI language). Units, enum labels, widget titles and the
+project and dashboard names have one language per file, so the English UI
+opens demo_en.mbproj — with the Russian file it showed «В», «мА» and
+«Работа» under English menus.
 """
+import copy
 import os
 import sys
 
@@ -89,6 +97,39 @@ DASHBOARD = [
 for _i, _cfg in enumerate(DASHBOARD, 1):       # stable ids: a diff stays small
     _cfg["uid"] = f"demo{_i:02d}"
 
+PROJECT_NAME = {"ru": "Демо-термоконтроллер", "en": "Demo temperature controller"}
+DASHBOARD_NAME = {"ru": "Пульт", "en": "Panel"}
+
+# Every one-language word of the demo, for the English file. A word missing
+# here would ship Cyrillic in demo_en.mbproj — tests/test_polish_v23.py checks.
+EN = {
+    "Температура": "Temperature", "Уставка": "Setpoint",
+    "Мощность нагревателя": "Heater power", "Напряжение питания": "Supply voltage",
+    "Слово состояния": "Status word", "Нагреватель": "Heater", "Дверь": "Door",
+    "Ток датчика": "Sensor current", "Режим": "Mode", "Вентилятор": "Fan",
+    "Стоп": "Stop", "Работа": "Run", "Авария": "Fault",
+    "ч": "h", "с": "s", "В": "V", "мА": "mA",
+}
+
+
+def english(registers, widgets) -> tuple:
+    """The English copies of the register list and the dashboard widgets."""
+    tr = lambda v: EN.get(v, v)
+    regs = copy.deepcopy(registers)
+    for r in regs:
+        if "unit" in r:
+            r["unit"] = tr(r["unit"])
+        if "enum" in r:
+            r["enum"] = {k: tr(v) for k, v in r["enum"].items()}
+    cards = copy.deepcopy(widgets)
+    for w in cards:
+        for k in ("title", "name", "unit"):
+            if k in w:
+                w[k] = tr(w[k])
+        if "options" in w:
+            w["options"] = [[v, tr(label)] for v, label in w["options"]]
+    return regs, cards
+
 
 def main():
     from core import datatypes
@@ -96,12 +137,15 @@ def main():
         r.setdefault("length", datatypes.addr_span(r))
     settings = dict(DEFAULT_SETTINGS)
     settings.update({"port": "COM1", "baudrate": "115200", "slave_id": 1})
-    path = os.path.join(ROOT, "examples", "demo.mbproj")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    formats.dump_project(path, "Демо-термоконтроллер", settings, REGISTERS,
-                         dashboards=[{"name": "Пульт", "widgets": DASHBOARD,
-                                      "links": []}])
-    print("written:", path)
+    os.makedirs(os.path.join(ROOT, "examples"), exist_ok=True)
+    en_regs, en_cards = english(REGISTERS, DASHBOARD)
+    for lang, name, regs, cards in (("ru", "demo.mbproj", REGISTERS, DASHBOARD),
+                                    ("en", "demo_en.mbproj", en_regs, en_cards)):
+        path = os.path.join(ROOT, "examples", name)
+        formats.dump_project(path, PROJECT_NAME[lang], settings, regs,
+                             dashboards=[{"name": DASHBOARD_NAME[lang],
+                                          "widgets": cards, "links": []}])
+        print("written:", path)
 
 
 if __name__ == "__main__":

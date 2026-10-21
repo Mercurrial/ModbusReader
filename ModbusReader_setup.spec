@@ -21,7 +21,8 @@ a = Analysis(
     binaries=[],
     datas=[('assets/app.png', 'assets'), ('assets/app.ico', 'assets'),
            ('LICENSE', '.'), ('THIRD_PARTY_LICENSES.md', '.'),   # GPL: the licence travels with the program
-           ('examples/demo.mbproj', 'examples')],               # «Демо-проект» on the empty map
+           ('examples/demo.mbproj', 'examples'),                # «Демо-проект» on the empty map
+           ('examples/demo_en.mbproj', 'examples')],            # …and its English twin
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},

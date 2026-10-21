@@ -232,3 +232,75 @@ def test_demo_project_button_opens_a_private_copy(tmp_path, monkeypatch):
         w._closing_for_update = True
         w.close()
         _pump()
+
+
+def _demo(name):
+    import os
+    from core import formats
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return formats.load_project(os.path.join(root, "examples", name))
+
+
+def _cyrillic(text) -> bool:
+    import re
+    return bool(re.search("[А-Яа-яЁё]", str(text)))
+
+
+def test_english_demo_is_the_same_device_in_english():
+    """demo_en.mbproj: the very registers and panel of demo.mbproj, with
+    every one-language word English — the Russian file under English menus
+    showed «В», «мА», «Работа» and Russian widget titles."""
+    ru, en = _demo("demo.mbproj"), _demo("demo_en.mbproj")
+    same = ("addr", "area", "type", "length", "rw", "scale", "offset", "default",
+            "name", "name_en")
+    assert ([{k: r.get(k) for k in same} for r in en["profile"]["registers"]]
+            == [{k: r.get(k) for k in same} for r in ru["profile"]["registers"]])
+    layout = ("uid", "kind", "reg_id", "x", "y", "w", "h", "vmin", "vmax")
+    ru_cards, en_cards = ru["dashboards"][0]["widgets"], en["dashboards"][0]["widgets"]
+    assert ([{k: c.get(k) for k in layout} for c in en_cards]
+            == [{k: c.get(k) for k in layout} for c in ru_cards])
+    words = [en["name"], en["profile"]["name"], en["dashboards"][0]["name"]]
+    for r in en["profile"]["registers"]:
+        words += [r.get("unit", ""), r.get("name_en", "")]
+        words += list((r.get("enum") or {}).values())
+    for c in en_cards:
+        words += [c.get("title", ""), c.get("name", ""), c.get("unit", "")]
+        words += [label for _v, label in c.get("options", [])]
+    assert not [w for w in words if _cyrillic(w)]
+
+
+def test_demo_button_opens_the_english_demo_in_the_english_ui(tmp_path, monkeypatch):
+    from app import settings_manager
+    from gui import main_window as gui_main
+    monkeypatch.setattr(settings_manager, "SETTINGS_FILE",
+                        str(tmp_path / "settings.json"), raising=False)
+    monkeypatch.setattr(gui_main, "demo_copy_dir", lambda: str(tmp_path / "docs"))
+    assert gui_main.demo_project_path("en").endswith("demo_en.mbproj")
+    assert gui_main.demo_project_path("ru").endswith("demo.mbproj")
+    w = gui_main.ModernScadaApp()
+    try:
+        w._on_lang_changed("en")
+        _pump()
+        w._set_profile([], "")
+        btn = next(b for b in w.map_empty.buttons if b.text() == w.t("emptyDemo"))
+        btn.click()
+        _pump()
+        copy = tmp_path / "docs" / "Demo temperature controller.mbproj"
+        assert copy.exists() and w.project_path == str(copy)
+        titles = [c.cfg.get("title", "") for c in w.dash_view.cards.values()]
+        assert "Supply voltage" in titles
+        assert not [t for t in titles if _cyrillic(t)]
+    finally:
+        w._closing_for_update = True
+        w.close()
+        _pump()
+
+
+def test_every_build_bundles_both_demo_projects():
+    import os
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for spec in ("ModbusReader.spec", "ModbusReader_debug.spec",
+                 "ModbusReader_setup.spec", "ModbusReader_unix.spec"):
+        text = open(os.path.join(root, spec), encoding="utf-8").read()
+        for demo in ("demo.mbproj", "demo_en.mbproj"):
+            assert f"('examples/{demo}', 'examples')" in text, (spec, demo)
