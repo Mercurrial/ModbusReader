@@ -3,6 +3,7 @@
 private device map.
 
     python tools/readme_shots.py [--out docs/images]
+    python tools/readme_shots.py --lang en          # → docs/images/en
 
 A small simulated "device" (temperature drifting around the setpoint, a
 heater, a fan, supply voltage …) feeds every screen through the same
@@ -11,6 +12,8 @@ believable state: the map with live values and trends, the dashboard, the
 console, scanner, sniffer, logger, macros, the slave emulator, snapshots,
 the editor, the watch window, the update dialog and four colour themes.
 The live trend is also written as an animated PNG (APNG — GitHub plays it).
+``--lang en`` renders the same set with the English UI for the English pages
+of the project site; social.png (the link preview, 2:1) is cut from the hero.
 
 Rendered at 2× (QT_SCALE_FACTOR) so the images stay sharp on HiDPI
 screens; corners are rounded with a hairline border, outside transparent.
@@ -153,7 +156,53 @@ def write_apng(path: str, frames: list, delay_ms: int):
     open(path, "wb").write(out)
 
 
-def hero(window_img):
+# The words drawn into the pictures, per UI language.
+TEXT = {
+    "ru": {"tagline": "Наладка и мониторинг приборов\nпо Modbus RTU — мастер и эмулятор",
+           "tools": "Карта регистров · графики · дашборд · сканер · сниффер · макросы",
+           "pill": "Бесплатно  ·  открытый код  ·  Windows",
+           "log_project": "Проект: Демо-термоконтроллер (13 регистров)",
+           "log_connected": "Подключено: COM3, 115200 8N1, ID 1",
+           "log_timeout": "Таймаут: DI 0x0000 — нет ответа за 1000 мс",
+           "log_path": r"D:\Логи\линия-3_2026-10-16.csv",
+           "macro_cols": ("Температура", "Мощность нагревателя", "Ток датчика"),
+           "macro_log": "цикл {i} готов",
+           "notes": "• Чтение блоками: вся карта одним запросом\n"
+                    "• Тревоги по порогам прямо в таблице\n"
+                    "• Исправлено: Esc в редакторе после Alt+Tab"},
+    "en": {"tagline": "Commissioning and monitoring\nof Modbus RTU devices — master and slave",
+           "tools": "Register map · trends · dashboard · scanner · sniffer · macros",
+           "pill": "Free  ·  open source  ·  Windows",
+           "log_project": "Project: Demo temperature controller (13 registers)",
+           "log_connected": "Connected: COM3, 115200 8N1, ID 1",
+           "log_timeout": "Timeout: DI 0x0000 — no answer within 1000 ms",
+           "log_path": r"D:\Logs\line-3_2026-10-16.csv",
+           "macro_cols": ("Temperature", "Heater power", "Sensor current"),
+           "macro_log": "cycle {i} done",
+           "notes": "• Block reads: the whole map in one request\n"
+                    "• Threshold alarms right in the table\n"
+                    "• Fixed: Esc in the editor after Alt+Tab"},
+}
+
+
+# The English pictures show the English demo (what the English UI opens):
+# same registers, English units, enum labels and widget titles. Register
+# "name" is Russian in both files — device() and the lookups below key on it.
+DEMO_EN = os.path.join(ROOT, "examples", "demo_en.mbproj")
+
+
+def social(hero_img):
+    """The link preview (Open Graph, 1280×640): the hero's left part — the
+    mark, the name and the tagline — scaled to the 2:1 frame."""
+    from PyQt6.QtCore import Qt
+    h = hero_img.height()
+    part = hero_img.copy(0, 0, h * 2, h)
+    part.setDevicePixelRatio(1)
+    return part.scaled(1280, 640, Qt.AspectRatioMode.IgnoreAspectRatio,
+                       Qt.TransformationMode.SmoothTransformation)
+
+
+def hero(window_img, text=TEXT["ru"]):
     """The banner at the top of the README: the mark, the name, what it is —
     and the real window beside it (bleeding off the right edge)."""
     from PyQt6.QtCore import QRectF, Qt
@@ -193,12 +242,12 @@ def hero(window_img):
     p.setFont(font(22))
     p.setPen(QColor("#b9c0c9"))
     p.drawText(QRectF(left, 212, 520, 70), Qt.AlignmentFlag.AlignLeft | Qt.TextFlag.TextWordWrap,
-               "Наладка и мониторинг приборов\nпо Modbus RTU — мастер и эмулятор")
+               text["tagline"])
     p.setFont(font(15))
     p.setPen(QColor("#8b939d"))
     p.drawText(QRectF(left, 290, 540, 24), Qt.AlignmentFlag.AlignLeft,
-               "Карта регистров · графики · дашборд · сканер · сниффер · макросы")
-    label = "Бесплатно  ·  открытый код  ·  Windows"
+               text["tools"])
+    label = text["pill"]
     pf = font(15, bold=True)
     pw = QFontMetrics(pf).horizontalAdvance(label) + 40
     pill = QRectF(left, 334, pw, 36)
@@ -233,8 +282,13 @@ def hero(window_img):
 # ── the run ────────────────────────────────────────────────────────
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default=os.path.join(ROOT, "docs", "images"))
-    out = os.path.abspath(ap.parse_args().out)
+    ap.add_argument("--out", default=None)
+    ap.add_argument("--lang", choices=tuple(TEXT), default="ru")
+    args = ap.parse_args()
+    lang = args.lang
+    text = TEXT[lang]
+    out = os.path.abspath(args.out or os.path.join(
+        ROOT, "docs", "images", *(() if lang == "ru" else (lang,))))
     os.makedirs(out, exist_ok=True)
     os.chdir(ROOT)
 
@@ -247,7 +301,7 @@ def main():
     settings_manager.SETTINGS_FILE = os.path.join(tempfile.mkdtemp(), "app_settings.json")
     s = dict(settings_manager.DEFAULT_SETTINGS)
     s.update(LOOK)
-    s.update({"lang": "ru", "load_last": False, "highlight_changes": False,
+    s.update({"lang": lang, "load_last": False, "highlight_changes": False,
               "guide_seen_main": True, "guide_seen_macros": True,
               "guide_seen_editor": True, "update_auto": False})
     json.dump(s, open(settings_manager.SETTINGS_FILE, "w", encoding="utf-8"))
@@ -278,9 +332,10 @@ def main():
     w.resize(WIN_W, WIN_H)
     w.show()
     pump()
-    w._open_project(DEMO)
+    demo = DEMO if lang == "ru" else DEMO_EN
+    w._open_project(demo)
     pump()
-    regs = formats.load_project(DEMO)["profile"]["registers"]
+    regs = formats.load_project(demo)["profile"]["registers"]
     w._on_connection_status(True, "")
     w.register_table.set_connected(True)
 
@@ -303,8 +358,8 @@ def main():
     # Start the log clean: opening the project logged its full LOCAL path
     # (a user name in a public picture).
     w.log_panel.store.clear()
-    w._log("SYS", "Проект: Демо-термоконтроллер (13 регистров)")
-    w._log("SYS", "Подключено: COM3, 115200 8N1, ID 1")
+    w._log("SYS", text["log_project"])
+    w._log("SYS", text["log_connected"])
     holding = [0x41C4, 0xCCCD, 0x41C8, 0x0000, 1, 573, 0, 1834, 0x25, 0, 30]
     for cycle in range(5):
         core._log_tx_read(0, 11, 0x03)
@@ -318,14 +373,14 @@ def main():
             core._log_rx_write(0x000A, 45, 0x06)
         if cycle == 3:
             core._log_tx_read(0, 1, 0x02)
-            w._log("ERR", "Таймаут: DI 0x0000 — нет ответа за 1000 мс")
+            w._log("ERR", text["log_timeout"])
 
     # Two live trend cards with a clean 60 s history.
     def trend(reg_name, base_fn):
         r = next(r for r in regs if r["name"] == reg_name)
         rid = dt.reg_id(dt.reg_key(r))
         if rid not in w.trends_manager.active_trends:
-            w._add_to_trend(rid, r["name"])
+            w._add_to_trend(rid, r["name"] if lang == "ru" else r.get("name_en", r["name"]))
         card = w.trends_manager.active_trends.get(rid)
         now = time.time()
         card._ts.clear()
@@ -358,7 +413,9 @@ def main():
     pump()
     main_img = w.grab().toImage()
     save(main_img, "main.png")
-    save(hero(main_img), "hero.png")
+    hero_img = hero(main_img, text)
+    save(hero_img, "hero.png")
+    save(social(hero_img), "social.png", rounded=False)
 
     # 2. dashboard
     w._switch_view("view_dash")
@@ -417,7 +474,7 @@ def main():
         lv._tick()
     # On screen: a neutral path (the real one is a temp dir with the user
     # name in it) and one row per second, as a 1000 ms period gives.
-    lv.ed_path.setText(r"D:\Логи\линия-3_2026-10-16.csv")
+    lv.ed_path.setText(text["log_path"])
     rows = lv.table.rowCount()
     for r in range(rows):
         it = lv.table.item(r, 0)
@@ -432,11 +489,12 @@ def main():
     mv = w.macro_view
     for i in range(8):
         v = device(i * 1.0)
-        mv._on_row({"#": i, "time": f"12:00:{i:02d}", "Температура": v["Температура"],
-                    "Мощность нагревателя": v["Мощность нагревателя"] / 10,
-                    "Ток датчика": v["Ток датчика"]})
+        c_temp, c_power, c_current = text["macro_cols"]
+        mv._on_row({"#": i, "time": f"12:00:{i:02d}", c_temp: v["Температура"],
+                    c_power: v["Мощность нагревателя"] / 10,
+                    c_current: v["Ток датчика"]})
     for i in range(3):
-        mv._on_log("INFO", f"цикл {i} готов")
+        mv._on_log("INFO", text["macro_log"].format(i=i))
     pump()
     save(crop(w.grab().toImage(), *PAGE), "macros.png")
 
@@ -508,9 +566,7 @@ def main():
     from gui import update as gui_update
     from core import updater
     rel = updater.Release(
-        "26.11.0", "• Чтение блоками: вся карта одним запросом\n"
-                   "• Тревоги по порогам прямо в таблице\n"
-                   "• Исправлено: Esc в редакторе после Alt+Tab",
+        "26.11.0", text["notes"],
         "https://github.com/", "ModbusReader-Setup.exe",
         "https://github.com/x/ModbusReader-Setup.exe", 43_000_000, "a" * 64)
     ud = gui_update.UpdateDialog(w.ctx, rel, "installed", w)
