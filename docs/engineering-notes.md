@@ -1044,3 +1044,22 @@ page, menu, dialog and settings page headless for the next review.
   decode tuple + lookupPduClass/check_CRC, pyqtgraph API, list_ports) and
   fails if the tests do not run on the pins; `build_installer.py` exits on
   any drift (`pins()` + `environment_drift()`).
+- **pymodbus replaced by the app's own client** (2026-10-21, the user's
+  call: "no switch, remove pymodbus completely"). `core/modbus_client.py`:
+  `_Client` (the request API — FC 01–06, 16 — and PDU parsing), `RtuMaster`
+  (pyserial; t3.5 before a request, 1.75 ms above 19200 Bd; the answer's
+  length from its header: exception 5, read 5 + byte count, write 8; noise
+  before the answer skipped; adapter echo dropped — for FC 05/06, whose
+  answer equals the request, learned from reads or by waiting one gap for a
+  second copy; a started answer ends after `max(50 ms, 4·t3.5)` of silence
+  (USB latency)), `TcpMaster` (MBAP, stale transaction ids skipped). Every
+  `Response` carries `.outcome` (ok / exception / timeout / crc), so
+  `linestats` lost its framer probe and `crc_flag`; `ModbusLinkError` is a
+  dead link (counted as a timeout, reconnect logic unchanged). The core's
+  "exception means the link is alive" check uses `linestats.classify`
+  instead of pymodbus' `ModbusIOException`. Tests: `tests/
+  test_modbus_client.py` drives both clients against `slave_core.
+  build_response` through fake ports (echo, noise, bad CRC, pieces, silence,
+  stale TCP answers, dead links) plus the core/statistics/scanner/raw-console
+  paths; `test_library_contracts` guards that pymodbus never returns.
+  Still to do: try it on real adapters (FTDI latency, cheap CH340 echo).

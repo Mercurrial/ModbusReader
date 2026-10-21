@@ -170,11 +170,12 @@ through `request_op`; `ScannerWorker` the same way; `SnifferWorker` and
 | Module | Responsibility |
 |---|---|
 | `modbus_core.py` | The master link thread: queues, polling, reads, writes, raw frames, frame logging. |
+| `modbus_client.py` | The app's own Modbus client: `RtuMaster` (serial, t3.5 framing, echo and noise handling) and `TcpMaster` (MBAP); every answer carries its outcome — ok / exception / timeout / crc. |
 | `transports.py` | `Transport` registry (serial; TCP implemented, not shown in the UI); parity normalisation. |
 | `datatypes.py` | Register type registry, codecs, address span, Modbus tables (`AREAS`), register keys. |
 | `byteorder.py` | 16/32/64-bit byte-order permutations. |
 | `scaling.py` | Engineering units: `raw × scale + offset`, enum labels. |
-| `linestats.py` | Line statistics and the CRC probe on the pymodbus framer. |
+| `linestats.py` | Line statistics: counts each answer's outcome and response time. |
 | `scanner_engine.py` | Device and register scans. |
 | `sniffer_core.py` | CRC16, frame carving and decoding, the passive sniffer thread. |
 | `slave_core.py` | The slave emulator: pure `build_response`, `SlaveStore`, `SlaveServer`. |
@@ -401,9 +402,10 @@ PyInstaller. A library update is a reviewed change: Dependabot
 (`.github/dependabot.yml`) opens a weekly pull request — minor and patch
 updates grouped, a major version on its own — and CI runs the suite on it.
 `tests/test_library_contracts.py` checks, one assumption per test, what the
-code relies on inside the libraries (pymodbus' device-address keyword, its
-serial `socket`, the RTU framer internals behind the CRC probe; the pyqtgraph
-API of the trends) and that the tests run on the pinned versions;
+code relies on inside the libraries (the pyserial port API the RTU master
+uses, the pyqtgraph API of the trends), that the tests run on the pinned
+versions and that pymodbus — replaced by `core/modbus_client` — never comes
+back;
 `tools/build_installer.py` refuses to build in an environment that differs
 from the pins.
 
