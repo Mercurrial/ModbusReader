@@ -8,7 +8,7 @@
 первый выпуск ноября. Предыдущие версии нумеровались 1.x и 2.0–2.2; новые
 номера всегда больше старых, поэтому обновление сравнивает их корректно.
 
-## [Не выпущено]
+## [26.10.2] — 2026-10-21
 
 ### Добавлено
 - Сборки для **Linux** (`ModbusReader-x86_64.AppImage`) и **macOS** на Apple
@@ -279,7 +279,8 @@
 Технические подробности по версиям — в
 [docs/engineering-notes.md](docs/engineering-notes.md).
 
-[Не выпущено]: https://github.com/Mercurrial/ModbusReader/compare/v26.10.1...HEAD
+[Не выпущено]: https://github.com/Mercurrial/ModbusReader/compare/v26.10.2...HEAD
+[26.10.2]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.2
 [26.10.1]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.1
 [26.10.0]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.0
 [2.2.0]: https://github.com/Mercurrial/ModbusReader/tree/f9847b5a5020c4fa9509d82b6c2b4670c481b8f0
