@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ModbusReader — free Modbus RTU master, slave simulator and sniffer</title>
+<meta name="description" content="Free, open-source Windows tool for Modbus RTU over RS-485: read and write registers, live trends, HMI dashboard, bus scanner, sniffer, Python macros and a Modbus slave simulator. A free alternative to Modbus Poll.">
+<meta name="keywords" content="modbus, modbus rtu, modbus master, modbus slave simulator, modbus poll alternative, rs485, modbus sniffer, modbus scanner, modbus tester">
+<link rel="canonical" href="https://mercurrial.github.io/ModbusReader/en/">
+<link rel="alternate" hreflang="ru" href="https://mercurrial.github.io/ModbusReader/">
+<link rel="alternate" hreflang="en" href="https://mercurrial.github.io/ModbusReader/en/">
+<link rel="alternate" hreflang="x-default" href="https://mercurrial.github.io/ModbusReader/">
+<link rel="icon" type="image/png" href="../images/icon.png">
+<meta name="theme-color" content="#111114">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ModbusReader">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="ModbusReader — free Modbus RTU tool for Windows">
+<meta property="og:description" content="Commission and monitor Modbus RTU devices over RS-485: register map, live trends, dashboard, sniffer, slave simulator. Free and open source.">
+<meta property="og:url" content="https://mercurrial.github.io/ModbusReader/en/">
+<meta property="og:image" content="https://mercurrial.github.io/ModbusReader/images/social.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../site.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ModbusReader",
+  "alternateName": "Modbus Reader",
+  "description": "Free, open-source tool to commission and monitor Modbus RTU (RS-485) devices: register map, live trends, dashboard, bus scanner, sniffer, Python macros and a Modbus slave simulator.",
+  "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "Industrial automation, Modbus RTU master and slave",
+  "operatingSystem": "Windows 10, Windows 11",
+  "softwareVersion": "26.10.1",
+  "datePublished": "2026-10-20",
+  "inLanguage": ["en", "ru"],
+  "isAccessibleForFree": true,
+  "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+  "url": "https://mercurrial.github.io/ModbusReader/en/",
+  "downloadUrl": "https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe",
+  "installUrl": "https://github.com/Mercurrial/ModbusReader/releases/latest",
+  "codeRepository": "https://github.com/Mercurrial/ModbusReader",
+  "image": "https://mercurrial.github.io/ModbusReader/images/social.png",
+  "screenshot": "https://mercurrial.github.io/ModbusReader/images/main.png",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Person", "name": "Mercurrial", "url": "https://github.com/Mercurrial" }
+}
+</script>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <img src="../images/icon.png" alt="" width="32" height="32">
+    <b>ModbusReader</b>
+    <nav>
+      <a class="opt" href="#features">Features</a>
+      <a class="opt" href="#faq">FAQ</a>
+      <a href="https://github.com/Mercurrial/ModbusReader">GitHub</a>
+      <a href="../" hreflang="ru" lang="ru">Русский</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+  <div class="hero">
+    <h1>A free Modbus RTU tool for&nbsp;Windows</h1>
+    <p class="lead">ModbusReader commissions and monitors Modbus RTU devices over RS-485:
+      a register map with names and units, live trends, an HMI-style dashboard, a bus scanner,
+      a sniffer, Python macros and a Modbus slave simulator.</p>
+    <div class="btns">
+      <a class="btn primary" href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe">Download for Windows</a>
+      <a class="btn" href="https://github.com/Mercurrial/ModbusReader">Source on GitHub</a>
+    </div>
+    <p class="note">Windows 10 / 11 · free · open source (GPL-3.0) · English and Russian UI · auto-update</p>
+    <img class="shot" src="../images/main.png" width="2880" height="1720"
+         alt="ModbusReader main window: Modbus register map, live trends and a decoded traffic log">
+  </div>
+
+  <section id="features">
+    <h2>Features</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Modbus RTU master</h3>
+        <p>Holding and input registers, coils and discrete inputs (FC 01–06, 15, 16).
+          24 data types — UINT16, INT32, FLOAT, DOUBLE, BCD, strings, bit words — with
+          per-type byte order, scaling and enumerations.</p>
+      </div>
+      <div class="card">
+        <h3>Modbus slave simulator</h3>
+        <p>The app answers a master as a device would, from the open register map —
+          test a SCADA, HMI or PLC without the real hardware.</p>
+      </div>
+      <div class="card">
+        <h3>RS-485 sniffer</h3>
+        <p>Listen to a live line through a second adapter without sending a byte:
+          who asked whom, what came back, where the CRC broke.</p>
+      </div>
+      <div class="card">
+        <h3>Bus scanner</h3>
+        <p>Find devices on the line by address, or live registers on one device.</p>
+      </div>
+      <div class="card">
+        <h3>Console with frame decoding</h3>
+        <p>A traffic log that decodes every frame, and raw frame sending with automatic CRC16.</p>
+      </div>
+      <div class="card">
+        <h3>Logger and macros</h3>
+        <p>Hours-long CSV logging that opens in Excel; Python scripts that read and write
+          registers by name and build result tables.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Trends and dashboard</h2>
+    <div class="grid">
+      <div class="card">
+        <img src="../images/trend.png" alt="Live trend of a Modbus register" loading="lazy">
+        <h3>Live trends</h3>
+        <p>Any register on a chart in one click, with min / max / average and windows from 10 s to 10 min.</p>
+      </div>
+      <div class="card">
+        <img src="../images/dashboard.png" alt="Dashboard built from gauges, lamps and buttons" loading="lazy">
+        <h3>Dashboard with 14 widget kinds</h3>
+        <p>Gauges, lamps, buttons, switches, sliders and timers; wires between them give simple automation with no code.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <ul class="plain">
+      <li><a href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe">ModbusReader-Setup.exe</a> — installer (all users or just you);</li>
+      <li>portable <code>ModbusReader.exe</code> — on the <a href="https://github.com/Mercurrial/ModbusReader/releases/latest">Releases</a> page;</li>
+      <li>you need a USB-to-RS-485 (or RS-232) adapter with its vendor driver; no Python required.</li>
+    </ul>
+    <p>The first launch opens a demo project, so you can try the app without a device.
+      If Windows SmartScreen warns you, click “More info” → “Run anyway”: the app is not
+      signed with a paid certificate yet.</p>
+  </section>
+
+  <section id="faq">
+    <h2>FAQ</h2>
+    <details open>
+      <summary>Is there a free alternative to Modbus Poll and Modbus Slave?</summary>
+      <p>Yes — ModbusReader is both a master and a slave simulator, free and open source under GPL-3.0.</p>
+    </details>
+    <details>
+      <summary>How do I test a SCADA or PLC without a real device?</summary>
+      <p>Turn on the slave simulator: the app answers the master from the open register map.
+        On one PC, a pair of virtual COM ports (for example com0com) is enough.</p>
+    </details>
+    <details>
+      <summary>Does it run on Linux or macOS?</summary>
+      <p>Ready-made builds are for Windows. On Linux and macOS it runs from source (Python 3.10+);
+        see the <a href="https://github.com/Mercurrial/ModbusReader#для-разработчиков">README</a>.</p>
+    </details>
+  </section>
+
+  <section>
+    <h2>Help the project</h2>
+    <p>Bug reports, ideas and device register maps are welcome in
+      <a href="https://github.com/Mercurrial/ModbusReader/issues">Issues</a>.
+      A star on <a href="https://github.com/Mercurrial/ModbusReader">GitHub</a> helps others find it,
+      and you can support development at <a href="https://dalink.to/mercurrial">dalink.to/mercurrial</a>.</p>
+  </section>
+
+</div>
+</main>
+
+<footer>
+  <div class="wrap">ModbusReader © 2026 Mercurrial · free software under the
+    <a href="https://github.com/Mercurrial/ModbusReader/blob/main/LICENSE">GNU GPL v3</a> ·
+    <a href="../" hreflang="ru" lang="ru">Русская версия</a></div>
+</footer>
+
+</body>
+</html>
