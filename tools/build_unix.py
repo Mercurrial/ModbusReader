@@ -46,6 +46,9 @@ exec "$HERE/usr/bin/ModbusReader/ModbusReader" "$@"
 
 
 def _pyinstaller():
+    # The analysis imports the program's modules; without a screen Qt's
+    # default platform would abort.
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     run([sys.executable, "-m", "PyInstaller", "--noconfirm", SPEC])
 
 

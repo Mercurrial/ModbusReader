@@ -12,7 +12,11 @@ from app.version import APP_VERSION  # noqa: E402
 
 hiddenimports = ['openpyxl', 'PyQt6.QtSvg']
 hiddenimports += collect_submodules('pymodbus')
-hiddenimports += collect_submodules('pyqtgraph')
+# Not pyqtgraph.examples: unused, and importing them (which this collection
+# does) opens Qt windows — on a Linux build machine without a screen that
+# aborts the whole build.
+hiddenimports += collect_submodules(
+    'pyqtgraph', filter=lambda name: not name.startswith('pyqtgraph.examples'))
 
 
 a = Analysis(
