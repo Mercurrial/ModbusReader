@@ -14,12 +14,12 @@
 # For tests and builds: requirements-dev.txt
 
 PyQt6==6.11.0
-PyQt6-Qt6==6.11.0
-PyQt6-sip==13.11.1
+PyQt6-Qt6==6.11.2
+PyQt6-sip==13.13.0
 pyqtgraph==0.14.0
 colorama==0.4.6          # pyqtgraph's
-numpy==2.4.5
-pymodbus==3.13.0
+numpy==2.5.4
+pymodbus==3.16.1
 pyserial==3.5
 openpyxl==3.1.5          # XLSX: map import + macro result export
 et-xmlfile==2.0.0        # openpyxl's
