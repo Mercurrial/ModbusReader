@@ -1,0 +1,138 @@
+---
+seo_title: Установка ModbusReader на Windows, Linux и macOS
+description: Как скачать и установить ModbusReader — установщик и портативная версия для Windows 10/11, AppImage для Linux, сборка для macOS. Что делать с предупреждением SmartScreen, где лежат настройки, как работает автообновление.
+---
+
+# Установка
+
+ModbusReader бесплатен и не требует Python или других программ: всё нужное
+уже внутри. Для работы с прибором нужен USB-адаптер RS-485 (или RS-232) —
+о нём в разделе [Подключение к прибору](connect.md).
+
+## Windows
+
+[:material-download: Скачать ModbusReader-Setup.exe](https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe){ .md-button .md-button--primary }
+
+Ссылка всегда ведёт на последнюю версию. Нужна 64-битная Windows 10
+(версия 1809 и новее) или Windows 11.
+
+Есть два варианта программы — выберите любой:
+
+| | Установщик | Портативная версия |
+|---|:---:|:---:|
+| Файл | `ModbusReader-Setup.exe` | `ModbusReader.exe` |
+| Куда ставится | `C:\Program Files` (для всех) или только для вас | любая папка, флешка |
+| Права администратора | для всех пользователей — да, для себя — нет | не нужны |
+| Ярлыки в «Пуске» и на рабочем столе | ✓ | — |
+| `.mbproj` открывается двойным щелчком | ✓ | — |
+| Удаление | «Параметры → Приложения» | удалить файл |
+| Где настройки | `%APPDATA%\ModbusReader` | рядом с exe |
+| Автообновление | ✓ | ✓ |
+
+Портативная версия и версия с консолью для диагностики
+(`ModbusReader_debug.exe`) лежат на странице
+[Releases](https://github.com/Mercurrial/ModbusReader/releases/latest).
+
+### Предупреждение «Система Windows защитила ваш компьютер» { #smartscreen }
+
+Программа пока не подписана платным сертификатом, поэтому SmartScreen при
+первом запуске показывает синее окно. Нажмите **«Подробнее»** →
+**«Выполнить в любом случае»**. Это нужно один раз: обновления программа
+скачивает и проверяет сама.
+
+!!! tip "Проверить, что файл не подменён"
+    Страница [Releases](https://github.com/Mercurrial/ModbusReader/releases/latest)
+    показывает SHA-256 каждого файла. Сравнить можно командой
+    `certutil -hashfile ModbusReader-Setup.exe SHA256`.
+
+## Linux
+
+Сборка — один файл `ModbusReader-x86_64.AppImage` на странице
+[Releases](https://github.com/Mercurrial/ModbusReader/releases/latest).
+Нужна 64-битная система с glibc 2.35 и новее: Ubuntu 22.04+, Debian 12+,
+Fedora 36+ и аналоги.
+
+```bash
+chmod +x ModbusReader-x86_64.AppImage
+./ModbusReader-x86_64.AppImage
+```
+
+Чтобы программа видела последовательные порты (`/dev/ttyUSB0`,
+`/dev/ttyACM0`), пользователь должен состоять в группе `dialout`. Это делается
+один раз, затем нужно выйти из системы и войти снова:
+
+```bash
+sudo usermod -aG dialout $USER
+```
+
+Если при запуске Qt пишет про платформу `xcb`, не хватает пакета
+`libxcb-cursor0` (Debian, Ubuntu) или `xcb-util-cursor` (Fedora, Arch).
+Настройки хранятся в `~/.config/ModbusReader`.
+
+## macOS
+
+Сборка `ModbusReader-macOS-arm64.zip` — для компьютеров на Apple Silicon
+(M1 и новее), macOS 12+. Распакуйте архив и перенесите `ModbusReader.app` в
+«Программы».
+
+Сборка не заверена Apple, поэтому первый запуск macOS заблокирует. Откройте
+**«Системные настройки» → «Конфиденциальность и безопасность»** и нажмите
+**«Всё равно открыть»**. Если macOS пишет, что программа «повреждена»,
+снимите карантин:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/ModbusReader.app
+```
+
+Порты адаптеров выглядят как `/dev/cu.usbserial-…`. Настройки хранятся в
+`~/Library/Application Support/ModbusReader`.
+
+## Запуск из исходного кода
+
+Нужен Python 3.10 или новее.
+
+=== "Windows"
+
+    ```bash
+    git clone https://github.com/Mercurrial/ModbusReader.git
+    cd ModbusReader
+    python -m venv .venv
+    .venv\Scripts\pip install -r requirements.txt
+    .venv\Scripts\python main.py
+    ```
+
+=== "Linux / macOS"
+
+    ```bash
+    git clone https://github.com/Mercurrial/ModbusReader.git
+    cd ModbusReader
+    python3 -m venv .venv
+    .venv/bin/pip install -r requirements.txt
+    .venv/bin/python main.py
+    ```
+
+## Обновления { #updates }
+
+Установленная программа при запуске и раз в несколько часов проверяет, нет
+ли новой версии. Если есть — показывает, что нового, и ставит её только после
+нажатия **«Обновить»**: скачивает, сверяет контрольную сумму SHA-256,
+закрывается и открывается уже новой. Опрос прибора и запись логгера при
+этом останавливаются.
+
+На Linux и macOS программа сообщает о новой версии и открывает страницу
+выпуска — файл нужно скачать вручную. Автоматическую проверку можно
+отключить: **Настройки → Общие → Проверять обновления автоматически**.
+
+![Окно обновления: номер версии, что нового и кнопка «Обновить»](images/update.png){ width="520" }
+
+## Какие файлы пишет программа
+
+- `app_settings.json` — настройки (путь — в таблице выше). Запись атомарная,
+  с резервной копией `.bak` и восстановлением при повреждении.
+- `modbusreader_errors.log` — там же: трассировки непредвиденных ошибок.
+  Приложите его к сообщению об ошибке.
+- Скачанные обновления — `%LOCALAPPDATA%\ModbusReader\updates`, удаляются
+  после установки.
+- Копия демо-проекта — `Документы\ModbusReader`.
+
+Дальше — [быстрый старт](quickstart.md).

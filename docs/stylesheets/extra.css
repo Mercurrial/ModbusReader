@@ -1,0 +1,85 @@
+/* The project site on top of Material: the app's rose accent, and the home
+   page hero. Colours mirror the README badges (#e8577f). */
+
+:root,
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #c93a64;
+  --md-primary-fg-color--light: #e8577f;
+  --md-primary-fg-color--dark: #a92c51;
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: #c93a64;
+  --md-typeset-a-color: #b8325a;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #1d2027;
+  --md-primary-fg-color--light: #2a2e37;
+  --md-primary-fg-color--dark: #14161b;
+  --md-primary-bg-color: #eef0f3;
+  --md-accent-fg-color: #ff7aa0;
+  --md-typeset-a-color: #ff8fae;
+  --md-default-bg-color: #15171c;
+}
+
+/* Buttons follow the accent, not the (dark, in slate) header colour —
+   otherwise the outlined ones vanish on the dark page. */
+.md-typeset .md-button {
+  color: var(--md-accent-fg-color);
+  border-color: var(--md-accent-fg-color);
+}
+.md-typeset .md-button--primary,
+.md-typeset .md-button:hover,
+.md-typeset .md-button:focus {
+  background-color: var(--md-accent-fg-color);
+  border-color: var(--md-accent-fg-color);
+  color: #ffffff;
+}
+[data-md-color-scheme="slate"] .md-typeset .md-button--primary,
+[data-md-color-scheme="slate"] .md-typeset .md-button:hover,
+[data-md-color-scheme="slate"] .md-typeset .md-button:focus {
+  background-color: #e8577f;
+  border-color: #e8577f;
+}
+
+/* Screenshots: the README pictures have their own rounded corners and a
+   transparent outside — no extra frame here. */
+.md-typeset img { border-radius: 8px; }
+.md-typeset figure { margin: 1.4em auto; }
+.md-typeset figcaption { max-width: 46rem; }
+
+/* Keys like Ctrl+S look like keys. */
+.md-typeset kbd { font-size: 0.78em; }
+
+/* ── home page ─────────────────────────────────────────────────────── */
+.mr-hero {
+  text-align: center;
+  padding: 1.2rem 0 0.4rem;
+}
+.mr-hero h1 {
+  font-size: 2.3rem;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 0.8rem;
+  color: var(--md-default-fg-color);
+}
+.mr-hero .mr-lead {
+  font-size: 1.05rem;
+  color: var(--md-default-fg-color--light);
+  max-width: 44rem;
+  margin: 0 auto 1.4rem;
+}
+.mr-hero .md-button { margin: 0.25rem; }
+.mr-hero .mr-note {
+  font-size: 0.75rem;
+  color: var(--md-default-fg-color--light);
+  margin-top: 0.8rem;
+}
+.mr-shot { margin-top: 1.6rem; }
+
+@media screen and (max-width: 44.9375em) {
+  .mr-hero h1 { font-size: 1.7rem; }
+  .mr-hero .mr-lead { font-size: 0.95rem; }
+}
+
+/* Home and section pages use grid cards; give their images room. */
+.md-typeset .grid.cards img { margin-bottom: 0.4rem; }

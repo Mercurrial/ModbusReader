@@ -1,0 +1,61 @@
+{#- The project site's additions to the Material theme: link previews
+    (Open Graph) on every page, and on the home page the schema.org data
+    that tells search engines this is a free Windows application. -#}
+{% extends "base.html" %}
+
+{#- The search-result title: the page's own title, plus the name only when
+    the title does not already carry it ("ModbusReader — … - ModbusReader"). -#}
+{% block htmltitle %}
+  {%- set t = page.meta.seo_title if page and page.meta and page.meta.seo_title else (page.title | striptags if page and page.title else "") -%}
+  {%- if not t %}
+  <title>{{ config.site_name }}</title>
+  {%- elif "ModbusReader" in t %}
+  <title>{{ t }}</title>
+  {%- else %}
+  <title>{{ t }} — ModbusReader</title>
+  {%- endif %}
+{% endblock %}
+
+{% block extrahead %}
+  {%- set en = (page and page.url.startswith("en/")) -%}
+  {%- set title = page.meta.seo_title if page and page.meta and page.meta.seo_title else (page.title if page and page.title else config.site_name) -%}
+  {%- set desc = page.meta.description if page and page.meta and page.meta.description else config.site_description -%}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ModbusReader">
+  <meta property="og:locale" content="{{ 'en_US' if en else 'ru_RU' }}">
+  <meta property="og:title" content="{{ title | striptags }}">
+  <meta property="og:description" content="{{ desc }}">
+  {%- if page and page.canonical_url %}
+  <meta property="og:url" content="{{ page.canonical_url }}">
+  {%- endif %}
+  <meta property="og:image" content="{{ config.site_url }}images/{{ 'en/' if en else '' }}social.png">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  <meta name="twitter:card" content="summary_large_image">
+  {%- if page and page.is_homepage or (page and page.url in ("", "en/")) %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "ModbusReader",
+    "alternateName": "Modbus Reader",
+    "description": {{ desc | tojson }},
+    "applicationCategory": "DeveloperApplication",
+    "applicationSubCategory": "Modbus RTU master, slave simulator and bus sniffer",
+    "operatingSystem": "Windows 10, Windows 11, Linux, macOS",
+    "softwareVersion": {{ config.extra.app_version | tojson }},
+    "datePublished": {{ config.extra.release_date | tojson }},
+    "inLanguage": ["ru", "en"],
+    "isAccessibleForFree": true,
+    "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+    "url": {{ page.canonical_url | tojson }},
+    "downloadUrl": "https://github.com/Mercurrial/ModbusReader/releases/latest",
+    "codeRepository": "https://github.com/Mercurrial/ModbusReader",
+    "image": "{{ config.site_url }}images/social.png",
+    "screenshot": "{{ config.site_url }}images/main.png",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Person", "name": "Mercurrial", "url": "https://github.com/Mercurrial" }
+  }
+  </script>
+  {%- endif %}
+{% endblock %}

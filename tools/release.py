@@ -15,8 +15,8 @@ upcoming section "## [Не выпущено]" becomes "## [26.10.1] — 2026-10-
 (re-running for the same version refreshes the date), a link reference
 "[26.10.1]: …/releases/tag/v26.10.1" is added under "[Не выпущено]", which
 then compares against the new tag. A README «Версия **X**» line, if
-present, is kept in step, and so are the version and date on the project
-site (docs/index.html, docs/en/index.html, docs/sitemap.xml).
+present, is kept in step. The project site needs nothing: it reads the
+version from app/version.py when it is built (tools/mkdocs_hooks.py).
 
 Publishing: every version gets its own tag vYY.MM.N, which stays in the
 history — but there is only ONE GitHub release. A new version replaces that
@@ -107,19 +107,6 @@ def apply(version: str, date: str, root: str = ROOT):
     new = re.sub(r"Версия \*\*[^*]+\*\*", f"Версия **{version}**", s, count=1)
     if new != s:
         _write(p, new)
-
-    # The project site (GitHub Pages, docs/) tells search engines the version
-    # and date in its schema.org block; the sitemap's lastmod follows.
-    for page in (("docs", "index.html"), ("docs", "en", "index.html"), ("docs", "sitemap.xml")):
-        p = os.path.join(root, *page)
-        if not os.path.exists(p):
-            continue
-        s = open(p, encoding="utf-8").read()
-        new = re.sub(r'"softwareVersion": "[^"]*"', f'"softwareVersion": "{version}"', s)
-        new = re.sub(r'"datePublished": "[^"]*"', f'"datePublished": "{date}"', new)
-        new = re.sub(r"<lastmod>[^<]*</lastmod>", f"<lastmod>{date}</lastmod>", new)
-        if new != s:
-            _write(p, new)
 
 
 def main():

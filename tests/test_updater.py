@@ -699,27 +699,26 @@ def test_release_tool_writes_version_and_changelog(tmp_path):
     assert "## [26.10.1] — 2026-10-22" in c and c.count("[26.10.1]:") == 1
 
 
-def test_release_tool_keeps_the_project_site_in_step(tmp_path):
-    """The site's schema.org version/date and the sitemap's lastmod follow a
-    release — a search snippet must not advertise an old version."""
-    rel = _release_tool("release_tool4")
+def test_project_site_takes_the_version_from_the_app(tmp_path):
+    """The site states the version search engines show (schema.org); it is
+    read from app/version.py at build time, so a release cannot leave the
+    site advertising an old one — and reading it must not import Qt."""
+    import importlib.util
+    import os
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "tools", "mkdocs_hooks.py")
+    spec = importlib.util.spec_from_file_location("mkdocs_hooks", path)
+    hooks = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hooks)
     (tmp_path / "app").mkdir()
     (tmp_path / "app" / "version.py").write_text(
-        'APP_VERSION = "26.10.1"\nRELEASE_DATE = "2026-10-20"\n', encoding="utf-8")
-    (tmp_path / "README.md").write_text("# x\n", encoding="utf-8")
-    (tmp_path / "CHANGELOG.md").write_text("## [Не выпущено]\n", encoding="utf-8")
-    (tmp_path / "docs" / "en").mkdir(parents=True)
-    page = '{"softwareVersion": "26.10.1", "datePublished": "2026-10-20"}'
-    (tmp_path / "docs" / "index.html").write_text(page, encoding="utf-8")
-    (tmp_path / "docs" / "en" / "index.html").write_text(page, encoding="utf-8")
-    (tmp_path / "docs" / "sitemap.xml").write_text(
-        "<lastmod>2026-10-20</lastmod><lastmod>2026-10-20</lastmod>", encoding="utf-8")
-    rel.apply("26.11.0", "2026-11-03", root=str(tmp_path))
-    for p in ("index.html", "en/index.html"):
-        s = (tmp_path / "docs" / p).read_text(encoding="utf-8")
-        assert '"softwareVersion": "26.11.0"' in s and '"datePublished": "2026-11-03"' in s
-    assert (tmp_path / "docs" / "sitemap.xml").read_text(encoding="utf-8").count(
-        "<lastmod>2026-11-03</lastmod>") == 2
+        '"""doc"""\nAPP_VERSION = "26.11.0"\nRELEASE_DATE = "2026-11-03"\n',
+        encoding="utf-8")
+    assert hooks.read_version(str(tmp_path)) == {
+        "app_version": "26.11.0", "release_date": "2026-11-03"}
+    from app.version import APP_VERSION, RELEASE_DATE
+    assert hooks.read_version() == {"app_version": APP_VERSION,
+                                    "release_date": RELEASE_DATE}
 
 
 def test_release_tool_moves_the_one_release_to_the_new_tag():

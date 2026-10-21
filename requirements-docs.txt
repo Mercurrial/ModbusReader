@@ -1,0 +1,7 @@
+# The project site (mkdocs.yml → https://mercurrial.github.io/ModbusReader/).
+# Built by .github/workflows/docs.yml; locally:
+#     pip install -r requirements-docs.txt && mkdocs serve
+# Pinned like the app's libraries; Dependabot proposes updates.
+mkdocs==1.6.1            # not 2.x: it drops the plugin system this site uses
+mkdocs-material==9.7.7
+mkdocs-static-i18n==1.3.1

@@ -12,6 +12,8 @@ env/
 # ── build output (PyInstaller) ───────────────────────────────────
 build/
 dist/
+# mkdocs build output (the project site, mkdocs.yml)
+site/
 
 # ── per-machine state written by the app ─────────────────────────
 app_settings.json
