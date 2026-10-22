@@ -53,7 +53,8 @@ Every request and answer is one frame:
 - **Function code** — what to do: read holding registers (03), write one
   register (06) and so on. The list is in [Functions and errors](functions.md).
 - **CRC16** — the checksum, low byte first. A device silently drops a frame
-  with a bad CRC.
+  with a bad CRC. Compute the CRC of any frame with the
+  [CRC calculator](../tools/crc.md).
 
 Frames are separated by **at least 3.5 characters of silence** on the line —
 that is how a receiver knows a frame has ended. At 9600 baud that is about

@@ -81,5 +81,41 @@
   .mr-hero .mr-lead { font-size: 0.95rem; }
 }
 
+/* ── online tools (docs/tools, javascripts/tools.js) ─────────────────── */
+.md-typeset .mbt {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  padding: 0.9rem 1rem 0.4rem;
+  margin: 1.2em 0;
+}
+.md-typeset .mbt label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--md-default-fg-color--light);
+  margin: 0.4rem 0 0.25rem;
+}
+.md-typeset .mbt-input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-family: var(--md-code-font-family);
+  font-size: 0.8rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 6px;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+}
+.md-typeset .mbt-input:focus {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 1px;
+}
+.md-typeset .mbt-row { display: flex; gap: 0.5rem; }
+.md-typeset .mbt-row .mbt-input { flex: 1; min-width: 0; }
+.md-typeset .mbt-row .mbt-narrow { flex: 0 0 9.5rem; }
+.md-typeset .mbt-out table { margin: 0.6em 0 0.8em; font-size: 0.75rem; }
+.md-typeset .mbt-out p { color: var(--md-default-fg-color--light); }
+
 /* Home and section pages use grid cards; give their images room. */
 .md-typeset .grid.cards img { margin-bottom: 0.4rem; }

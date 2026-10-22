@@ -52,6 +52,8 @@ A six-digit form also exists: `400001` = `40001`.
     need address 99. Easy to check: read the neighbouring addresses and look
     for a value you know (a serial number, a setpoint you set yourself).
 
+Convert an address from one form to another — [addresses 40001 ↔ 0x0000](../tools/address.md).
+
 ### Decimal or hexadecimal
 
 `0x0010`, `10h`, `$10` and `16` are the same address. If the datasheet table

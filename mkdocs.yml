@@ -81,6 +81,9 @@ theme:
 extra_css:
   - stylesheets/extra.css
 
+extra_javascript:
+  - javascripts/tools.js
+
 extra:
   social:
     - icon: fontawesome/brands/github
@@ -134,6 +137,7 @@ plugins:
             Основы Modbus: Modbus basics
             Руководство: User guide
             Примеры: Examples
+            Онлайн-инструменты: Online tools
             Помощь: Help
 
 markdown_extensions:
@@ -194,6 +198,11 @@ nav:
       - examples/datasheet-import.md
       - examples/dashboard-automation.md
       - examples/line-debugging.md
+  - Онлайн-инструменты:
+      - tools/index.md
+      - tools/crc.md
+      - tools/converter.md
+      - tools/address.md
   - Помощь:
       - troubleshooting.md
       - contributing.md

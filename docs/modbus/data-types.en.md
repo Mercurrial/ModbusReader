@@ -91,6 +91,9 @@ the link settings.
    the table updates on the next poll.
 3. The right order gives a plausible number; the other three give garbage.
 
+Faster: paste the raw registers into the [online converter](../tools/converter.md)
+— it shows the value in all four orders at once.
+
 The raw register words are visible in the transaction log at the bottom of
 the window: click the green dot next to a register to see that register's
 frames in the log.
