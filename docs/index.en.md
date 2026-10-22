@@ -14,12 +14,12 @@ hide:
 over RS-485: a register map with names and units, live trends, a dashboard,
 a bus scanner, a sniffer, macros and a device emulator (slave).</p>
 
-[:material-download: Download for Windows](https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe){ .md-button .md-button--primary }
+[:material-download: Download for Windows](https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe){ #mr-download .md-button .md-button--primary data-linux-href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-x86_64.AppImage" data-linux-label="Download for Linux" data-mac-href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-macOS-arm64.zip" data-mac-label="Download for macOS" data-mobile-href="install/" data-mobile-label="How to install on a computer" }
 [:material-rocket-launch: Quick start](quickstart.md){ .md-button }
 [:fontawesome-brands-github: GitHub](https://github.com/Mercurrial/ModbusReader){ .md-button }
 
-<p class="mr-note">Windows 10 / 11 · Linux · macOS · free · open source (GPL-3.0) ·
-English and Russian UI</p>
+<p class="mr-note">Other systems: <a href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe">Windows 10/11</a> · <a href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-x86_64.AppImage">Linux (AppImage)</a> · <a href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-macOS-arm64.zip">macOS (Apple Silicon)</a> · <a href="install/">how to install</a><br>
+free · open source (GPL-3.0) · English and Russian UI</p>
 
 <div class="mr-shot" markdown>
 ![ModbusReader main window: Modbus register map, live trends and a decoded traffic log](images/en/main.png)
@@ -147,6 +147,24 @@ English and Russian UI</p>
 
 </div>
 
+## Online tools
+
+<div class="grid cards" markdown>
+
+-   :material-shield-check:{ .lg .middle } [**CRC calculator**](tools/crc.md)
+
+    CRC16 Modbus and a decoding of any frame.
+
+-   :material-swap-horizontal:{ .lg .middle } [**FLOAT ↔ registers**](tools/converter.md)
+
+    Values in every byte order: ABCD, CDAB, BADC, DCBA.
+
+-   :material-map-marker:{ .lg .middle } [**Addresses 40001 ↔ 0x0000**](tools/address.md)
+
+    Modicon notation and the zero-based protocol address.
+
+</div>
+
 ## Why ModbusReader
 
 - **Free with no limits** — no trial period, no register or runtime limit.
@@ -162,3 +180,44 @@ The current version is **{{ app_version }}**. Release notes are in the
 [CHANGELOG](https://github.com/Mercurrial/ModbusReader/blob/main/CHANGELOG.md).
 Questions go to [Discussions](https://github.com/Mercurrial/ModbusReader/discussions),
 bugs to [Issues](https://github.com/Mercurrial/ModbusReader/issues).
+
+## FAQ
+
+??? question "Is it really free?"
+    Yes. No trial period, no limit on registers or runtime, no sign-up and no
+    ads. The code is open under GPL-3.0 — you may use the app at work too.
+
+??? question "How does ModbusReader differ from Modbus Poll and Modbus Slave?"
+    Master, device emulator and sniffer in one free app; a register map
+    holding names, units and enumerations; a dashboard and Python macros.
+    What it lacks is Modbus TCP and ASCII. A detailed comparison:
+    [a free Modbus Poll alternative](compare.md).
+
+??? question "Does it support Modbus TCP?"
+    Not yet: ModbusReader works with **Modbus RTU** over a serial port —
+    RS-485 or RS-232 through a USB adapter.
+
+??? question "Which adapter do I need?"
+    Any USB-to-RS-485 adapter the system sees as a COM port: FTDI, CP210x or
+    CH340 based. See [Connect a device](connect.md).
+
+??? question "Can I try it without a device?"
+    Yes. The demo project opens on first launch, and a second copy of the app
+    as the [slave emulator](guide/slave.md) on a pair of virtual COM ports
+    brings it to life. See [Testing a SCADA with the emulator](examples/test-scada.md).
+
+??? question "Which systems does it run on?"
+    Windows 10 (1809+) and 11 — installer and portable build; Linux —
+    AppImage (Ubuntu 22.04+ and the like); macOS 12+ on Apple Silicon.
+    See [Install](install.md).
+
+??? question "Why does a FLOAT show a huge or negative number?"
+    Wrong byte order: vendors lay out 32-bit values differently. Check the
+    registers in the [converter](tools/converter.md) and pick the order in
+    **Settings → Connection → Codecs**. See
+    [Data types and byte order](modbus/data-types.md).
+
+??? question "Where do I get a device register map?"
+    From the device datasheet or manual — the register table imports from
+    Excel or CSV in a couple of minutes. See
+    [A map from a datasheet](examples/datasheet-import.md).

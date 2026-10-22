@@ -82,6 +82,7 @@ extra_css:
   - stylesheets/extra.css
 
 extra_javascript:
+  - javascripts/download.js
   - javascripts/tools.js
 
 extra:
