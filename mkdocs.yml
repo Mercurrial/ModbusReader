@@ -171,6 +171,7 @@ nav:
       - install.md
       - quickstart.md
       - connect.md
+      - compare.md
   - Основы Modbus:
       - modbus/index.md
       - modbus/addressing.md
