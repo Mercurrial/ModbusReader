@@ -24,9 +24,16 @@ Handing over: a running exe cannot overwrite itself.
   portable   the DOWNLOADED exe is started as ``--finish-update``: it waits
              for this copy's processes to exit, copies itself over the old
              exe and starts it (finish_update below — runs before any Qt).
-  installed  the downloaded installer is started with /WAITPID=<pid>: its
-             own [Code] waits for the app to exit, installs silently and its
-             [Run] entry starts the app again.
+  installed  (since 26.10.3) every version has its own folder beside a
+             launcher (installer/ModbusReader.iss). The new installer runs
+             invisibly WHILE THIS COPY KEEPS WORKING — nothing it writes is
+             in use — and puts the next version beside this one; "restart"
+             then only starts the launcher, which picks the newest folder.
+             The next start removes the folders of older versions.
+             (A copy installed the old way — ≤ 26.10.2, the program in the
+             installation folder itself — hands over as before: the
+             installer with /WAITPID=<pid> waits for the app to exit,
+             installs and starts it again.)
 No script interpreter on the way: a hidden PowerShell / cmd that sleeps,
 deletes and relaunches is exactly what antivirus heuristics block (it was
 refused intermittently on the development machine), and a .cmd file is read
@@ -36,6 +43,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -44,6 +52,9 @@ import urllib.request
 from dataclasses import dataclass
 
 from app.version import APP_VERSION, UPDATE_REPO
+# Shared with the installer window, which must not pull the network in:
+from core.procs import (parse_version, posix_alive as _posix_alive,  # noqa: F401
+                        wait_for_exit as _wait_for_exit)
 
 API_LATEST = "https://api.github.com/repos/{repo}/releases/latest"
 PORTABLE_ASSET = "ModbusReader.exe"
@@ -77,14 +88,6 @@ class Release:
 
 
 # ── versions ───────────────────────────────────────────────────────
-def parse_version(text) -> tuple | None:
-    """'v2.3.0' / '2.3' / 'ModbusReader 2.3.1' → (2, 3, 0) …; None if no number."""
-    m = re.search(r"(\d+)(?:[._](\d+))?(?:[._](\d+))?", str(text or ""))
-    if not m:
-        return None
-    return tuple(int(g or 0) for g in m.groups())
-
-
 def is_newer(remote, local=APP_VERSION) -> bool:
     r, cur = parse_version(remote), parse_version(local)
     return r is not None and cur is not None and r > cur
@@ -105,6 +108,145 @@ def install_kind() -> str:
     from app.settings_manager import is_installed_dir
     return ("installed" if is_installed_dir(os.path.dirname(sys.executable))
             else "portable")
+
+
+# ── side-by-side versions (installed copies since 26.10.3) ─────────
+VERSION_PREFIX = "app-"
+MARKER = ".installed"                  # written into a version folder last
+LAUNCHER = "ModbusReader.exe"
+
+
+def install_root() -> str:
+    """The installation folder of this copy if it runs from a version folder
+    (…/ModbusReader/app-26.10.3/), else ""."""
+    if not getattr(sys, "frozen", False) or sys.platform != "win32":
+        return ""
+    here = os.path.dirname(os.path.abspath(sys.executable))
+    if not os.path.basename(here).lower().startswith(VERSION_PREFIX):
+        return ""
+    from app.settings_manager import install_root as _root
+    return _root(here)
+
+
+def version_dirs(root: str) -> list:
+    """[(version tuple, folder)] of the versions in *root* whose
+    installation finished, oldest first."""
+    out = []
+    try:
+        names = os.listdir(root)
+    except OSError:
+        return out
+    for name in names:
+        if not name.lower().startswith(VERSION_PREFIX):
+            continue
+        folder = os.path.join(root, name)
+        ver = parse_version(name[len(VERSION_PREFIX):])
+        if (ver is None or not os.path.isfile(os.path.join(folder, MARKER))
+                or not os.path.isfile(os.path.join(folder, LAUNCHER))):
+            continue
+        out.append((ver, folder))
+    return sorted(out)
+
+
+def newest_installed(root: str) -> str:
+    """The highest finished version in *root* as text ("" if none)."""
+    dirs = version_dirs(root)
+    return os.path.basename(dirs[-1][1])[len(VERSION_PREFIX):] if dirs else ""
+
+
+def cleanup_old_versions(root: str, current_dir: str) -> list:
+    """Remove the version folders older than the running one. A folder is
+    renamed first: Windows refuses that while a program inside it still
+    runs (another window of an older version), and such a folder is left
+    for the next start instead of being half-deleted under it."""
+    removed = []
+    try:
+        cur = parse_version(os.path.basename(current_dir)[len(VERSION_PREFIX):])
+        names = os.listdir(root)
+    except (OSError, TypeError):
+        return removed
+    if cur is None:
+        return removed
+    current = os.path.normcase(os.path.abspath(current_dir))
+    for name in names:
+        folder = os.path.join(root, name)
+        if not name.lower().startswith(VERSION_PREFIX) or not os.path.isdir(folder):
+            continue
+        if os.path.normcase(os.path.abspath(folder)) == current:
+            continue
+        if ".removing-" in name:                   # left over by an earlier attempt
+            shutil.rmtree(folder, ignore_errors=True)
+            continue
+        ver = parse_version(name[len(VERSION_PREFIX):])
+        if ver is None or ver >= cur:
+            continue                               # never a newer one
+        doomed = f"{folder}.removing-{os.getpid()}"
+        try:
+            os.rename(folder, doomed)
+        except OSError:
+            continue                               # in use — next time
+        shutil.rmtree(doomed, ignore_errors=True)
+        removed.append(name)
+    return removed
+
+
+def launcher_path(root: str) -> str:
+    return os.path.join(root, LAUNCHER)
+
+
+UNINSTALL_KEY = (r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
+                 r"\{A571CF74-F203-4766-AF18-6780232E6CC4}_is1")
+
+
+def _per_user_location() -> str:
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY) as k:
+            loc, _ = winreg.QueryValueEx(k, "InstallLocation")
+        return str(loc)
+    except (OSError, ImportError):
+        return ""
+
+
+def installed_for_all_users(root: str, per_user_location=_per_user_location) -> bool:
+    """An install for everyone (the installer needs Windows' permission)
+    or just for this user (the background update asks nothing)."""
+    loc = per_user_location()
+    if not loc:
+        return True
+    norm = lambda p: os.path.normcase(os.path.abspath(p.rstrip("\\/")))
+    return norm(loc) != norm(root)
+
+
+def background_install_args(setup: str, progress: str, log: str,
+                            all_users: bool) -> list:
+    """The new installer, invisibly, beside the running copy: no window, no
+    closing of running programs (nothing in use is touched), no start."""
+    return [setup, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-",
+            "/NOCANCEL", "/NOLAUNCH", "/NOCLOSEAPPLICATIONS",
+            "/ALLUSERS" if all_users else "/CURRENTUSER",
+            f"/PROGRESS={progress}", f"/LOG={log}"]
+
+
+def read_progress(path: str) -> tuple:
+    """The installer's progress file: ("progress", 0…1) while copying,
+    ("done", 1.0) at the end, ("", 0.0) before anything was written (or
+    while the file is being rewritten)."""
+    try:
+        with open(path, "r", encoding="utf-8-sig", errors="replace") as f:
+            text = f.read().strip()
+    except OSError:
+        return "", 0.0
+    if text.startswith("done"):
+        return "done", 1.0
+    parts = text.split()
+    if len(parts) == 3 and parts[0] == "progress":
+        try:
+            done, total = int(parts[1]), int(parts[2])
+        except ValueError:
+            return "", 0.0
+        return "progress", (min(1.0, done / total) if total > 0 else 0.0)
+    return "", 0.0
 
 
 def _is_onefile() -> bool:
@@ -382,55 +524,6 @@ def _parse_finish_args(argv: list[str]) -> tuple[list[int], str]:
         elif a == "--target" and i + 1 < len(argv):
             target = argv[i + 1]
     return pids, target
-
-
-def _posix_alive(pid: int) -> bool:
-    try:
-        # Our own child that has exited is a zombie until reaped — still
-        # "there" for kill(0). Reap it; anyone else's raises ChildProcessError.
-        done, _ = os.waitpid(pid, os.WNOHANG)
-        if done == pid:
-            return False
-    except (ChildProcessError, OSError):
-        pass
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True                        # exists, belongs to another user
-    return True
-
-
-def _wait_for_exit(pids: list[int], timeout_s: float) -> bool:
-    """True once every pid has exited (or never existed)."""
-    if os.name != "nt":
-        # No handle to wait on: poll (Linux, macOS).
-        deadline = time.monotonic() + timeout_s
-        while any(_posix_alive(int(p)) for p in pids):
-            if time.monotonic() >= deadline:
-                return False
-            time.sleep(0.1)
-        return True
-    import ctypes
-    k32 = ctypes.windll.kernel32
-    SYNCHRONIZE = 0x00100000
-    k32.OpenProcess.argtypes = (ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32)
-    k32.OpenProcess.restype = ctypes.c_void_p
-    k32.WaitForSingleObject.argtypes = (ctypes.c_void_p, ctypes.c_uint32)
-    k32.WaitForSingleObject.restype = ctypes.c_uint32
-    k32.CloseHandle.argtypes = (ctypes.c_void_p,)
-    ok = True
-    for pid in pids:
-        h = k32.OpenProcess(SYNCHRONIZE, False, int(pid))
-        if not h:
-            continue                       # already gone
-        try:
-            if k32.WaitForSingleObject(h, int(timeout_s * 1000)) != 0:
-                ok = False                 # WAIT_TIMEOUT: still running
-        finally:
-            k32.CloseHandle(h)
-    return ok
 
 
 def finish_update(argv: list[str], source: str | None = None,

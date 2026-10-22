@@ -71,6 +71,7 @@ class NavRail(QWidget):
     command_triggered = pyqtSignal(str)
     brand_clicked = pyqtSignal()
     collapsed_changed = pyqtSignal(bool)
+    update_clicked = pyqtSignal()           # «Обновить до …» (gui/update.py)
 
     def __init__(self, parent=None, theme: str = "Dark", accent=None,
                  lang: str = "ru", collapsed: bool = False):
@@ -141,6 +142,15 @@ class NavRail(QWidget):
             lo.addSpacing(10)
 
         lo.addStretch(1)
+        # A new version installed in the background, waiting for a restart —
+        # like Telegram's «Update» at the bottom of its sidebar. Hidden
+        # otherwise.
+        self.btn_update = _RailButton()
+        self.btn_update.setProperty("attention", "true")
+        self.btn_update.clicked.connect(self.update_clicked.emit)
+        self.btn_update.hide()
+        self._update_text, self._update_tip = "", ""
+        lo.addWidget(self.btn_update)
         for cmd in commands.RAIL_FOOTER:
             lo.addWidget(self._make(cmd))
 
@@ -185,7 +195,7 @@ class NavRail(QWidget):
         self._collapsed = bool(collapsed)
         self.setFixedWidth(COLLAPSED_W if self._collapsed else EXPANDED_W)
         flag = "true" if self._collapsed else "false"
-        for btn in list(self._cmd_btns.values()) + [self.btn_collapse]:
+        for btn in list(self._cmd_btns.values()) + [self.btn_collapse, self.btn_update]:
             btn.setProperty("collapsed", flag)
             btn.style().unpolish(btn)
             btn.style().polish(btn)
@@ -203,6 +213,19 @@ class NavRail(QWidget):
     def collapsed(self) -> bool:
         return self._collapsed
 
+    def set_update(self, text: str, tip: str = ""):
+        """Show «Обновить до …» (text) or hide it (text == "")."""
+        self._update_text, self._update_tip = text, tip
+        self.btn_update.setVisible(bool(text))
+        self._render_update()
+
+    def _render_update(self):
+        b = self.btn_update
+        b.setText("" if self._collapsed else "   " + self._update_text)
+        b.setToolTip(self._update_text + ("\n" + self._update_tip if self._update_tip else ""))
+        b.busy_color = QColor(self._c["ok"]) if self._collapsed and self._update_text else None
+        b.setIcon(icons.icon("download", self._c["ok"], 16))
+
     # ── text / theme ──────────────────────────────────────────────────
     def retranslate_ui(self, t):
         self.t = t
@@ -214,6 +237,7 @@ class NavRail(QWidget):
             btn.setText("" if self._collapsed else "   " + t(cmd.label_key))
         self.btn_collapse.setText(
             "" if self._collapsed else "   " + t("navCollapse"))
+        self._render_update()
         self.brand.setToolTip(t("backToMap"))
         self._refresh_tips()
         self._paint_icons()
@@ -241,6 +265,7 @@ class NavRail(QWidget):
         self._theme, self._accent = theme, accent
         self._c = get_theme(theme, accent)
         self._paint_icons()
+        self._render_update()
         col = QColor(self._c["ok"])
         for cid, btn in self._view_btns.items():
             if btn.busy_color is not None:

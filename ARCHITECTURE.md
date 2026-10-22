@@ -269,7 +269,8 @@ them (`_pending`). Source checkouts never check by themselves.
 
 **Feed.** `core/updater.py` reads the latest (non-draft, non-pre-release)
 GitHub release of `version.UPDATE_REPO` anonymously. A copy updates the way it
-was installed: an installed copy (an `unins*.exe` next to the program) takes the
+was installed: an installed copy (an `unins*.exe` next to the program or next
+to its version folder) takes the
 `ModbusReader-Setup.exe` asset (any `ModbusReader-Setup*` name), a portable copy takes the asset with its own
 file name. A download is accepted only if its SHA-256 matches the digest GitHub
 stores for the asset, its size matches and it starts with `MZ`.
@@ -281,13 +282,28 @@ stores for the asset, its size matches and it starts with `MZ`.
   process and its one-file bootloader, copies itself next to the old exe,
   replaces it (retrying while the file is held) and starts it. If the swap fails
   the old exe is started.
-- *installed*: the installer is started with `/SILENT … /WAITPID=<pid>`; its
-  `InitializeSetup` waits for the app to exit, and its `[Run]` entry starts the
-  new version. An update keeps the install mode (`UsePreviousPrivileges`); an
-  all-users copy's installer elevates itself, so Windows asks (UAC) — the
-  update dialog says so beforehand. The app must never start the installer
-  elevated: only a self-elevated Setup can start the new version again
-  without admin rights (`postinstall` runs as the original user).
+- *installed* (since 26.10.3 — a folder per version, see **Installer**): the
+  new installer runs invisibly **while the app keeps working**
+  (`updater.background_install_args`: `/VERYSILENT /NOLAUNCH
+  /NOCLOSEAPPLICATIONS /PROGRESS=<file>` and the install mode); it writes the
+  next version into its own folder, so no file in use is touched. Its progress
+  comes through the file (`updater.read_progress`). Then «Перезапустить»
+  starts the launcher (`updater.launcher_path`) and quits — a restart costs a
+  start. Automatically (`update_auto`) a per-user copy downloads and installs
+  in the background without a question and shows «Обновить до …» in the rail;
+  an all-users copy downloads, then asks once (Windows will ask for
+  permission). Not restarting is fine: the next start picks the newest folder.
+  That start removes older version folders (`updater.cleanup_old_versions`
+  renames a folder first — Windows refuses while a program in it runs — so a
+  folder in use is never half-deleted).
+- *installed the old way* (≤ 26.10.2, the program in the installation folder):
+  the installer is started with `/SILENT … /WAITPID=<pid>`; its
+  `InitializeSetup` waits for the app to exit, it moves the copy to the new
+  layout and its `[Run]` entry starts it. An update keeps the install mode
+  (`UsePreviousPrivileges`); an all-users installer elevates itself, so
+  Windows asks (UAC). The app never starts the installer elevated: only a
+  self-elevated Setup starts the program again without admin rights
+  (`postinstall` runs as the original user).
 
 `ModernScadaApp.quit_for_update()` asks everything a normal close would ask
 before starting the new copy, and keeps the window if the start fails.
@@ -295,14 +311,38 @@ Children are started with `updater.child_env()` (no inherited bundle paths,
 `PYINSTALLER_RESET_ENVIRONMENT=1`). A source checkout never checks by itself.
 
 **Installer.** `ModbusReader_setup.spec` builds the one-folder program;
-`installer/ModbusReader.iss` packs it. Setup asks for the install mode: for all
-users (the default) into `C:\Program Files\ModbusReader` with administrator
-rights, or for the current user only into `%LOCALAPPDATA%\Programs\ModbusReader`
-without them (`/ALLUSERS`, `/CURRENTUSER` answer it on the command line). It
-adds Start-menu and desktop shortcuts, the `.mbproj` association and an
-uninstaller. «Обзор…» on the destination page opens the Explorer folder picker
-(new folders, context menu) through COM from the `[Code]` section, and appends
-`\ModbusReader` to the chosen folder. An installed copy keeps its settings in
+`installer/launcher/Launcher.cs` is compiled by `tools/build_launcher.py` with
+the C# compiler of .NET Framework 4 (part of Windows); `installer/ModbusReader.iss`
+packs both. The layout:
+
+```
+ModbusReader\ModbusReader.exe      the launcher: starts the newest version
+                                   folder holding ".installed" (shortcuts,
+                                   taskbar pins, .mbproj files point here)
+ModbusReader\app-26.10.3\…         a version (the PyInstaller folder)
+ModbusReader\unins000.exe          the uninstaller (removes every app-* folder)
+```
+
+The installer writes `.installed` into the version folder last, so the
+launcher never starts a half-copied version. The app sets the same
+AppUserModelID as the Start-menu shortcut (`main.APP_USER_MODEL_ID`), so
+pinning the running window pins the launcher, not a version folder.
+
+Setup looks like the app: `WizardStyle=modern dynamic windows11 hidebevels`
+(light or dark as Windows is), the app's background colours, no stock images,
+one page of its own (logo, title, folder, desktop shortcut) instead of Inno's
+directory and task pages, the finished page laid out the same way. It first
+asks for the install mode — for me only (the default, `%LOCALAPPDATA%\Programs\ModbusReader`,
+updates without any question) or for all users (`C:\Program Files\ModbusReader`,
+Windows asks for permission at the install and at every update);
+`/ALLUSERS`, `/CURRENTUSER` answer it on the command line. «Изменить…» opens
+the Explorer folder picker (new folders, context menu) through COM from the
+`[Code]` section and appends `\ModbusReader` to the chosen folder.
+
+The installer is a plain Inno Setup build on purpose. A wrapper of our own (a
+Qt window that unpacked the Inno engine and ran it silently) was tried: the
+antivirus on the development machine deleted it — an exe that drops and runs
+another installer looks like a dropper. An installed copy keeps its settings in
 `%APPDATA%\ModbusReader` of each user; a portable copy keeps them next to the
 exe. The demo project is copied to
 `Documents\ModbusReader` before it is opened.

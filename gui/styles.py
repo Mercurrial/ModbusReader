@@ -352,6 +352,14 @@ QLabel#statsVal[state="error"] {{
 QLabel#statsVal[state="warn"] {{
     color: {c["warn"]};
 }}
+/* The rail's «Обновить до …»: the one rail entry in the "ok" colour. */
+QPushButton#railBtn[attention="true"] {{
+    color: {c["ok"]};
+    font-weight: 600;
+}}
+QPushButton#railBtn[attention="true"]:hover {{
+    background: {c["ok_tint"]};
+}}
 /* ─── CONNECTION CARD (gui/connection.py) ────────────────────────── */
 /* The popover under the header's link chip. bg_1, not bg_2: its inputs
    are bg_2 and must stand off the card, the way they do on a page. */
