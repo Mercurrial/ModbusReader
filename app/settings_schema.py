@@ -107,6 +107,16 @@ def _derive_font_family(choice):
     return {"font_family": f'"{family}", Segoe UI, system-ui, sans-serif'}
 
 
+def _tcp_port_to_widget(v):
+    from core.transports import tcp_port_value
+    return str(tcp_port_value(v))
+
+
+def _tcp_port_from_widget(v):
+    from core.transports import tcp_port_value
+    return tcp_port_value(v)
+
+
 def _com_ports() -> tuple:
     """Serial ports detected on this machine — items for the Port dropdown.
     The combo stays editable, so an undetected/remote port can still be typed."""
@@ -174,10 +184,15 @@ class Field:
 
 @dataclass(frozen=True)
 class Section:
-    """A titled group of fields inside a page."""
+    """A titled group of fields inside a page.
+
+    show_if  (key, (values…)): the section is on screen only while the
+             control for *key* (on the same page) holds one of *values* —
+             the serial fields for a COM port, host/port for TCP."""
     title: object
     desc: object = ""
     fields: tuple = ()
+    show_if: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -215,7 +230,21 @@ def _seg(key, label, options, default, hint="",
 # Connection first — it's the most-used page.
 PAGES: tuple = (
     Page("connection", "plug", "connectionSettings", sections=(
-        Section("Serial / RTU", "serialDesc",
+        Section("linkTitle", "linkDesc",
+                fields=(
+                    _seg("transport", "transportLbl",
+                         [("serial", "connSerial"), ("tcp", "connTcp"),
+                          ("rtu_tcp", "connRtuTcp")], default="serial"),
+                )),
+        Section("tcpTitle", "tcpDesc", show_if=("transport", ("tcp", "rtu_tcp")),
+                fields=(
+                    Field("host", "text", "connHost", width=200, default="",
+                          to_widget=str, from_widget=_strip),
+                    Field("tcp_port", "text", "connTcpPort", width=90, default=502,
+                          to_widget=_tcp_port_to_widget,
+                          from_widget=_tcp_port_from_widget),
+                )),
+        Section("Serial / RTU", "serialDesc", show_if=("transport", ("serial",)),
                 fields=(
                     Field("port", "combo", "port",
                           options_fn=_com_ports, editable=True,

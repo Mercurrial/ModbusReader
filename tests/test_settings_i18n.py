@@ -103,6 +103,7 @@ def test_no_hardcoded_ui_strings_in_qt_calls():
     ALLOWED = {
         "ModbusReader", "ProTuner - Industrial SCADA",   # brand
         "SHORT", "FLOAT", "LONG",                        # protocol tokens
+        "MBAP:", "MBAP: —",                              # Modbus TCP header
         "АаБбВв · AaBbCc · 0123456789",                  # font specimen
         "Serial / RTU",
     }

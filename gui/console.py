@@ -10,6 +10,10 @@ Two rows:
               goes to the port. Manual edits are marked with an «изменён» badge
               until the command row is touched again (which re-syncs).
 
+Over Modbus TCP the wire packet is the MBAP header (transaction id, protocol
+0, length) + the same address + PDU, without a CRC — the packet row shows
+exactly that, and the transaction id counts up with every frame sent.
+
 Enter in either row / the Send button emits ``send_requested(bytes)``; the
 window routes it to ModbusCore.queue_raw() (core thread owns the port). The
 exchange itself lands in the log as normal TX/RX lines. ↑/↓ recall command
@@ -46,6 +50,12 @@ def crc16(data: bytes) -> bytes:
     return bytes((crc & 0xFF, crc >> 8))
 
 
+def mbap_header(tid: int, length: int) -> bytes:
+    """MBAP header for *length* bytes of address + PDU (Modbus TCP)."""
+    return ((tid & 0xFFFF).to_bytes(2, "big") + b"\x00\x00"
+            + (length & 0xFFFF).to_bytes(2, "big"))
+
+
 def fmt_hex(data: bytes) -> str:
     return " ".join(f"{b:02X}" for b in data)
 
@@ -60,6 +70,7 @@ class RawConsole(QWidget):
         self.ctx = ctx
         self._syncing = False          # guard against edit-loop recursion
         self._manual = False           # packet row was hand-edited
+        self._tid = 1                  # Modbus TCP: the next transaction id
         self._hist_pos = len(self._history)
         self.setObjectName("console")
         self._build_ui()
@@ -115,9 +126,14 @@ class RawConsole(QWidget):
         self._manual = False
         self.lbl_edited.setVisible(False)
         self._syncing = True
+        tcp = self._tcp()
         if payload is None:
-            self.lbl_crc.setText("CRC: —")
+            self.lbl_crc.setText("MBAP: —" if tcp else "CRC: —")
             self.edit_pkt.setText("")
+        elif tcp:
+            head = mbap_header(self._tid, len(payload))
+            self.lbl_crc.setText(f"MBAP: {fmt_hex(head)}")
+            self.edit_pkt.setText(fmt_hex(head + payload))
         else:
             crc = crc16(payload)
             self.lbl_crc.setText(f"CRC: {fmt_hex(crc)}")
@@ -155,6 +171,20 @@ class RawConsole(QWidget):
         added to the shared list)."""
         self._hist_pos = len(self._history)
 
+    # ── the link ───────────────────────────────────────────────────
+    def _tcp(self) -> bool:
+        return self.ctx.settings.get("transport") == "tcp"
+
+    def sync_transport(self):
+        """The link changed (Modbus TCP ↔ RTU): rebuild the packet row —
+        unless it was edited by hand, which is the user's to keep."""
+        if not self._manual:
+            self._on_cmd_edited()
+        tip = self.ctx.t("consoleTip")
+        if self._tcp():
+            tip += "\n" + self.ctx.t("consoleMbapTip")
+        self.setToolTip(tip)
+
     # ── sending ────────────────────────────────────────────────────
     def _send(self):
         frame = parse_hex(self.edit_pkt.text())
@@ -163,6 +193,10 @@ class RawConsole(QWidget):
             return
         self._push_history(self.edit_cmd.text().strip())
         self.send_requested.emit(bytes(frame))
+        if self._tcp():
+            self._tid = self._tid % 0xFFFF + 1
+            if not self._manual:
+                self._on_cmd_edited()        # the next frame, the next id
 
     def _push_history(self, cmd: str):
         hist = list(self._history)
@@ -203,4 +237,4 @@ class RawConsole(QWidget):
         self.btn_send.setText(t("send"))
         self.lbl_edited.setText(t("editedBadge"))
         self.edit_cmd.setPlaceholderText("0A 03 00 10 00 02")
-        self.setToolTip(t("consoleTip"))
+        self.sync_transport()

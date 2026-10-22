@@ -352,6 +352,109 @@ QLabel#statsVal[state="error"] {{
 QLabel#statsVal[state="warn"] {{
     color: {c["warn"]};
 }}
+/* ─── CONNECTION CARD (gui/connection.py) ────────────────────────── */
+/* The popover under the header's link chip. bg_1, not bg_2: its inputs
+   are bg_2 and must stand off the card, the way they do on a page. */
+QFrame#connCard {{
+    background: {c["bg_1"]};
+    border: 1px solid {c["line_strong"]};
+    border-radius: 12px;
+}}
+QWidget#connBox {{
+    background: transparent;
+}}
+QLabel#connCardTitle {{
+    color: {c["text_1"]};
+    font-size: {fs_h2};
+    font-weight: 600;
+    background: transparent;
+}}
+QLabel#connLabel {{
+    color: {c["text_3"]};
+    font-size: {fs_small};
+    background: transparent;
+}}
+QLabel#connHint {{
+    color: {c["text_4"]};
+    font-size: {fs_small};
+    background: transparent;
+}}
+QLabel#connCaption {{
+    color: {c["text_4"]};
+    font-size: {fs_small};
+    letter-spacing: 1px;
+    padding: 4px 0 2px 2px;
+    background: transparent;
+}}
+QPushButton#connLink {{
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: {c["text_2"]};
+    font-size: {fs_small};
+    text-decoration: underline;
+}}
+QPushButton#connLink:hover {{
+    color: {c["text_1"]};
+}}
+QFrame#connResult {{
+    background: {c["bg_2"]};
+    border: 1px solid {c["line"]};
+    border-radius: 8px;
+}}
+QFrame#connResult[state="ok"] {{
+    background: {c["ok_tint"]};
+    border-color: {c["ok_soft"]};
+}}
+QFrame#connResult[state="warn"] {{
+    background: {c["warn_tint"]};
+    border-color: {c["warn_soft"]};
+}}
+QFrame#connResult[state="error"] {{
+    background: {c["error_tint"]};
+    border-color: {c["error_soft"]};
+}}
+QLabel#connResultIcon {{
+    background: transparent;
+}}
+QLabel#connResultText {{
+    color: {c["text_1"]};
+    background: transparent;
+}}
+QLabel#connResultMore {{
+    color: {c["text_2"]};
+    font-size: {fs_small};
+    background: transparent;
+}}
+QPushButton#connSuggest {{
+    background: {c["bg_1"]};
+    border: 1px solid {c["line_strong"]};
+    border-radius: 6px;
+    padding: 4px 12px;
+    color: {c["text_1"]};
+    font-weight: 600;
+}}
+QPushButton#connSuggest:hover {{
+    background: {c["bg_3"]};
+}}
+QPushButton#connRecentRow {{
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 8px;
+    color: {c["text_2"]};
+    font-family: {MONO_CSS};
+    font-size: {fs_small};
+    text-align: left;
+}}
+QPushButton#connRecentRow:hover {{
+    background: {c["bg_2"]};
+    color: {c["text_1"]};
+}}
+QLineEdit#stInput[state="error"],
+QLineEdit#stInput[state="error"]:focus {{
+    border: 1px solid {c["error"]};
+}}
 QLabel#statsHint {{
     color: {c["text_4"]};
     font-size: {fs_small};

@@ -170,7 +170,8 @@ class _ConnectionDot(QWidget):
 
 
 class _SlaveIdEditor(QWidget):
-    """Click-to-edit inline Slave ID field (1–247)."""
+    """Click-to-edit inline Slave ID field: 1–247 on a serial line, 0–255
+    as a Modbus TCP unit id (set_range)."""
 
     value_changed = pyqtSignal(int)
 
@@ -187,6 +188,7 @@ class _SlaveIdEditor(QWidget):
 
         self._value   = value
         self._editing = False
+        self._lo, self._hi = 1, 247
 
         lo = QHBoxLayout(self)
         lo.setContentsMargins(4, 0, 4, 0)
@@ -233,7 +235,7 @@ class _SlaveIdEditor(QWidget):
     def _commit(self):
         try:
             n = int(self._edit.text())
-            if 1 <= n <= 247:
+            if self._lo <= n <= self._hi:
                 self._value = n
                 self.value_changed.emit(n)
         except ValueError:
@@ -259,6 +261,9 @@ class _SlaveIdEditor(QWidget):
         self._lbl_val.setText(str(value))
         if not self._editing:
             self._edit.setText(str(value))
+
+    def set_range(self, lo: int, hi: int):
+        self._lo, self._hi = int(lo), int(hi)
 
 
 class MainStatusBar(QStatusBar):
@@ -396,3 +401,6 @@ class MainStatusBar(QStatusBar):
 
     def set_slave_id(self, value: int):
         self._slave_ed.set_value(value)
+
+    def set_id_range(self, lo: int, hi: int):
+        self._slave_ed.set_range(lo, hi)

@@ -110,6 +110,8 @@ ModernScadaApp (gui/main_window.py)
  ├─ AppContext                     settings, ModbusCore, translator, theme
  ├─ NavRail (gui/rail.py)          every page, in two groups; settings, help
  ├─ MainToolBar (gui/toolbar.py)   project / page, link chip, Connect
+ ├─ ConnectionCard (gui/connection.py)  the link chip's popover: transport,
+ │                                 COM / IP fields, «Проверить связь», recent links
  ├─ pages
  │   ├─ map: RegisterTable (gui/register_table.py) + TrendsManager + LogPanel
  │   ├─ dashboard, console, scanner, sniffer, snapshots, logger,
@@ -170,15 +172,17 @@ through `request_op`; `ScannerWorker` the same way; `SnifferWorker` and
 | Module | Responsibility |
 |---|---|
 | `modbus_core.py` | The master link thread: queues, polling, reads, writes, raw frames, frame logging. |
-| `modbus_client.py` | The app's own Modbus client: `RtuMaster` (serial, t3.5 framing, echo and noise handling) and `TcpMaster` (MBAP); every answer carries its outcome — ok / exception / timeout / crc. |
-| `transports.py` | `Transport` registry (serial; TCP implemented, not shown in the UI); parity normalisation. |
+| `modbus_client.py` | The app's own Modbus client: `RtuMaster` (serial, t3.5 framing, echo and noise handling), `TcpMaster` (MBAP; drains late answers, reopens a connection the device closed) and `RtuOverTcpMaster` (RTU frames through a converter's socket, via `SocketLine`); every answer carries its outcome — ok / exception / timeout / crc; `link_error_kind` names why a link did not open. |
+| `transports.py` | `Transport` registry — serial, Modbus TCP, RTU over TCP; one-line link summary, device-address range per link, the recent-links list; parity normalisation. |
+| `linktest.py` | «Проверить связь»: one request, a diagnosis in words; for TCP also tries other unit ids and the other framing. |
+| `netscan.py` | Finds Modbus TCP devices in an IP range (parallel probes); the PC's own IPv4 addresses and subnets. |
 | `datatypes.py` | Register type registry, codecs, address span, Modbus tables (`AREAS`), register keys. |
 | `byteorder.py` | 16/32/64-bit byte-order permutations. |
 | `scaling.py` | Engineering units: `raw × scale + offset`, enum labels. |
 | `linestats.py` | Line statistics: counts each answer's outcome and response time. |
 | `scanner_engine.py` | Device and register scans. |
 | `sniffer_core.py` | CRC16, frame carving and decoding, the passive sniffer thread. |
-| `slave_core.py` | The slave emulator: pure `build_response`, `SlaveStore`, `SlaveServer`. |
+| `slave_core.py` | The slave emulator: pure `build_response`, `SlaveStore`, `SlaveServer` (COM port), `SlaveTcpServer` (Modbus TCP or RTU over TCP, many masters at once). |
 | `macro_engine.py` | Macro runner: AST gate, restricted builtins, domain API, stop via line tracer. |
 | `dash_model.py` | Dashboard widget kinds, snapping, the automation graph, gate conditions. |
 | `datalog.py` | CSV logger writer (UTF-8 with BOM, rotation, buffered flushing). |
@@ -203,6 +207,7 @@ through `request_op`; `ScannerWorker` the same way; `SnifferWorker` and
 | `settings.py` | The schema-driven Settings dialog. |
 | `update.py` | Update checks, the update dialog, download thread. |
 | `rail.py`, `toolbar.py`, `statusbar.py` | Window chrome. |
+| `connection.py` | The connection card under the header's link chip. |
 | `import_dialog.py`, `scaling_dialog.py`, `memory_viewer.py`, `onboarding.py`, `dialogs.py` | Dialogs, the memory viewer and the first-run guide. |
 | `widgets.py` | Shared widgets: segmented control, toggle, slider, empty states, row-number header, drop button. |
 | `theme_manager.py`, `styles.py`, `icons.py`, `qt_utils.py` | Theme tokens, the stylesheet, the SVG icon set, guarded timers. |
@@ -426,7 +431,6 @@ commit passes the test suite.
 ## 11. Known limitations
 
 - Polling reads one register per request; block reads are not implemented yet.
-- The TCP transport works but is not offered in the Settings dialog.
 - Builds are not code-signed, so Windows SmartScreen warns on first
   installation.
 - `ModernScadaApp` is still the largest module and the natural next candidate

@@ -211,13 +211,14 @@ class SettingsDialog(QDialog):
     def _section(self, parent_lo: QVBoxLayout, title: str, desc: str = "") -> QVBoxLayout:
         # Air ABOVE every section but the first. (A QSS margin-bottom on the
         # wrapper did nothing — layouts ignore it — so "Опрос" sat glued to
-        # the last row of the section before.)
-        if parent_lo.count():
-            parent_lo.addSpacing(36)
+        # the last row of the section before.) It is the section's own top
+        # margin, not a spacer in the page: a section hidden by show_if then
+        # takes its air with it instead of leaving a double gap.
+        first = parent_lo.count() == 0
         wrap = QWidget()
         wrap.setObjectName("stSection")
         v = QVBoxLayout(wrap)
-        v.setContentsMargins(0, 0, 0, 0)
+        v.setContentsMargins(0, 0 if first else 36, 0, 0)
         v.setSpacing(0)
 
         h = QLabel(title)
@@ -305,15 +306,42 @@ class SettingsDialog(QDialog):
         if page.static:
             getattr(self, page.static)(lo)
             return widget
+        conditional = []                      # (section widget, key, values)
         for section in page.sections:
             s = self._section(lo, tr(section.title, self.lang), tr(section.desc, self.lang))
+            if section.show_if:
+                conditional.append((s.parentWidget(), *section.show_if))
             for fld in section.fields:
                 control = self._make_control(fld)
                 self._controls[fld.key] = control
                 if fld.key in self.PREVIEW_KEYS:
                     self._wire_preview(fld, control)
                 self._field(s, tr(fld.label, self.lang), control, tr(fld.hint, self.lang))
+        self._wire_conditional(conditional)
         return widget
+
+    def _wire_conditional(self, conditional):
+        """Show a section only while its controlling field holds one of its
+        values (Section.show_if) — host/port for TCP, the line for a COM
+        port. A hidden section keeps its values: switching back restores
+        them, and Save stores both sets."""
+        by_key: dict = {}
+        for wrap, key, values in conditional:
+            by_key.setdefault(key, []).append((wrap, tuple(values)))
+        for key, targets in by_key.items():
+            control = self._controls.get(key)
+            if control is None:
+                continue
+
+            def apply(value=None, _targets=targets, _control=control):
+                current = _control.value() if hasattr(_control, "value") else value
+                for wrap, values in _targets:
+                    wrap.setVisible(current in values)
+
+            sig = getattr(control, "valueChanged", None)
+            if sig is not None:
+                sig.connect(apply)
+            apply()
 
     def _make_control(self, fld) -> QWidget:
         """Construct the control for one Field, seeded from current settings."""

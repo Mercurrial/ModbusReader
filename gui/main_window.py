@@ -305,6 +305,8 @@ class ModernScadaApp(QMainWindow):
         self.console_view.send_requested.connect(self._on_raw_send)
         self.content_stack.addWidget(self.console_view)
         self.scanner_view = ScannerView(self.ctx)
+        self.scanner_view.connect_requested.connect(
+            lambda link: self.conn_card.open_below(self.main_toolbar.btn_link, link=link))
         self.content_stack.addWidget(self.scanner_view)
         self.sniffer_view = SnifferView(self.ctx)
         self.content_stack.addWidget(self.sniffer_view)
@@ -362,6 +364,14 @@ class ModernScadaApp(QMainWindow):
         # Line statistics are counted in the core thread; the status bar
         # samples a snapshot twice a second (cheap: a dict copy under a lock).
         self.status_bar.stats_popup.reset_requested.connect(self._reset_line_stats)
+        # The connection card: the link chip in the header opens it.
+        from gui.connection import ConnectionCard
+        self.conn_card = ConnectionCard(self.ctx, lambda: self.profile_data, self)
+        self.conn_card.connect_requested.connect(self._connect_with)
+        self.conn_card.disconnect_requested.connect(self._disconnect)
+        self.conn_card.committed.connect(self._on_link_committed)
+        self.conn_card.settings_requested.connect(self._open_settings)
+        self.conn_card.find_requested.connect(self._find_on_network)
         self._stats_timer = QTimer(self)
         self._stats_timer.timeout.connect(self._refresh_line_stats)
         self._stats_timer.start(500)
@@ -488,6 +498,7 @@ class ModernScadaApp(QMainWindow):
         self.modbus_core.data_updated.connect(self._on_data_updated)
         self.modbus_core.log_msg.connect(self._on_log_message)
         self.modbus_core.array_read_finished.connect(self._on_array_read_finished)
+        self.modbus_core.open_failed.connect(self._on_open_failed)
 
     def _connect_toolbar_signals(self):
         # Command buttons + their shortcuts all route through one dispatcher
@@ -498,7 +509,7 @@ class ModernScadaApp(QMainWindow):
         self.nav_rail.command_triggered.connect(self._dispatch_command)
         self.nav_rail.brand_clicked.connect(self._go_to_register_map)
         self.nav_rail.collapsed_changed.connect(self._on_rail_collapsed)
-        self.main_toolbar.link_clicked.connect(self._open_settings)
+        self.main_toolbar.link_clicked.connect(self._toggle_conn_card)
         self.main_toolbar.theme_changed.connect(self._on_theme_changed)
         self.main_toolbar.lang_changed.connect(self._on_lang_changed)
         self.main_toolbar.graphs_toggled.connect(self._on_graphs_toggled)
@@ -565,28 +576,89 @@ class ModernScadaApp(QMainWindow):
             core.stop()
             core.wait(3000)
             return
-        # One port, one owner: the slave emulator may be serving this port.
-        busy = self.slave_view.serving_port()
-        if busy and busy.casefold() == str(self.settings.get("port", "")).casefold():
-            themed_info(self, self.ctx.theme, "warning", self.t("slvBusyTitle"),
-                        self.t("slvMasterBusyText").format(port=busy))
-            return
+        from core import transports
+        if transports.is_network(self.settings):
+            # Nothing to connect to yet: ask for the address where it is typed.
+            if not transports.host_value(self.settings):
+                self.conn_card.open_below(self.main_toolbar.btn_link)
+                return
+        else:
+            # One port, one owner: the slave emulator may be serving this port.
+            busy = self.slave_view.serving_port()
+            if busy and busy.casefold() == str(self.settings.get("port", "")).casefold():
+                themed_info(self, self.ctx.theme, "warning", self.t("slvBusyTitle"),
+                            self.t("slvMasterBusyText").format(port=busy))
+                return
         core.setup_connection(self.settings, self.settings.get("slave_id", 10))
         core.update_profile(self.profile_data)
         core.start()
 
+    # ── the connection card ───────────────────────────────────────────
+    def _toggle_conn_card(self):
+        card = self.conn_card
+        if card.isVisible():
+            card.hide()
+        else:
+            card.open_below(self.main_toolbar.btn_link)
+
+    def _apply_link(self, link: dict):
+        """Store a link from the card (persisted) and show it everywhere."""
+        self.ctx.update(dict(link))
+        try:
+            self.status_bar.set_slave_id(int(self.settings.get("slave_id", 10)))
+        except (TypeError, ValueError):
+            pass
+        self._refresh_link_label()
+        for console in self._consoles():
+            console.sync_transport()
+
+    def _connect_with(self, link: dict):
+        """Card → Connect / Reconnect: apply the link, (re)open it."""
+        core = self.modbus_core
+        self._apply_link(link)
+        if core.is_running or core.isRunning():
+            core.stop()
+            core.wait(3000)
+        self._toggle_connection()
+
+    def _disconnect(self):
+        core = self.modbus_core
+        if core.is_running or core.isRunning():
+            self._toggle_connection()
+
+    def _on_link_committed(self, link: dict):
+        """The card closed with a changed link: keep it for the next connect."""
+        self._apply_link(link)
+        if self.modbus_core.is_running:
+            self._log("SYS", self.t("logReconnectToApply"))
+
+    def _on_open_failed(self, kind: str, text: str):
+        """The link did not open: show the card with the reason in words —
+        unless the window is not on screen (then the log line is enough)."""
+        if self.isVisible() and not self.isMinimized():
+            self.conn_card.open_below(self.main_toolbar.btn_link, failure=(kind, text))
+
+    def _find_on_network(self):
+        self._switch_view("view_scanner")
+        if self._overlay_page is None:
+            self.scanner_view.show_network_mode()
+
+    def _consoles(self) -> list:
+        return [c for c in (getattr(self.log_panel, "console", None),
+                            getattr(self.console_view, "console", None)) if c is not None]
+
     def _refresh_link_label(self):
-        """Status-bar link summary: port · baud · framing (e.g. COM3 | 9600 | 8E1)."""
+        """The link everywhere it is shown: the header chip ("COM3 · 9600 ·
+        8E1 · ID 10", "TCP · 192.168.1.20:502 · ID 1"), the status bar's
+        ID field (its range follows the transport)."""
         from core import transports
         s = self.settings
-        if s.get("transport", "serial") == "tcp":
-            text = transports.get("tcp").describe(s)
-        else:
-            text = (f"{s.get('port', 'COM1')} | {s.get('baudrate', '115200')} | "
-                    f"{transports.serial_framing(s)}")
+        text = transports.summary(s)
+        if transports.is_network(s) and not transports.host_value(s):
+            text = f"{transports.active(s).label} · {self.t('connNoHost')}"
         self.status_bar.lbl_params.setText(text)
-        self.main_toolbar.set_link_text(
-            " · ".join(text.split(" | ")) + f" · ID {s.get('slave_id', 10)}")
+        self.status_bar.set_id_range(*transports.id_range(s))
+        self.main_toolbar.set_link_text(text + f" · ID {s.get('slave_id', 10)}")
 
     _STYLE_KEYS = ("theme", "font_family", "font_size", "accent", "scheme",
                    "contrast")
@@ -789,7 +861,7 @@ class ModernScadaApp(QMainWindow):
 
     # Connection parameters are read when the port OPENS (setup_connection).
     _LINK_KEYS = ("transport", "port", "baudrate", "parity", "stopbits",
-                  "timeout", "poll_rate", "interframe_delay", "retry_count",
+                  "host", "tcp_port", "timeout", "poll_rate", "interframe_delay", "retry_count",
                   "auto_reconnect", "reconnect_interval")
 
     def _finish_settings_apply(self, new_values, prev_lang, prev_style):
@@ -1014,6 +1086,9 @@ class ModernScadaApp(QMainWindow):
             self.slave_view.apply_settings()
             self.watch_window.apply_settings()
             self.status_bar.apply_theme(self.ctx.theme_tokens())
+            self.conn_card.apply_theme()
+            for console in self._consoles():
+                console.sync_transport()
             win = getattr(self, "macro_window", None)
             if win is not None and hasattr(win, "apply_theme"):
                 win.apply_theme()
@@ -1334,6 +1409,7 @@ class ModernScadaApp(QMainWindow):
         save_settings(self.settings)
         if self.modbus_core.is_running:
             self.modbus_core.slave_id = val
+        self._refresh_link_label()          # the header chip shows the ID too
         self._log("SYS", self.t("logSlaveId").format(sid=val))
 
     def _on_theme_changed(self, theme: str):
@@ -1385,6 +1461,7 @@ class ModernScadaApp(QMainWindow):
         self._refresh_link_label()
         self.status_bar.set_tooltips(t("statChipTip"), t("sbErrTip"), t("sbLinkTip"))
         self.status_bar.stats_popup.retranslate(t)
+        self.conn_card.retranslate(t)
         self._refresh_line_stats()
 
         # Log tabs
@@ -1555,6 +1632,14 @@ class ModernScadaApp(QMainWindow):
         self.status_bar.set_connection_status(
             connected, self.t("stConnected" if connected else "stDisconnected"))
         self.main_toolbar.set_connect_state(connected)
+        if connected:
+            # A link that worked goes to the card's «Недавние».
+            import time
+            from core import transports
+            self.settings["recent_links"] = transports.remember(
+                self.settings.get("recent_links"),
+                self.modbus_core.settings or self.settings, when=time.time())
+        self.conn_card.sync_state()
         self.register_table.set_connected(connected)
         if message:              # a failed open is already logged as ERR
             self._log("SYS", message)

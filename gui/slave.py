@@ -1,8 +1,14 @@
 # gui/slave.py
 """Slave view — the app pretends to be a device (slave_core.py does the work).
 
-Top bar: the port it listens on (its OWN port — one port, one owner), line
-speed, the slave ID it answers to, an optional response delay, Start/Stop.
+Top bar: how masters reach it — a COM port (its OWN port: one port, one
+owner) with its line speed, or a TCP port (Modbus TCP, or RTU frames through
+TCP the way a serial-to-Ethernet converter passes them) open to the whole
+network or to this PC only — then the slave ID it answers to, an optional
+response delay, Start/Stop.
+
+Over TCP the app's own master can talk to its own emulator (127.0.0.1): a
+complete test without any hardware.
 Body: the served register map with live, editable values (what the master
 will read) and how often the master touched each register; beside it, the
 exchange log.
@@ -13,6 +19,7 @@ Values typed here are encoded with the SAME codecs the master side decodes
 with, so a map read in master mode and served in slave mode always agree.
 """
 
+import os
 import time
 
 from PyQt6.QtCore import Qt, QSize, QDateTime
@@ -20,16 +27,16 @@ from PyQt6.QtGui import QColor, QIntValidator
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox,
     QSpinBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
-    QSplitter, QTextEdit,
+    QSplitter, QTextEdit, QAbstractSpinBox,
 )
 
 from core import datatypes
 from gui import icons
-from gui.widgets import EmptyState
-from core import transports
+from gui.widgets import EmptyState, Segmented
+from core import netscan, transports
 from gui.dialogs import themed_info
 from gui.qt_utils import set_state
-from core.slave_core import SlaveServer, SlaveStore
+from core.slave_core import SlaveServer, SlaveStore, SlaveTcpServer
 
 COL_ADDR, COL_NAME, COL_TYPE, COL_VALUE, COL_READS, COL_WRITES, COL_LAST = range(7)
 _LOG_MAX = 500
@@ -40,7 +47,8 @@ class SlaveView(QWidget):
         super().__init__(parent)
         self.ctx = ctx
         self.get_registers = get_registers
-        self._server: SlaveServer | None = None
+        self._server: SlaveServer | SlaveTcpServer | None = None
+        self._clients: list = []            # TCP: masters connected right now
         self.store = SlaveStore()
         self._row_of: dict[int, int] = {}
         self._counts = {"requests": 0, "answered": 0, "exceptions": 0, "ignored": 0}
@@ -63,6 +71,18 @@ class SlaveView(QWidget):
         lo.setContentsMargins(14, 10, 14, 10)
         lo.setSpacing(10)
 
+        # Two rows: how masters reach it + the actions, then that link's
+        # parameters. One row no longer fit a 1280 px screen once the link
+        # could be a COM port or a TCP port.
+        top = QHBoxLayout()
+        top.setSpacing(8)
+        mode = str(s.get("slave_mode") or "serial")
+        self.seg_mode = Segmented([("serial", "serial"), ("tcp", "tcp"),
+                                   ("rtu_tcp", "rtu_tcp")],
+                                  mode if mode in transports.BY_ID else "serial")
+        self.seg_mode.valueChanged.connect(self._on_mode)
+        top.addWidget(self.seg_mode)
+        top.addStretch(1)
         bar = QHBoxLayout()
         bar.setSpacing(8)
         self.lbl_port = self._lbl()
@@ -80,6 +100,24 @@ class SlaveView(QWidget):
         self.combo_baud.setValidator(QIntValidator(50, 4000000, self))
         self.combo_baud.setCurrentText(str(s.get("slave_baud") or s.get("baudrate", "115200")))
         self.combo_baud.setFixedWidth(100)
+        # TCP: the port masters connect to, and who may connect.
+        self.lbl_tcp_port = self._lbl()
+        self.spin_tcp_port = QSpinBox()
+        self.spin_tcp_port.setObjectName("stInput")
+        self.spin_tcp_port.setRange(1, 65535)
+        self.spin_tcp_port.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
+        self.spin_tcp_port.setFixedWidth(64)
+        try:
+            self.spin_tcp_port.setValue(int(s.get("slave_tcp_port") or 502))
+        except (TypeError, ValueError):
+            self.spin_tcp_port.setValue(502)
+        self.lbl_access = self._lbl()
+        self.combo_access = QComboBox()
+        self.combo_access.setObjectName("stInput")
+        for value, key in (("all", "slvAccessAll"), ("local", "slvAccessLocal")):
+            self.combo_access.addItem(self.ctx.t(key), value)
+        self.combo_access.setCurrentIndex(1 if s.get("slave_access") == "local" else 0)
+        self.combo_access.setFixedWidth(150)
         self.lbl_sid = self._lbl()
         self.spin_sid = QSpinBox()
         self.spin_sid.setObjectName("stInput")
@@ -101,19 +139,22 @@ class SlaveView(QWidget):
             pass
         self.spin_delay.setFixedWidth(92)
         for w in (self.lbl_port, self.combo_port, self.lbl_baud, self.combo_baud,
-                  self.lbl_sid, self.spin_sid, self.lbl_delay, self.spin_delay):
+                  self.lbl_tcp_port, self.spin_tcp_port, self.lbl_access,
+                  self.combo_access, self.lbl_sid, self.spin_sid, self.lbl_delay,
+                  self.spin_delay):
             bar.addWidget(w)
         bar.addStretch(1)
         self.btn_reload = QPushButton()
         self.btn_reload.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_reload.clicked.connect(self.reload_map)
-        bar.addWidget(self.btn_reload)
+        top.addWidget(self.btn_reload)
         self.btn_start = QPushButton()
         self.btn_start.setObjectName("btnPrimary")
         self.btn_start.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_start.setIconSize(QSize(13, 13))
         self.btn_start.clicked.connect(self.toggle)
-        bar.addWidget(self.btn_start)
+        top.addWidget(self.btn_start)
+        lo.addLayout(top)
         lo.addLayout(bar)
 
         self.lbl_info = self._lbl()
@@ -160,6 +201,7 @@ class SlaveView(QWidget):
         self.lbl_status = self._lbl()
         lo.addWidget(self.lbl_status)
         self._paint_icons()
+        self._show_mode_controls()
 
     def _paint_icons(self):
         c = self.ctx.theme_tokens()
@@ -181,6 +223,26 @@ class SlaveView(QWidget):
         self.combo_port.addItems(ports or [str(self.ctx.settings.get("port", "COM1"))])
         if current:
             self.combo_port.setCurrentText(current)
+
+    # ── how masters reach it ──────────────────────────────────────────
+    @property
+    def mode(self) -> str:
+        return self.seg_mode.value()
+
+    def _on_mode(self, _mode):
+        self._show_mode_controls()
+        self._update_info()
+
+    def _show_mode_controls(self):
+        net = transports.get(self.mode).network
+        for w in (self.lbl_port, self.combo_port, self.lbl_baud, self.combo_baud):
+            w.setVisible(not net)
+        for w in (self.lbl_tcp_port, self.spin_tcp_port, self.lbl_access, self.combo_access):
+            w.setVisible(net)
+
+    def _on_clients(self, peers: list):
+        self._clients = list(peers)
+        self._update_info()
 
     # ── the served map ────────────────────────────────────────────────
     @property
@@ -289,44 +351,63 @@ class SlaveView(QWidget):
 
     # ── start / stop ──────────────────────────────────────────────────
     def serving_port(self) -> str:
-        """The port the server holds right now ("" when stopped) — the
-        window refuses to open the same port as a master."""
-        return self._server.port if self.running else ""
+        """The COM port the server holds right now ("" when stopped or
+        serving TCP) — the window refuses to open the same port as a
+        master. A TCP server takes no COM port: the master may even connect
+        to it (127.0.0.1)."""
+        if not self.running or isinstance(self._server, SlaveTcpServer):
+            return ""
+        return self._server.port
 
     def toggle(self):
         if self.running:
             self._server.request_stop()
             return
         t = self.ctx.t
-        port = self.combo_port.currentText().strip()
-        try:
-            baud = int(self.combo_baud.currentText())
-        except ValueError:
-            baud = 0
-        if not port or baud <= 0:
-            self.lbl_status.setText(t("snifBadBaud"))
-            set_state(self.lbl_status, "error")
-            return
-        # One port, one owner: the master poller may hold this very port.
-        core = self.ctx.core
-        if core.is_running and port.casefold() == \
-                str(self.ctx.settings.get("port", "")).casefold():
-            themed_info(self, self.ctx.theme, "warning", t("slvBusyTitle"),
-                        t("slvBusyText"))
-            return
+        net = transports.get(self.mode).network
+        port, baud = self.combo_port.currentText().strip(), 0
+        if not net:
+            try:
+                baud = int(self.combo_baud.currentText())
+            except ValueError:
+                baud = 0
+            if not port or baud <= 0:
+                self.lbl_status.setText(t("snifBadBaud"))
+                set_state(self.lbl_status, "error")
+                return
+            # One port, one owner: the master poller may hold this very port.
+            core = self.ctx.core
+            if core.is_running and not transports.is_network(self.ctx.settings) \
+                    and port.casefold() == str(self.ctx.settings.get("port", "")).casefold():
+                themed_info(self, self.ctx.theme, "warning", t("slvBusyTitle"),
+                            t("slvBusyText"))
+                return
         if self._map_dirty or not self.store.registers:
             self.reload_map()
         if not self.store.registers:
             themed_info(self, self.ctx.theme, "info", t("slvTitle"), t("slvNoMap"))
             return
         s = self.ctx.settings
-        s["slave_port"], s["slave_baud"] = port, str(baud)
+        s["slave_mode"] = self.mode
         s["slave_sid"], s["slave_delay"] = self.spin_sid.value(), self.spin_delay.value()
-        self._server = SlaveServer(
-            port, baud, self.store, self.spin_sid.value(),
-            parity=transports.parity_code(s.get("parity", "N")),
-            stopbits=transports.stopbits_value(s.get("stopbits", 1)),
-            delay_ms=self.spin_delay.value())
+        if net:
+            s["slave_tcp_port"] = self.spin_tcp_port.value()
+            access = self.combo_access.currentData()
+            s["slave_access"] = access
+            host = "127.0.0.1" if access == "local" else "0.0.0.0"
+            self._server = SlaveTcpServer(
+                host, self.spin_tcp_port.value(), self.store, self.spin_sid.value(),
+                delay_ms=self.spin_delay.value(),
+                framing="rtu" if self.mode == "rtu_tcp" else "mbap")
+            self._server.clients_changed.connect(self._on_clients)
+        else:
+            s["slave_port"], s["slave_baud"] = port, str(baud)
+            self._server = SlaveServer(
+                port, baud, self.store, self.spin_sid.value(),
+                parity=transports.parity_code(s.get("parity", "N")),
+                stopbits=transports.stopbits_value(s.get("stopbits", 1)),
+                delay_ms=self.spin_delay.value())
+        self._clients = []
         self._server.exchange.connect(self._on_exchange)
         self._server.error.connect(self._on_error)
         self._server.stopped.connect(self._on_stopped)
@@ -340,12 +421,14 @@ class SlaveView(QWidget):
     def _set_controls(self, running: bool):
         t = self.ctx.t
         self.btn_start.setText("  " + (t("slvStop") if running else t("slvStart")))
-        for w in (self.combo_port, self.combo_baud, self.spin_sid,
+        for w in (self.seg_mode, self.combo_port, self.combo_baud,
+                  self.spin_tcp_port, self.combo_access, self.spin_sid,
                   self.spin_delay, self.btn_reload):
             w.setEnabled(not running)
         self._paint_icons()
 
     def _on_stopped(self):
+        self._clients = []
         self._set_controls(False)
         if self.lbl_status.property("state") != "error":
             set_state(self.lbl_status, "")
@@ -395,7 +478,10 @@ class SlaveView(QWidget):
         what = self._describe(info)
         color = {"read": c["info"], "write": c["accent"],
                  "exception": c["warn"]}.get(kind, c["text_4"])
-        line = (f'<span style="color:{c["text_4"]}">[{ts}]</span> '
+        peer = info.get("peer")
+        who = (f'<span style="color:{c["text_3"]}">{html.escape(peer.rsplit(":", 1)[0])}'
+               f'</span> · ' if peer else "")
+        line = (f'<span style="color:{c["text_4"]}">[{ts}]</span> {who}'
                 f'<span style="color:{color};font-weight:bold">{html.escape(what)}</span><br>'
                 f'<span style="color:{c["text_3"]}">&nbsp;&nbsp;← {req}</span>')
         if resp is not None:
@@ -427,7 +513,8 @@ class SlaveView(QWidget):
                                          addr=a)
         return t("slvLogIgnored").format(reason=t({"crc": "slvWhyCrc",
                                                    "short": "slvWhyShort",
-                                                   "broadcast": "slvWhyBroadcast"}
+                                                   "broadcast": "slvWhyBroadcast",
+                                                   "mbap": "slvWhyMbap"}
                                                   .get(info.get("reason"), "slvWhyOther")))
 
     # ── status lines ──────────────────────────────────────────────────
@@ -435,15 +522,31 @@ class SlaveView(QWidget):
         t = self.ctx.t
         lo, hi = self.store.span()
         n = len(self.store.registers)
-        if self.running:
+        span = {"n": n, "lo": datatypes.key_label(lo) if lo is not None else "—",
+                "hi": datatypes.key_label(hi) if hi is not None else "—"}
+        if self.running and isinstance(self._server, SlaveTcpServer):
+            srv = self._server
+            key = "slvServingRtuTcp" if srv.framing == "rtu" else "slvServingTcp"
+            text = t(key).format(mode=t("connTcp"), port=srv.port,
+                                 sid=srv.slave_id, **span)
+            local = srv.host == "127.0.0.1"
+            addrs = ["127.0.0.1"] if local else netscan.local_ipv4() + ["127.0.0.1"]
+            text += " " + t("slvTcpWhere").format(
+                addrs=", ".join(f"{a}:{srv.port}" for a in addrs))
+            text += " · " + t("slvTcpClients").format(n=len(self._clients))
+            if not local and not self._clients and os.name == "nt":
+                text += " " + t("slvTcpFirewall")
+            if self._map_dirty:
+                text += " " + t("slvMapChanged")
+        elif self.running:
             text = t("slvServing").format(
                 sid=self._server.slave_id, port=self._server.port,
                 baud=self._server.baudrate,
-                framing=transports.serial_framing(self.ctx.settings), n=n,
-                lo=datatypes.key_label(lo) if lo is not None else "—",
-                hi=datatypes.key_label(hi) if hi is not None else "—")
+                framing=transports.serial_framing(self.ctx.settings), **span)
             if self._map_dirty:
                 text += " " + t("slvMapChanged")
+        elif transports.get(self.mode).network:
+            text = t("slvIdleInfoTcp").format(port=self.spin_tcp_port.value())
         else:
             text = t("slvIdleInfo")
         self.lbl_info.setText(text)
@@ -473,6 +576,14 @@ class SlaveView(QWidget):
         self.lbl_empty.set_content(title=t("noMapTitle"))
         self.lbl_port.setText(t("port"))
         self.lbl_baud.setText(t("baudrate"))
+        for tid, key in (("serial", "connSerial"), ("tcp", "connTcp"),
+                         ("rtu_tcp", "connRtuTcp")):
+            self.seg_mode._buttons[tid].setText(t(key))
+        self.lbl_tcp_port.setText(t("slvListenPort"))
+        self.lbl_access.setText(t("slvAccess"))
+        self.combo_access.setItemText(0, t("slvAccessAll"))
+        self.combo_access.setItemText(1, t("slvAccessLocal"))
+        self.combo_access.setToolTip(t("slvAccessTip"))
         self.lbl_sid.setText(t("slaveIdLbl"))
         self.lbl_delay.setText(t("slvDelay"))
         self.log.setPlaceholderText(t("slvLogEmpty"))
@@ -501,15 +612,17 @@ class SlaveView(QWidget):
                  "же, что открыта в окне карты, значения вы задаёте здесь.",
                  "The app answers a master like a device would: the register "
                  "map is the one open in the map view, the values are set here.")},
-            {"target": self.combo_port,
-             "title": L("Свой порт", "Its own port"),
+            {"target": self.seg_mode,
+             "title": L("COM-порт или сеть", "Serial port or network"),
              "body": L(
-                 "Порт может держать только один владелец. Чтобы проверить "
-                 "мастер этой же программы, нужны два адаптера и нуль-модем "
-                 "(или пара виртуальных COM-портов).",
-                 "A port has exactly one owner. To test this app's own master "
-                 "you need two adapters and a null-modem link (or a virtual "
-                 "COM pair).")},
+                 "COM-порт может держать только один владелец: чтобы проверить "
+                 "мастер этой же программы, нужны два адаптера и нуль-модем. "
+                 "По Modbus TCP хватит одного компьютера — запустите эмулятор "
+                 "и подключитесь к 127.0.0.1.",
+                 "A COM port has exactly one owner: testing this app's own "
+                 "master needs two adapters and a null-modem link. Over "
+                 "Modbus TCP one computer is enough — start the emulator and "
+                 "connect to 127.0.0.1.")},
             {"target": self.table,
              "title": L("Значения", "Values"),
              "body": L(

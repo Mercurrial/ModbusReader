@@ -138,6 +138,8 @@ _PATHS = {
     "project":    '<path d="M2.5 5.5 8 2.6l5.5 2.9L8 8.4 2.5 5.5Z"/>'
                   '<path d="M2.5 8.2 8 11.1l5.5-2.9M2.5 10.9 8 13.8l5.5-2.9"/>',
     "dot":        '<circle cx="8" cy="8" r="4.2" fill="currentColor" stroke="none"/>',
+    # refresh a list: a circular arrow
+    "refresh":    '<path d="M13.2 8a5.2 5.2 0 1 1-1.6-3.75"/><path d="M13.3 2.6v3.1h-3.1"/>',
     # a condition gate: the pulse forks and only one branch continues
     "gate":       '<path d="M1.5 8h3.2"/><path d="M4.7 4.6h3.1l3 3.4-3 3.4H4.7Z"/>'
                   '<path d="M10.8 8h3.7"/>',
