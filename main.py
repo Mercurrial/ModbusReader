@@ -96,6 +96,23 @@ def startup_document(argv: list, first_run: bool) -> tuple:
     return None, ""
 
 
+# The taskbar identity — the same AppUserModelID the installer gives the
+# Start-menu shortcut (installer/ModbusReader.iss). Pinning the running app
+# then pins that shortcut (the launcher), not this version's folder, which
+# the next update removes.
+APP_USER_MODEL_ID = "Mercurrial.ModbusReader"
+
+
+def _set_app_user_model_id():
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
+    except Exception:
+        pass
+
+
 def main():
     # Second half of a portable self-update: THIS exe is the new version,
     # started by the old one just before it quit (updater.finish_update —
@@ -105,6 +122,8 @@ def main():
         code = updater.finish_update(sys.argv)
         _close_splash()
         sys.exit(code)
+
+    _set_app_user_model_id()
 
     # Настройка HighDPI (PassThrough) для четкого промышленного интерфейса на любых мониторах
     QApplication.setHighDpiScaleFactorRoundingPolicy(

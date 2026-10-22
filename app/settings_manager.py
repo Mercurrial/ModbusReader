@@ -17,11 +17,31 @@ else:                                       # running from source
     from app.paths import ROOT as _APP_DIR
 
 
-def is_installed_dir(d: str) -> bool:
-    """True for a copy the installer put there (it leaves its uninstaller,
-    unins000.exe, next to the program)."""
+VERSION_DIR_PREFIX = "app-"
+
+
+def install_root(d: str) -> str:
+    """The folder the installer put the program in, for a program folder
+    *d* — or "" for a copy no installer put there.
+
+    Since 26.10.3 every version lives in its own subfolder
+    (…/ModbusReader/app-26.10.3/ModbusReader.exe) next to the uninstaller
+    and a small launcher; before that the program sat in the root itself."""
     import glob
-    return bool(glob.glob(os.path.join(d, "unins*.exe")))
+    d = os.path.abspath(d)
+    if glob.glob(os.path.join(d, "unins*.exe")):
+        return d
+    parent = os.path.dirname(d)
+    if (os.path.basename(d).lower().startswith(VERSION_DIR_PREFIX)
+            and glob.glob(os.path.join(parent, "unins*.exe"))):
+        return parent
+    return ""
+
+
+def is_installed_dir(d: str) -> bool:
+    """True for a copy the installer put there (its uninstaller, unins000.exe,
+    sits beside the program — or beside its version folder)."""
+    return bool(install_root(d))
 
 
 def _config_base() -> str:

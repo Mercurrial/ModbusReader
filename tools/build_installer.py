@@ -5,10 +5,13 @@
     python tools/build_installer.py --portable   + the one-file exes
 
 1. PyInstaller, ModbusReader_setup.spec → dist/ModbusReader/ (one folder)
-2. Inno Setup (ISCC), installer/ModbusReader.iss with /DAppVersion from
+2. The launcher, installer/launcher/Launcher.cs → build/launcher/ModbusReader.exe
+   (tools/build_launcher.py; the C# compiler of .NET Framework 4, part of
+   Windows) — the installed ModbusReader.exe, which starts the newest version
+3. Inno Setup (ISCC), installer/ModbusReader.iss with /DAppVersion from
    version.py → dist/ModbusReader-Setup.exe
-3. (--portable) ModbusReader.spec + ModbusReader_debug.spec → dist/*.exe
-4. Prints each file with its size and SHA-256.
+4. (--portable) ModbusReader.spec + ModbusReader_debug.spec → dist/*.exe
+5. Prints each file with its size and SHA-256.
 
 The release itself (tag vX.Y.Z, not a pre-release) must carry exactly these
 asset names — updater.py picks the build by name, and the installer's name
@@ -27,6 +30,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 from app.version import APP_VERSION  # noqa: E402
 
@@ -108,6 +112,8 @@ def main():
                  "winget install JRSoftware.InnoSetup")
     py = sys.executable
     run([py, "-m", "PyInstaller", "--noconfirm", "ModbusReader_setup.spec"])
+    import build_launcher
+    build_launcher.build()
     run([iscc, f"/DAppVersion={APP_VERSION}", os.path.join("installer", "ModbusReader.iss")])
     outputs = [os.path.join(ROOT, "dist", "ModbusReader-Setup.exe")]
     if portable:

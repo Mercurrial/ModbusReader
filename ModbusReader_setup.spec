@@ -30,6 +30,11 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+# Never used: the app draws with QPainter (pyqtgraph useOpenGL=False), so
+# Qt's software OpenGL (20 MB) and its PDF engine only made the download and
+# every install heavier.
+_UNUSED = ('opengl32sw.dll', 'qt6pdf.dll', 'qpdf.dll')
+a.binaries = [b for b in a.binaries if not any(u in b[0].lower() for u in _UNUSED)]
 pyz = PYZ(a.pure)
 
 exe = EXE(
