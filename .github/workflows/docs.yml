@@ -46,7 +46,17 @@ jobs:
 
       - run: pip install -r requirements-docs.txt
 
+      # WebP versions of the pictures take minutes to encode; they only
+      # change when a picture or the encoder settings do.
+      - uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/webp
+          key: webp-${{ hashFiles('docs/images/**', 'tools/mkdocs_hooks.py') }}
+          restore-keys: webp-
+
       - run: mkdocs build --strict
+        env:
+          MKDOCS_WEBP_CACHE: ${{ runner.temp }}/webp
 
       - uses: actions/configure-pages@v6
 

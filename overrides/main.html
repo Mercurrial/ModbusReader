@@ -3,6 +3,46 @@
     that tells search engines this is a free Windows application. -#}
 {% extends "base.html" %}
 
+{#- Material's own head, with one change: the language alternates. Google
+    wants hreflang URLs fully qualified and an x-default; the theme writes
+    "/ModbusReader/en/" and no default. x-default is the Russian page, the
+    site's default language. -#}
+{% block site_meta %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  {% if page.meta and page.meta.description %}
+    <meta name="description" content="{{ page.meta.description }}">
+  {% elif config.site_description %}
+    <meta name="description" content="{{ config.site_description }}">
+  {% endif %}
+  {% if config.site_author %}
+    <meta name="author" content="{{ config.site_author }}">
+  {% endif %}
+  {% if page.canonical_url %}
+    <link rel="canonical" href="{{ page.canonical_url }}">
+  {% endif %}
+  {% if page.previous_page %}
+    <link rel="prev" href="{{ page.previous_page.url | url }}">
+  {% endif %}
+  {% if page.next_page %}
+    <link rel="next" href="{{ page.next_page.url | url }}">
+  {% endif %}
+  {%- set origin = config.site_url.split("/")[:3] | join("/") -%}
+  {% if config.extra.alternate is iterable %}
+    {% for alt in config.extra.alternate %}
+      {#- "en/guide/" on `mkdocs build`, "/ModbusReader/en/guide/" on `serve` #}
+      {%- if alt.link.startswith("http") %}{% set href = alt.link %}
+      {%- elif alt.link.startswith("/") %}{% set href = origin ~ alt.link %}
+      {%- else %}{% set href = config.site_url ~ alt.link %}{% endif %}
+    <link rel="alternate" href="{{ href }}" hreflang="{{ alt.lang }}">
+      {%- if loop.first %}
+    <link rel="alternate" href="{{ href }}" hreflang="x-default">
+      {%- endif %}
+    {% endfor %}
+  {% endif %}
+  <link rel="icon" href="{{ config.theme.favicon | url }}">
+{% endblock %}
+
 {#- The search-result title: the page's own title, plus the name only when
     the title does not already carry it ("ModbusReader — … - ModbusReader"). -#}
 {% block htmltitle %}
