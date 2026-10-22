@@ -6,6 +6,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from core import datatypes
 from core import linestats
 from core import transports
+from core.modbus_client import TcpMaster, link_error_kind, mbap
 from app.i18n import get_translator
 # Byte-order codecs live in datatypes.py now (single source of truth).
 # Re-exported here for backward compatibility with any external importer.
@@ -21,6 +22,9 @@ class ModbusCore(QThread):
     status_changed = pyqtSignal(bool, str)
     data_updated = pyqtSignal(int, str)
     log_msg = pyqtSignal(str, str)
+    # The link did not open: (link_error_kind, the OS text). The window
+    # shows the connection card with the reason in words.
+    open_failed = pyqtSignal(str, str)
 
     # === НОВЫЙ СИГНАЛ ===
     # Передает: (адрес массива, список прочитанных 16-битных слов)
@@ -161,6 +165,8 @@ class ModbusCore(QThread):
                                                  addr=datatypes.key_label(op["addr"]))))
             elif op["kind"] == "probe":
                 result.put(("ok", self._probe(op["addr"], op.get("slave"))))
+            elif op["kind"] == "ping":
+                result.put(("ok", self._ping(op["addr"], op.get("slave"))))
             else:
                 result.put(("err", self._msg("coreUnknownOp", kind=op["kind"])))
         except Exception as e:
@@ -172,12 +178,27 @@ class ModbusCore(QThread):
         'exception' — a Modbus exception response (device is ALIVE, it just
                       refuses this address/function — счётся найденным);
         'silent'    — no response at all (timeout / IO error)."""
+        area, raw = datatypes.split_key(int(addr))   # a holding key IS the address
         try:
-            res = self._counted_read(int(addr), 1, slave=slave)
+            res = self._counted_read(raw, 1, slave=slave, area=area)
         except Exception:
             return "silent"
         return {"ok": "alive", "exception": "exception"}.get(
             linestats.classify(res), "silent")
+
+    def _ping(self, key, slave) -> dict:
+        """The connection card's «Проверить связь» on the open link: one
+        1-register read, with what exactly came back — {"state": ok |
+        exception | timeout | crc, "code": exception code, "ms": time}."""
+        area, raw = datatypes.split_key(int(key))
+        t0 = time.monotonic()
+        try:
+            res = self._counted_read(raw, 1, slave=slave, area=area)
+        except Exception:
+            return {"state": "timeout", "code": 0, "ms": None}
+        return {"state": linestats.classify(res),
+                "code": int(getattr(res, "exception_code", 0) or 0),
+                "ms": (time.monotonic() - t0) * 1000.0}
 
     def _read_value(self, addr, dtype, slave=None, count=None):
         """Синхронное чтение одного регистра → число. Также обновляет дашборд
@@ -222,13 +243,11 @@ class ModbusCore(QThread):
             opened = bool(self.client.connect())
         except Exception as e:
             self.client = None
-            self.log_msg.emit("ERR", self._msg("coreOpenFail", link=self._describe())
-                              + f" — {e}")
-            self.status_changed.emit(False, "")
+            self._report_open_fail(link_error_kind(e), str(e))
             return
         if not opened:
-            self.log_msg.emit("ERR", self._msg("coreOpenFail", link=self._describe()))
-            self.status_changed.emit(False, "")
+            self._report_open_fail(getattr(self.client, "last_error", "") or "other",
+                                   getattr(self.client, "last_error_text", ""))
             return
         if self._abort:                       # «Отключить» while opening
             self._close_client()
@@ -305,6 +324,14 @@ class ModbusCore(QThread):
         self._close_client()
         self._drain_queues()
         self.status_changed.emit(False, self._msg("coreDisconnected"))
+
+    def _report_open_fail(self, kind: str, text: str):
+        from core import linktest
+        reason = linktest.why(kind, self.settings, text, self.t)
+        self.log_msg.emit("ERR", self._msg("coreOpenFail", link=self._describe())
+                          + (f" — {reason}" if reason else ""))
+        self.open_failed.emit(kind, text)
+        self.status_changed.emit(False, "")
 
     def _close_client(self):
         try:
@@ -453,6 +480,16 @@ class ModbusCore(QThread):
                     crc >>= 1
         return struct.pack('<H', crc)
 
+    def _wire(self, body: bytes, tx: bool = True) -> bytes:
+        """*body* (address + PDU) as it travels on the active link: RTU
+        appends the CRC, Modbus TCP puts the MBAP header in front (with the
+        transaction id the request carries / the answer came with)."""
+        client = self.client
+        if isinstance(client, TcpMaster):
+            tid = client.next_tid() if tx else client._tid
+            return mbap(tid, body[0], body[1:])
+        return body + self._crc16(body)
+
     @staticmethod
     def _hex(data: bytes) -> str:
         """Форматирование байтов в HEX-строку."""
@@ -464,7 +501,7 @@ class ModbusCore(QThread):
     def _log_tx_read(self, addr, count, fc=0x03):
         """Логирование TX-фрейма чтения (FC01/02/03/04)."""
         pdu = struct.pack('>BBHH', self.slave_id & 0xFF, fc & 0xFF, addr & 0xFFFF, count & 0xFFFF)
-        frame = pdu + self._crc16(pdu)
+        frame = self._wire(pdu)
         what = self._msg("coreUnitBit" if fc in (0x01, 0x02) else "coreUnitReg")
         self.log_msg.emit("TX", f"→ [{self._hex(frame)}]  " + self._msg(
             "coreFrameRead", fc=f"{fc:02X}", n=count, what=what, addr=f"0x{addr:04X}"))
@@ -483,14 +520,18 @@ class ModbusCore(QThread):
             for r in registers:
                 rx += struct.pack('>H', r & 0xFFFF)
             shown = ' '.join(f'{r & 0xFFFF:04X}' for r in registers)
-        frame = rx + self._crc16(rx)
+        last = getattr(self.client, "last_answer", b"")
+        if isinstance(self.client, TcpMaster) and last:
+            frame = bytes(last)          # the MBAP answer exactly as it came
+        else:
+            frame = self._wire(rx, tx=False)
         self.log_msg.emit("RX", f"← [{self._hex(frame)}]  "
                           + self._msg("coreFrameData", data=shown))
 
     def _log_tx_write(self, addr, value, fc=0x06):
         """Логирование TX-фрейма: FC06 Write Single Register / FC05 Coil."""
         pdu = struct.pack('>BBHH', self.slave_id & 0xFF, fc, addr & 0xFFFF, value & 0xFFFF)
-        frame = pdu + self._crc16(pdu)
+        frame = self._wire(pdu)
         self.log_msg.emit("TX", f"→ [{self._hex(frame)}]  " + self._msg(
             "coreFrameWrite", fc=f"{fc:02X}", value=f"0x{value & 0xFFFF:04X}",
             addr=f"0x{addr:04X}"))
@@ -498,7 +539,7 @@ class ModbusCore(QThread):
     def _log_rx_write(self, addr, value, fc=0x06):
         """Логирование RX-фрейма: эхо-ответ на FC06 / FC05."""
         pdu = struct.pack('>BBHH', self.slave_id & 0xFF, fc, addr & 0xFFFF, value & 0xFFFF)
-        frame = pdu + self._crc16(pdu)
+        frame = self._wire(pdu, tx=False)
         self.log_msg.emit("RX", f"← [{self._hex(frame)}]  " + self._msg("coreFrameEcho"))
 
     # ==========================================
@@ -586,16 +627,27 @@ class ModbusCore(QThread):
     def _execute_raw(self, frame: bytes):
         """Отправка сырого кадра (консоль) и чтение ответа до «тишины».
 
-        Работает мимо разбора кадров клиента — пишем прямо в последовательный
-        порт (client.socket — это pyserial.Serial). Длина ответа неизвестна (кадр
-        может быть и мусорным, и чужого протокола), поэтому читаем всё, что
-        приходит, пока линия не замолчит на 50 мс или не истечёт timeout."""
+        Работает мимо разбора кадров клиента — кадр уходит как есть: в
+        последовательный порт (или сокет преобразователя для «RTU по TCP»),
+        а для Modbus TCP — в сокет, уже с заголовком MBAP, который собрала
+        консоль. Длина ответа неизвестна (кадр может быть и мусорным, и
+        чужого протокола), поэтому читаем всё, что приходит, пока линия не
+        замолчит или не истечёт timeout; ответ Modbus TCP заканчивается там,
+        где говорит его заголовок."""
         self.log_msg.emit("TX", f"→ [{self._hex(frame)}]  RAW · "
                           + self._msg("coreBytes", n=len(frame)))
-        sock = getattr(self.client, "socket", None)
+        client = self.client
+        if isinstance(client, TcpMaster):
+            self._execute_raw_tcp(client, bytes(frame))
+            return
+        sock = getattr(client, "socket", None)
+        if sock is None and getattr(client, "_opened", False):
+            client.connect()                # a converter that dropped the link
+            sock = client.socket
         if sock is None or not hasattr(sock, "in_waiting"):
             self.log_msg.emit("ERR", self._msg("coreRawNoPort"))
             return
+        quiet = getattr(client, "quiet_s", 0.05)
         t0 = time.monotonic()
         try:
             sock.reset_input_buffer()
@@ -608,7 +660,7 @@ class ModbusCore(QThread):
                 if n:
                     buf += sock.read(n)
                     last_rx = time.monotonic()
-                elif buf and time.monotonic() - last_rx > 0.05:
+                elif buf and time.monotonic() - last_rx > quiet:
                     break  # ответ пришёл и линия замолчала
                 else:
                     time.sleep(0.005)
@@ -628,6 +680,53 @@ class ModbusCore(QThread):
         except Exception as e:
             self.stats.record("timeout")
             self.log_msg.emit("ERR", f"RAW: {e}")
+
+    def _execute_raw_tcp(self, client, frame: bytes):
+        """Raw console over Modbus TCP: *frame* already carries its MBAP
+        header. The answer is complete when its header says so."""
+        import socket as _socket
+        t0 = time.monotonic()
+        try:
+            sock = client._send(frame)
+        except Exception as e:
+            self.stats.record("timeout")
+            self.log_msg.emit("ERR", f"RAW: {e}")
+            return
+        buf = bytearray()
+        deadline = t0 + self.timeout
+        last_rx = 0.0
+        try:
+            while time.monotonic() < deadline:
+                if len(buf) >= 6:
+                    need = 6 + int.from_bytes(buf[4:6], "big")
+                    if int.from_bytes(buf[2:4], "big") == 0 and len(buf) >= need:
+                        break
+                if buf and time.monotonic() - last_rx > client.quiet_s:
+                    break
+                try:
+                    sock.settimeout(0.02)
+                    chunk = sock.recv(4096)
+                except _socket.timeout:
+                    continue
+                if not chunk:
+                    client.close()          # the device closed it; reopened next time
+                    break
+                buf += chunk
+                last_rx = time.monotonic()
+        except OSError as e:
+            client.close()
+            self.log_msg.emit("ERR", f"RAW: {e}")
+        if not buf:
+            self.stats.record("timeout")
+            self.log_msg.emit("ERR", self._msg("coreRawNoAnswer"))
+            return
+        self.log_msg.emit("RX", f"← [{self._hex(bytes(buf))}]  "
+                          + self._msg("coreBytes", n=len(buf)))
+        good = (len(buf) >= 8 and int.from_bytes(buf[2:4], "big") == 0
+                and len(buf) == 6 + int.from_bytes(buf[4:6], "big"))
+        exc = good and buf[7] >= 0x80
+        self.stats.record("exception" if exc else ("ok" if good else "crc"),
+                          last_rx - t0 if good else None)
 
     def _execute_write(self, addr, dtype, value_str) -> bool:
         """Write one value; True only when EVERY word was acknowledged.

@@ -271,6 +271,7 @@ def dump_dashboard(path: str, name, widgets, links):
 # The connection keys a project captures (the device identity + link + codecs).
 PROJECT_CONNECTION_KEYS = (
     "transport", "port", "baudrate", "parity", "stopbits", "slave_id",
+    "host", "tcp_port",
     "timeout", "poll_rate", "interframe_delay", "retry_count",
     "order_short", "order_long", "order_float",
 )

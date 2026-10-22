@@ -88,10 +88,17 @@ def _backup_file() -> str:
     return SETTINGS_FILE + ".bak"
 
 DEFAULT_SETTINGS = {
-    # Connection — transport selector (transports.py registry).
-    # "serial" (default) | "tcp". TCP is functional but not surfaced in the
-    # Settings UI yet — set it here / in app_settings.json to use it.
+    # Connection — transport selector (transports.py registry):
+    # "serial" (RTU on a COM port) | "tcp" (Modbus TCP) | "rtu_tcp" (RTU
+    # frames through a serial-to-Ethernet converter).
     "transport":        "serial",
+
+    # Connection — network (tcp / rtu_tcp). No host by default: a made-up
+    # address would be "connected to" and fail with a misleading reason.
+    "host":             "",
+    "tcp_port":         502,
+    # The last connections that worked (transports.remember), newest first.
+    "recent_links":     [],
 
     # Connection — serial
     "port":             "COM1",
@@ -193,6 +200,11 @@ DEFAULT_SETTINGS = {
     "slave_baud":        "",
     "slave_sid":         None,
     "slave_delay":       0,
+    # serial | tcp | rtu_tcp; the TCP server's port and who may connect
+    # ("all" interfaces or "local" = 127.0.0.1 only).
+    "slave_mode":        "serial",
+    "slave_tcp_port":    502 if os.name == "nt" else 1502,
+    "slave_access":      "all",
     "last_view":         "view_table",   # nav view active at exit
     # 2.0–2.1: which views showed as top-bar tabs. The 2.2 rail shows every
     # page; the key stays so projects written by older versions round-trip.

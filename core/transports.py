@@ -6,9 +6,14 @@ Descriptor + Registry style (mirrors datatypes.py / commands.py): each transport
 is one frozen ``Transport`` descriptor in ``TRANSPORTS``. ``ModbusCore`` is
 transport-agnostic — it never names a concrete client class; it picks a
 descriptor by id (the ``transport`` setting) and calls ``.create()`` /
-``.describe()``. The clients are the app's own (core/modbus_client: RtuMaster,
-TcpMaster) and offer the same request API (``read_holding_registers`` /
-``write_register`` …) over both links.
+``.describe()``. The clients are the app's own (core/modbus_client) and offer
+the same request API (``read_holding_registers`` / ``write_register`` …) over
+every link.
+
+    serial   Modbus RTU on a COM port (RS-485 / RS-232 adapter)
+    tcp      Modbus TCP: MBAP header, no CRC — PLCs, meters, gateways
+    rtu_tcp  RTU frames through a TCP socket — a serial-to-Ethernet
+             converter in transparent mode (USR, Moxa NPort "TCP server")
 
 Adding a transport = adding ONE descriptor here. Nothing in ModbusCore changes.
 
@@ -20,14 +25,9 @@ Notes
   configured "3" once became ~10).
 * ``timeout`` is supplied by ModbusCore (the «Таймаут ответа» setting); the
   factory stays agnostic about where it comes from.
-* TCP is implemented but intentionally **not** surfaced in the Settings UI — the
-  product is serial-first (the connection dialog shows only Serial / RTU). Select
-  it by setting ``"transport": "tcp"`` (+ optional ``host`` / ``tcp_port``) in
-  app_settings.json. Surfacing it later = a transport selector field in
-  settings_schema.py; no core change.
-* Verbose frame logging in ModbusCore assumes RTU framing (slave + PDU + CRC16).
-  Over TCP the real wire frame is MBAP-wrapped, so the logged bytes are
-  RTU-style — the decoded data shown is still correct.
+* The device address is the ``slave_id`` setting for every transport. Over
+  TCP it travels as the MBAP unit id, where 0 and 255 are legal too (a
+  device addressed by its IP often expects one of them) — ``id_range``.
 """
 from dataclasses import dataclass
 from typing import Callable
@@ -37,16 +37,18 @@ from typing import Callable
 class Transport:
     """One pluggable Modbus link.
 
-    transport_id  settings value that selects this transport ("serial" | "tcp")
-    label         short, language-neutral name (for logs / a future selector)
+    transport_id  settings value that selects this transport
+    label         short, language-neutral name (the header chip, logs)
     create        (settings: dict, timeout: float) -> a Modbus client, not yet
                   connected (the caller calls ``.connect()``)
     describe      (settings: dict) -> human link string, e.g. "COM1 (115200)"
+    network       True when the link is a TCP connection (host + port)
     """
     transport_id: str
     label: str
     create: Callable
     describe: Callable
+    network: bool = False
 
 
 # ── serial / RTU ──────────────────────────────────────────────────────
@@ -119,24 +121,51 @@ def _describe_serial(settings):
 
 
 # ── TCP ───────────────────────────────────────────────────────────────
+DEFAULT_TCP_PORT = 502
+
+
+def tcp_port_value(value) -> int:
+    """Stored TCP port → 1…65535; garbage falls back to 502."""
+    try:
+        v = int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return DEFAULT_TCP_PORT
+    return v if 1 <= v <= 65535 else DEFAULT_TCP_PORT
+
+
+def host_value(settings) -> str:
+    """The host to connect to, as typed (an IP or a name); "" when unset."""
+    return str(settings.get("host", "") or "").strip()
+
+
 def _make_tcp(settings, timeout):
     from core.modbus_client import TcpMaster
-    try:
-        port = int(settings.get("tcp_port", 502))
-    except (TypeError, ValueError):
-        port = 502
-    return TcpMaster(settings.get("host", "127.0.0.1"), port=port,
+    return TcpMaster(host_value(settings),
+                     port=tcp_port_value(settings.get("tcp_port", DEFAULT_TCP_PORT)),
                      timeout=timeout, retries=1)
 
 
-def _describe_tcp(settings):
-    return f'{settings.get("host", "127.0.0.1")}:{settings.get("tcp_port", 502)}'
+def _make_rtu_tcp(settings, timeout):
+    from core.modbus_client import RtuOverTcpMaster
+    return RtuOverTcpMaster(host_value(settings),
+                            port=tcp_port_value(settings.get("tcp_port", DEFAULT_TCP_PORT)),
+                            timeout=timeout, retries=1)
+
+
+def host_port(settings) -> str:
+    """"192.168.1.20:502" — "?" stands in for a host not set yet."""
+    port = tcp_port_value(settings.get("tcp_port", DEFAULT_TCP_PORT))
+    host = host_value(settings) or "?"
+    if ":" in host and not host.startswith("["):   # an IPv6 literal
+        host = f"[{host}]"
+    return f"{host}:{port}"
 
 
 # ── the registry (declaration order = preference order) ───────────────
 TRANSPORTS: tuple = (
-    Transport("serial", "Serial / RTU", _make_serial, _describe_serial),
-    Transport("tcp",    "TCP",          _make_tcp,    _describe_tcp),
+    Transport("serial",  "RTU",     _make_serial,  _describe_serial),
+    Transport("tcp",     "TCP",     _make_tcp,     host_port, network=True),
+    Transport("rtu_tcp", "RTU/TCP", _make_rtu_tcp, host_port, network=True),
 )
 
 BY_ID = {t.transport_id: t for t in TRANSPORTS}
@@ -146,3 +175,80 @@ DEFAULT_ID = "serial"
 def get(transport_id) -> Transport:
     """Return the ``Transport`` for *transport_id*, falling back to serial."""
     return BY_ID.get(transport_id, BY_ID[DEFAULT_ID])
+
+
+def active(settings) -> Transport:
+    """The transport *settings* select."""
+    return get(settings.get("transport", DEFAULT_ID))
+
+
+def is_network(settings) -> bool:
+    return active(settings).network
+
+
+def id_range(settings_or_id) -> tuple:
+    """Legal device addresses for the link: 1…247 on a serial line (0 is
+    the broadcast, nobody answers it), 0…255 as a TCP unit id."""
+    t = get(settings_or_id) if isinstance(settings_or_id, str) else active(settings_or_id)
+    return (0, 255) if t.network else (1, 247)
+
+
+def summary(settings) -> str:
+    """The link on one line, for the header chip and the status bar:
+    "COM3 · 115200 · 8E1", "TCP · 192.168.1.20:502",
+    "RTU/TCP · 10.0.0.7:4001"."""
+    t = active(settings)
+    if t.network:
+        return f"{t.label} · {host_port(settings)}"
+    return (f"{settings.get('port', 'COM1')} · {settings.get('baudrate', '115200')}"
+            f" · {serial_framing(settings)}")
+
+
+# The settings keys that make up one connection (the recent-links list and
+# the connection card read and write exactly these).
+LINK_FIELDS = ("transport", "port", "baudrate", "parity", "stopbits",
+               "host", "tcp_port", "slave_id")
+
+
+def link_of(settings) -> dict:
+    """The connection *settings* describe — only the keys that matter for
+    its transport, so two entries for the same device compare equal."""
+    t = active(settings)
+    out = {"transport": t.transport_id}
+    if t.network:
+        out["host"] = host_value(settings)
+        out["tcp_port"] = tcp_port_value(settings.get("tcp_port", DEFAULT_TCP_PORT))
+    else:
+        out["port"] = str(settings.get("port", "COM1")).strip()
+        out["baudrate"] = str(baudrate_value(settings.get("baudrate", 115200)))
+        out["parity"] = str(settings.get("parity", "None (N)"))
+        out["stopbits"] = str(settings.get("stopbits", "1"))
+    try:
+        out["slave_id"] = int(settings.get("slave_id", 1))
+    except (TypeError, ValueError):
+        out["slave_id"] = 1
+    return out
+
+
+def _same_link(a: dict, b: dict) -> bool:
+    keys = ("transport", "host", "tcp_port", "port", "slave_id")
+    return all(a.get(k) == b.get(k) for k in keys)
+
+
+RECENT_MAX = 6
+
+
+def remember(recent, settings, when: float = 0.0) -> list:
+    """*recent* (a list of link dicts, newest first) with the connection in
+    *settings* moved to the front. Garbage entries are dropped."""
+    entry = dict(link_of(settings))
+    if when:
+        entry["used"] = float(when)
+    out = [entry]
+    for item in recent if isinstance(recent, list) else []:
+        if not isinstance(item, dict) or item.get("transport") not in BY_ID:
+            continue
+        if _same_link(item, entry):
+            continue
+        out.append(item)
+    return out[:RECENT_MAX]
