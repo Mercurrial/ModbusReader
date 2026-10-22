@@ -1,4 +1,4 @@
-# The project site (mkdocs.yml → https://mercurrial.github.io/ModbusReader/).
+# The project site (mkdocs.yml → https://modbusreader.ru/).
 # Built by .github/workflows/docs.yml; locally:
 #     pip install -r requirements-docs.txt && mkdocs serve
 # Pinned like the app's libraries; Dependabot proposes updates.

@@ -1,4 +1,4 @@
-# The project site — https://mercurrial.github.io/ModbusReader/
+# The project site — https://modbusreader.ru/
 #
 # Pages are Markdown in docs/: page.md is Russian (the default, served at /),
 # page.en.md is its English twin (served under /en/). Build locally with
@@ -8,7 +8,7 @@
 # The version shown on the site comes from app/version.py (tools/mkdocs_hooks.py).
 
 site_name: ModbusReader
-site_url: https://mercurrial.github.io/ModbusReader/
+site_url: https://modbusreader.ru/
 site_description: >-
   Бесплатная программа для наладки и мониторинга приборов по Modbus RTU
   (RS-485): карта регистров, графики, дашборд, сканер, сниффер, макросы и

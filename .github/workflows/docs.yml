@@ -1,4 +1,4 @@
-# The project site — https://mercurrial.github.io/ModbusReader/
+# The project site — https://modbusreader.ru/
 #
 # Builds mkdocs.yml (Markdown in docs/, RU + EN) and publishes it to GitHub
 # Pages on every push to main that touches the site. `--strict` fails the

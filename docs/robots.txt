@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://modbusreader.ru/sitemap.xml
