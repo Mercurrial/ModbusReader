@@ -91,3 +91,18 @@ def test_frame_decoder_names_the_parts():
     assert fields["kind"] == "response" and fields["registers"] == "41C4 CCCD"
     fields = dict(_js("return T.decode(T.parseHex(D));", "01 83 02"))
     assert fields["exception"].startswith("2 ")
+
+
+def test_frame_decoder_tells_rtu_from_modbus_tcp():
+    """The CRC tool recognises a Modbus TCP frame by its MBAP header — and a
+    valid trailing CRC still wins: the textbook RTU request also looks like
+    an MBAP header."""
+    got = _js("return D.map(f => { const r = T.classify(T.parseHex(f));"
+              " return [r.kind, Object.fromEntries(r.fields)]; });",
+              ["00 01 00 00 00 06 00 03 00 00 00 02", "00 01 00 00 00 07 01 03 04 41 C4 CC CD",
+               "01 03 00 00 00 02 C4 0B", "01 03 00 00 00 02"])
+    (k1, f1), (k2, f2), (k3, f3), (k4, f4) = got
+    assert k1 == "tcp" and f1["unit"] == "0" and f1["count"] == "2" and f1["length"] == "6"
+    assert k2 == "tcp" and f2["registers"] == "41C4 CCCD" and f2["kind"] == "response"
+    assert k3 == "rtu" and f3["slave"] == "1"
+    assert k4 == "raw" and f4["count"] == "2"

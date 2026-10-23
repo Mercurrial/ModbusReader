@@ -108,6 +108,26 @@
     return out;
   }
 
+  // A frame as typed → what it is. A trailing valid CRC means RTU; a valid
+  // MBAP header (protocol 0, length = the rest) means Modbus TCP; anything
+  // else is an RTU frame still waiting for its CRC. The CRC test comes first:
+  // "01 03 00 00 00 02 C4 0B" also looks like an MBAP header.
+  function classify(bytes) {
+    if (crcOk(bytes))
+      return { kind: "rtu", crc: bytes.slice(-2), fields: decode(bytes.slice(0, -2)) };
+    if (bytes.length >= 8 && bytes[2] === 0 && bytes[3] === 0 &&
+        u16(bytes, 4) === bytes.length - 6) {
+      var fields = [["transaction", String(u16(bytes, 0))],
+                    ["protocol", "0 (Modbus)"],
+                    ["length", String(u16(bytes, 4))]];
+      decode(bytes.slice(6)).forEach(function (f) {
+        fields.push(f[0] === "slave" ? ["unit", String(bytes[6])] : f);   // unit 0 is no broadcast in TCP
+      });
+      return { kind: "tcp", fields: fields };
+    }
+    return { kind: "raw", fields: decode(bytes) };
+  }
+
   // ── values <-> registers ──────────────────────────────────────────────
   var PERM32 = { ABCD: [0, 1, 2, 3], BADC: [1, 0, 3, 2], CDAB: [2, 3, 0, 1], DCBA: [3, 2, 1, 0] };
   var PERM64 = { ABCD: [0, 1, 2, 3, 4, 5, 6, 7], BADC: [1, 0, 3, 2, 5, 4, 7, 6],
@@ -226,7 +246,7 @@
   }
 
   var MBTools = { parseHex: parseHex, hex: hex, hex16: hex16, crc16: crc16, withCrc: withCrc,
-                  crcOk: crcOk, decode: decode, encode: encode, decodeWords: decodeWords,
+                  crcOk: crcOk, decode: decode, classify: classify, encode: encode, decodeWords: decodeWords,
                   parseWords: parseWords, fromModicon: fromModicon, toModicon: toModicon,
                   parseOffset: parseOffset, TABLES: TABLES };
   if (typeof module !== "undefined" && module.exports) { module.exports = MBTools; return; }
@@ -238,6 +258,8 @@
     badHex: "Not valid hex: two digits per byte, e.g. 01 03 00 00 00 02.",
     crc: "CRC", crcValid: "valid ✓", frame: "Frame with CRC", wire: "on the wire (low byte first)",
     hasCrc: "The last two bytes are a valid CRC — the frame decoded without them:",
+    isTcp: "A Modbus TCP frame (MBAP header) — it carries no CRC:",
+    transaction: "Transaction ID", protocol: "Protocol", length: "Length", unit: "Unit ID",
     slave: "Device address", "function": "Function", exception: "Exception", kind: "Kind",
     address: "Address", count: "Count", bytes: "Byte count", registers: "Registers",
     bits: "Bits (first bit first)", value: "Value",
@@ -252,6 +274,8 @@
     badHex: "Это не hex: по две цифры на байт, например 01 03 00 00 00 02.",
     crc: "CRC", crcValid: "верный ✓", frame: "Кадр с CRC", wire: "в кадре (младший байт первым)",
     hasCrc: "Последние два байта — верный CRC; кадр разобран без них:",
+    isTcp: "Кадр Modbus TCP (заголовок MBAP) — CRC в нём нет:",
+    transaction: "Номер транзакции", protocol: "Протокол", length: "Длина", unit: "Unit ID",
     slave: "Адрес прибора", "function": "Функция", exception: "Исключение", kind: "Тип",
     address: "Адрес", count: "Количество", bytes: "Число байт", registers: "Регистры",
     bits: "Биты (первый бит слева)", value: "Значение",
@@ -287,18 +311,19 @@
       var bytes = parseHex(inp.value);
       if (!inp.value.trim()) { out.innerHTML = ""; return; }
       if (!bytes) { out.innerHTML = "<p>" + esc(T.badHex) + "</p>"; return; }
-      var html = "", body = bytes;
-      if (crcOk(bytes)) {
+      var html = "", r = classify(bytes);
+      if (r.kind === "rtu") {
         // The frame already ends in its CRC: confirm it, decode the rest.
-        html += table([[esc(T.crc), code(hex(bytes.slice(-2))) + " — " + esc(T.crcValid)]]);
+        html += table([[esc(T.crc), code(hex(r.crc)) + " — " + esc(T.crcValid)]]);
         html += "<p>" + esc(T.hasCrc) + "</p>";
-        body = bytes.slice(0, -2);
+      } else if (r.kind === "tcp") {
+        html += "<p>" + esc(T.isTcp) + "</p>";
       } else {
         var c = crc16(bytes);
         html += table([[esc(T.crc), code("0x" + hex16(c)) + " — " + esc(T.wire) + ": " + code(hex([c & 0xFF, c >> 8]))],
                        [esc(T.frame), code(hex(withCrc(bytes)))]]);
       }
-      var fields = decode(body);
+      var fields = r.fields;
       if (fields.length) html += table(fields.map(function (f) {
         var v = f[0] === "kind" ? (KIND[f[1]] || f[1]) : f[1];
         return [esc(T[f[0]] || f[0]), code(v)];

@@ -1,13 +1,14 @@
 ---
-seo_title: Modbus RTU CRC calculator online and frame decoder
-description: Online CRC16 Modbus RTU calculator — type a frame in hex to get its checksum, the ready packet and a decoding — device address, function, register address, count, data, exception code.
+seo_title: Modbus RTU CRC calculator online and Modbus RTU/TCP frame decoder
+description: Online CRC16 Modbus RTU calculator and Modbus RTU and Modbus TCP packet decoder — type a frame in hex to get its checksum, the ready packet and a decoding — device address or Unit ID, function, register address, count, data, exception code.
 ---
 
 # CRC calculator and frame decoder
 
 Type a Modbus RTU frame in hex — **without the CRC** to compute the
 checksum, or **with it** to check it. The decoding appears below: device
-address, function, address, count, data.
+address, function, address, count, data. A [Modbus TCP](../modbus/tcp.md)
+frame with an MBAP header is recognised and decoded too — it carries no CRC.
 
 <div class="mbt" markdown>
 <label for="mbt-crc-in">Frame (hex)</label>
