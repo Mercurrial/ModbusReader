@@ -105,7 +105,10 @@ bottom of the window, and any frame can be sent by hand from the
 | Device address | in every frame | in every frame | Unit ID in the MBAP header |
 
 All three share the same functions and registers — only the "wrapping"
-differs. ModbusReader works with **Modbus RTU** over a serial port.
+differs. ModbusReader works with **Modbus RTU** over a serial port. How
+Modbus TCP works — port 502, the MBAP header, the Unit ID — is in
+[Modbus TCP](tcp.md); polling RS-485 devices over a network is in
+[RTU over TCP and converters](rtu-over-tcp.md).
 
 ## Next
 

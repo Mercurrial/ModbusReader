@@ -178,6 +178,8 @@ nav:
       - modbus/addressing.md
       - modbus/data-types.md
       - modbus/functions.md
+      - modbus/tcp.md
+      - modbus/rtu-over-tcp.md
   - Руководство:
       - guide/index.md
       - guide/register-map.md
