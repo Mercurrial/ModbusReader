@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath artifact configuration "installer" — the second signing request
+     of the Windows build (.github/workflows/build.yml): the zip the job
+     uploads as "unsigned-installer". Paste it into SignPath: project
+     ModbusReader → Artifact Configurations → New, slug "installer". -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="ModbusReader-Setup.exe">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

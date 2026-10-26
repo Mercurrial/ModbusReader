@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SignPath artifact configuration "programs" — the first signing request of
+     the Windows build (.github/workflows/build.yml): the zip the job uploads
+     as "unsigned-programs". Paste it into SignPath: project ModbusReader →
+     Artifact Configurations → New, slug "programs". -->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <!-- The program in the installer (dist/ModbusReader/ModbusReader.exe) -->
+    <pe-file path="program/ModbusReader.exe">
+      <authenticode-sign />
+    </pe-file>
+    <!-- The launcher the installer puts in front of it (build/launcher/) -->
+    <pe-file path="launcher/ModbusReader.exe">
+      <authenticode-sign />
+    </pe-file>
+    <!-- The portable builds -->
+    <pe-file path="portable/ModbusReader.exe">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="portable/ModbusReader_debug.exe">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

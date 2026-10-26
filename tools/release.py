@@ -34,10 +34,12 @@ sys.path.insert(0, ROOT)
 
 REPO_URL = "https://github.com/Mercurrial/ModbusReader"
 UNRELEASED = "Не выпущено"
-ASSETS = ("dist/ModbusReader-Setup.exe", "dist/ModbusReader.exe",
-          "dist/ModbusReader_debug.exe",
-          # Built by CI for the tag (.github/workflows/build.yml), downloaded
-          # with "gh run download <run> -D dist/ci":
+# All built by CI for the tag (.github/workflows/build.yml) — the Windows
+# files signed there, which a local build cannot be — and downloaded with
+# "gh run download <run> -D dist/ci -n windows -n linux -n macos":
+ASSETS = ("dist/ci/windows/ModbusReader-Setup.exe",
+          "dist/ci/windows/ModbusReader.exe",
+          "dist/ci/windows/ModbusReader_debug.exe",
           "dist/ci/linux/dist/ModbusReader-x86_64.AppImage",
           "dist/ci/macos/dist/ModbusReader-macOS-arm64.zip")
 _VERSION_RE = re.compile(r"^\d{2}\.(?:[1-9]|1[0-2])\.\d+$")
@@ -127,10 +129,10 @@ def main():
     print("  python -m pytest")
     print(f'  git commit -am "release: {version}"')
     print(f'  git tag -a v{version} -m "ModbusReader {version}"')
-    print("  python tools/build_installer.py --portable")
     print(f"  git push origin main v{version}")
-    print("  (the tag starts the Linux and macOS builds: Actions → build)")
-    print("  gh run download <build run of the tag> -D dist/ci")
+    print("  (the tag starts the builds: Actions → build; the Windows one waits")
+    print("   until both of its signing requests are approved on app.signpath.io)")
+    print("  gh run download <build run of the tag> -D dist/ci -n windows -n linux -n macos")
     # ONE release: replace its files, THEN move it to the new tag. In that
     # order a copy never sees the new number next to the old build (it would
     # install the old one and be offered the update again). The old tag stays.
