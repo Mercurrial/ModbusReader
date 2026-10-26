@@ -190,12 +190,17 @@ bugs to [Issues](https://github.com/Mercurrial/ModbusReader/issues).
 ??? question "How does ModbusReader differ from Modbus Poll and Modbus Slave?"
     Master, device emulator and sniffer in one free app; a register map
     holding names, units and enumerations; a dashboard and Python macros.
-    What it lacks is Modbus TCP and ASCII. A detailed comparison:
+    What it lacks is Modbus ASCII and UDP; Modbus TCP and RTU over TCP arrive
+    in the next version. A detailed comparison:
     [a free Modbus Poll alternative](compare.md).
 
 ??? question "Does it support Modbus TCP?"
-    Not yet: ModbusReader works with **Modbus RTU** over a serial port —
-    RS-485 or RS-232 through a USB adapter.
+    From the next version, yes: connecting to PLCs, meters and gateways over
+    [Modbus TCP](modbus/tcp.md), to RS-485 ↔ Ethernet converters in
+    [RTU over TCP](modbus/rtu-over-tcp.md) mode, a TCP emulator and a search
+    for devices on the network. The current version works with
+    **Modbus RTU** over a serial port — RS-485 or RS-232 through a USB
+    adapter.
 
 ??? question "Which adapter do I need?"
     Any USB-to-RS-485 adapter the system sees as a COM port: FTDI, CP210x or
