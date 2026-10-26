@@ -1,6 +1,6 @@
 ---
 seo_title: A free Modbus Poll and Modbus Slave alternative — ModbusReader compared
-description: An honest comparison of ModbusReader with Modbus Poll and Modbus Slave — price, trial, systems, RTU/TCP protocols, functions, simulation, sniffer, automation. When the free app is enough and when you need Modbus Poll.
+description: An honest comparison of ModbusReader with Modbus Poll and Modbus Slave — price, trial, systems, protocols (RTU, TCP, ASCII, UDP), functions, simulation, sniffer, automation. When the free app is enough and when you need Modbus Poll.
 ---
 
 # ModbusReader vs Modbus Poll / Modbus Slave
@@ -8,9 +8,10 @@ description: An honest comparison of ModbusReader with Modbus Poll and Modbus Sl
 **Modbus Poll** (master) and **Modbus Slave** (device simulator) by Witte
 Software are the best-known Modbus utilities; nearly every commissioning
 engineer knows them. They are paid. ModbusReader is a free, open-source app
-that covers the same jobs for **Modbus RTU** and adds things their product
-descriptions do not mention. Below is an honest comparison — including where
-ModbusReader falls short.
+that covers the same jobs for **Modbus RTU** — and, from the next version,
+for **Modbus TCP** — and adds things their product descriptions do not
+mention. Below is an honest comparison — including where ModbusReader falls
+short.
 
 ## Comparison
 
@@ -20,7 +21,8 @@ ModbusReader falls short.
 | Trial | not needed — no limits | the connection drops after 10 minutes; no connections after 30 days |
 | Systems | Windows 10/11, **Linux, macOS** | Windows 7, 8, 8.1, 10, 11 |
 | Modbus RTU (RS-485/RS-232) | ✓ | ✓ |
-| Modbus ASCII, TCP/IP, UDP, RTU over TCP | **no** | ✓ |
+| Modbus TCP, RTU over TCP | ✓ in the next version | ✓ |
+| Modbus ASCII, UDP | **no** | ✓ |
 | Master and simulator in one app | ✓ | two separate programs |
 | Master functions | 01–06 (multi-register values written word by word with 06; any frame from the console) | 14 functions, including 15, 16, 22, 23, 43 |
 | Simulator functions | 01–06, 15, 16 | 01–06, 08, 11, 15–17, 22, 23, 43 |
@@ -45,7 +47,9 @@ Witte Software; ModbusReader is not affiliated with them.
 ## When ModbusReader is enough
 
 - Devices on **RS-485 / RS-232 speaking Modbus RTU** — meters, controllers,
-  drives, sensors.
+  drives, sensors. From the next version, devices on a network too: PLCs,
+  meters and gateways speaking [Modbus TCP](modbus/tcp.md), RS-485 devices
+  behind a converter in [RTU over TCP](modbus/rtu-over-tcp.md) mode.
 - You want a **register map with names and units**, not a grid of bare
   addresses — and to import it from the device datasheet.
 - You want **master, simulator and sniffer** in one app: debug a SCADA with no
@@ -55,8 +59,8 @@ Witte Software; ModbusReader is not affiliated with them.
 
 ## When you need Modbus Poll
 
-- Devices on **Modbus TCP**, ASCII or UDP — ModbusReader does not support them
-  yet.
+- Devices on **Modbus ASCII** or **UDP** — ModbusReader does not support them
+  yet. Modbus TCP and RTU over TCP arrive in its next version.
 - You need to poll **many devices at once** in separate windows, or simulate
   dozens of devices.
 - You need functions **15, 16, 22, 23, 43** built in rather than as a console
