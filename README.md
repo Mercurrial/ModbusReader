@@ -298,6 +298,11 @@ Linux / macOS: те же шаги (`source .venv/bin/activate`, `python main.py`
 `ModbusReader.exe` / `ModbusReader_debug.exe` (с консолью). Сведения о версии
 exe берутся из `app/version.py`; иконка и заставка — `tools/make_icon.py`,
 `tools/make_splash.py`.
+
+Локальная сборка — для проверки. Файлы выпуска собирает GitHub Actions
+(`.github/workflows/build.yml`): тесты, сборка в два этапа (`--only programs`,
+затем `--only installer`), подпись через SignPath после каждого этапа, пробная
+установка и запуск. Настройка подписи — [installer/signpath/](installer/signpath/README.md).
 </details>
 
 <details>
@@ -310,7 +315,8 @@ CHANGELOG в раздел выпуска со ссылкой на него.
 
 В репозитории один выпуск — всегда последний: новая версия заменяет в нём
 файлы `ModbusReader-Setup.exe`, `ModbusReader.exe` и `ModbusReader_debug.exe`
-и переносит его на свой тег `vX.Y.Z` (не pre-release). Теги всех версий
+(подписанные, из сборки GitHub Actions для тега) и переносит его на свой тег
+`vX.Y.Z` (не pre-release). Теги всех версий
 остаются в истории, а выпуск — один. Скачанное программа сверяет с SHA-256,
 который GitHub считает при загрузке файла.
 
@@ -376,6 +382,14 @@ ModbusReader бесплатен и таким останется. Если пр�
 приборов — через [Issues](https://github.com/Mercurrial/ModbusReader/issues);
 вопросы по работе с программой — в [Discussions](https://github.com/Mercurrial/ModbusReader/discussions).
 О найденных уязвимостях сообщайте по правилам [SECURITY.md](SECURITY.md).
+
+## Подпись кода
+
+Бесплатная подпись кода предоставлена [SignPath.io](https://about.signpath.io/),
+сертификат — [SignPath Foundation](https://signpath.org/). Файлы для Windows
+собирает GitHub Actions из исходного кода выпуска; что подписывается, кто
+утверждает выпуски и какие данные программа передаёт по сети — в
+[политике подписи кода](https://modbusreader.ru/code-signing/).
 
 ## Лицензия
 
