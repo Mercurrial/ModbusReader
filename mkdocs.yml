@@ -210,3 +210,4 @@ nav:
   - Помощь:
       - troubleshooting.md
       - contributing.md
+      - code-signing.md

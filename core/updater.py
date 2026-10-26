@@ -497,6 +497,9 @@ def start_detached(args: list[str]) -> subprocess.Popen:
              | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
     kw = dict(stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
               stderr=subprocess.DEVNULL, close_fds=True, env=child_env())
+    if sys.platform != "win32":
+        # creationflags is Windows-only (Popen raises ValueError elsewhere).
+        return subprocess.Popen(args, start_new_session=True, **kw)
     try:
         return subprocess.Popen(args, creationflags=flags | 0x01000000, **kw)
     except OSError:

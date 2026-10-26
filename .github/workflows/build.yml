@@ -1,8 +1,12 @@
-# Linux and macOS builds. PyInstaller does not cross-compile, so each is
-# made on its own runner by tools/build_unix.py, then STARTED: the build is
-# kept only if the program is still running 20 seconds later, and a screen
-# shot of it is kept with the build (artifacts). Windows builds are made by
-# hand with tools/build_installer.py.
+# The release builds. PyInstaller does not cross-compile, so each system is
+# built on its own runner, then STARTED: the build is kept only if the
+# program is still running 20 seconds later, and a screen shot of it is kept
+# with the build (artifacts).
+#
+#   windows  tools/build_installer.py — the installer and the two portable
+#            exes, signed by SignPath Foundation (see the job)
+#   linux    tools/build_unix.py — the AppImage
+#   macos    tools/build_unix.py — ModbusReader.app in a zip
 #
 # Runs for a version tag and by hand (Actions → build → Run workflow).
 name: build
@@ -16,6 +20,185 @@ permissions:
   contents: read
 
 jobs:
+  windows:
+    # Code signing (https://modbusreader.ru/code-signing/): SignPath signs
+    # only what this job built from the tagged source, and only after a
+    # person approved the request on app.signpath.io — twice per build:
+    #   1. the programs: the one-folder app, the launcher, the portable exes
+    #      (the installer must carry them signed, so it is built after);
+    #   2. the installer.
+    # On while the repository has the variable SIGNPATH_ORGANIZATION_ID
+    # (and the secret SIGNPATH_API_TOKEN); without it the same files are
+    # built unsigned. installer/signpath/ holds the two artifact
+    # configurations and the set-up steps.
+    runs-on: windows-latest
+    timeout-minutes: 150            # mostly waiting for the two approvals
+    permissions:
+      contents: read
+      actions: read                 # SignPath fetches the unsigned artifacts
+    env:
+      PYTHONUTF8: "1"
+      SIGNPATH_POLICY: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Dependencies (the pinned versions)
+        run: python -m pip install -r requirements-dev.txt
+
+      # The style of installer/ModbusReader.iss needs a current Inno Setup,
+      # whatever the runner image carries.
+      - name: Inno Setup
+        run: choco upgrade innosetup --no-progress -y
+
+      - name: Tests
+        run: python -m pytest -q -p no:cacheprovider
+
+      - name: Build the programs
+        run: python tools/build_installer.py --portable --only programs
+
+      # Four files, three of them named ModbusReader.exe: one folder each.
+      # installer/signpath/programs.xml lists the same paths.
+      - name: Collect the programs for signing
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: pwsh
+        run: |
+          $s = "signing/programs"
+          New-Item -ItemType Directory -Force "$s/program", "$s/launcher", "$s/portable" | Out-Null
+          Copy-Item dist/ModbusReader/ModbusReader.exe "$s/program/"
+          Copy-Item build/launcher/ModbusReader.exe "$s/launcher/"
+          Copy-Item dist/ModbusReader.exe, dist/ModbusReader_debug.exe "$s/portable/"
+
+      - id: unsigned-programs
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-programs
+          path: signing/programs
+          retention-days: 1
+          overwrite: true
+
+      - name: Sign the programs (approve on app.signpath.io)
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'ModbusReader' }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
+          artifact-configuration-slug: programs
+          github-artifact-id: ${{ steps.unsigned-programs.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signing/programs-signed
+
+      - name: Put the signed programs in place
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: pwsh
+        run: |
+          $s = "signing/programs-signed"
+          Copy-Item -Force "$s/program/ModbusReader.exe" dist/ModbusReader/
+          Copy-Item -Force "$s/launcher/ModbusReader.exe" build/launcher/
+          Copy-Item -Force "$s/portable/ModbusReader.exe", "$s/portable/ModbusReader_debug.exe" dist/
+
+      - name: Build the installer
+        run: python tools/build_installer.py --only installer
+
+      # The whole way a user goes: install for the current user (no rights
+      # needed), start the launcher, which starts the version folder.
+      - name: Install it and start it
+        shell: pwsh
+        run: |
+          $setup = Start-Process dist/ModbusReader-Setup.exe -PassThru -Wait -ArgumentList `
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', '/NOLAUNCH'
+          if ($setup.ExitCode) { Write-Output "::error::the installer exited with $($setup.ExitCode)"; exit 1 }
+          $root = "$env:LOCALAPPDATA\Programs\ModbusReader"
+          Start-Process "$root\ModbusReader.exe"
+          Start-Sleep 20
+          try {
+            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save("$PWD\dist\screen-windows.png")
+          } catch { Write-Output "no screen shot: $_" }
+          $app = Get-Process ModbusReader -ErrorAction SilentlyContinue |
+            Where-Object { $_.Path -like "$root\app-*" }
+          if (-not $app) { Write-Output "::error::the program exited"; exit 1 }
+          $app | Stop-Process -Force
+          $log = "$env:APPDATA\ModbusReader\modbusreader_errors.log"
+          if ((Test-Path $log) -and (Get-Item $log).Length) { Get-Content $log; exit 1 }
+
+      - id: unsigned-installer
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-installer
+          path: dist/ModbusReader-Setup.exe
+          retention-days: 1
+          overwrite: true
+
+      - name: Sign the installer (approve on app.signpath.io)
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'ModbusReader' }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signing/installer-signed
+
+      - name: Put the signed installer in place
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        run: Copy-Item -Force signing/installer-signed/ModbusReader-Setup.exe dist/
+
+      # Each file with its signature and SHA-256 (what GitHub will show for
+      # the release asset). When signing is on, a file without a valid
+      # signature fails the build; SignPath's test-signing policy signs with
+      # a certificate Windows does not trust, so then it only has to be there.
+      - name: Signatures
+        shell: pwsh
+        env:
+          SIGNING: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+        run: |
+          $bad = 0
+          foreach ($f in 'dist/ModbusReader-Setup.exe', 'dist/ModbusReader.exe', 'dist/ModbusReader_debug.exe',
+                         'dist/ModbusReader/ModbusReader.exe', 'build/launcher/ModbusReader.exe') {
+            $sig = Get-AuthenticodeSignature $f
+            $hash = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
+            '{0,-36} {1,-13} {2}  {3}' -f $f, $sig.Status, $hash, $sig.SignerCertificate.Subject
+            $ok = if ($env:SIGNPATH_POLICY -eq 'test-signing') { $sig.SignerCertificate -and $sig.Status -ne 'HashMismatch' }
+                  else { $sig.Status -eq 'Valid' }
+            if ($env:SIGNING -eq 'true' -and -not $ok) { $bad++ }
+          }
+          if ($bad) { Write-Output "::error::$bad file(s) without a valid signature"; exit 1 }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows
+          # All in dist/, so the artifact holds them without a folder.
+          path: |
+            dist/ModbusReader-Setup.exe
+            dist/ModbusReader.exe
+            dist/ModbusReader_debug.exe
+            dist/screen-windows.png
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: windows-failed
+          path: dist/screen-windows.png
+          if-no-files-found: ignore
+          retention-days: 30
+
   linux:
     # The oldest supported Ubuntu: an AppImage runs on systems with the same
     # or a NEWER glibc than the one it was built on, never an older one.
