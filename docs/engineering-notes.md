@@ -1063,3 +1063,32 @@ page, menu, dialog and settings page headless for the next review.
   stale TCP answers, dead links) plus the core/statistics/scanner/raw-console
   paths; `test_library_contracts` guards that pymodbus never returns.
   Still to do: try it on real adapters (FTDI latency, cheap CH340 echo).
+- **Code signing through SignPath Foundation** (2026-10-26, the user's
+  call: free signing for open source, the certificate is issued to SignPath
+  Foundation, which is then the publisher in the signature; the copyright
+  stays with the author). SignPath signs only an artifact uploaded by a
+  GitHub Actions run of this repository, so the Windows release files are
+  now built by `.github/workflows/build.yml` (job `windows`), not locally.
+  Two signing requests per build, each approved by hand on app.signpath.io:
+  the programs first (the one-folder `ModbusReader.exe`, the launcher, the
+  two portable exes — three files named ModbusReader.exe, hence one folder
+  each in the zip, `installer/signpath/programs.xml`), because Inno Setup
+  must pack them signed (Smart App Control and antivirus look at every
+  exe, not only the download); then the installer
+  (`installer/signpath/installer.xml`). `tools/build_installer.py --only
+  programs|installer` splits the build for that. The uninstaller
+  (`unins000.exe`, written by Setup at install time) stays unsigned: that
+  would take Inno's `SignTool` calling SignPath in the middle of ISCC, and
+  nothing downloads it. Third-party DLLs (Python, Qt) are not signed with
+  the certificate. Everything is gated on the repository variable
+  `SIGNPATH_ORGANIZATION_ID`: without it the job builds the same files
+  unsigned, so releases come from CI already before SignPath accepts the
+  project. A file without a valid signature fails the job (test-signing
+  policy: present is enough). The job also runs the test suite on Windows
+  (the launcher tests run only there) and installs the built Setup per
+  user (`/VERYSILENT /CURRENTUSER /NOLAUNCH`), starts the launcher and
+  checks after 20 s that the version folder's program runs and wrote no
+  error log. The policy SignPath requires on the home page is
+  `docs/code-signing.md`: roles, what is signed, how to verify, and the
+  privacy statement — the update check is the only traffic the app starts
+  by itself.

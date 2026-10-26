@@ -429,9 +429,20 @@ pictures, from the demo project).
 | `installer/ModbusReader.iss` | the installer (Inno Setup 6) |
 | `ModbusReader_unix.spec` | Linux and macOS: the program as a folder / `ModbusReader.app` |
 
-Windows builds are made locally by `tools/build_installer.py`. Linux and
-macOS builds cannot be (PyInstaller does not cross-compile):
-`.github/workflows/build.yml` runs `tools/build_unix.py` on an Ubuntu 22.04
+Release builds come from `.github/workflows/build.yml`, one runner per
+system (PyInstaller does not cross-compile). **Windows**: the tests, then
+`tools/build_installer.py` in two halves — `--portable --only programs`
+(the one-folder program, the launcher, the portable exes) and
+`--only installer` (ISCC) — with a SignPath signing request after each, so
+the installer carries signed files and is signed itself; then a silent
+per-user install, a start of the launcher and the same 20-second check as
+below. SignPath Foundation signs only artifacts of this workflow, after a
+person approves each request; the job signs while the repository has the
+variable `SIGNPATH_ORGANIZATION_ID` and builds the same files unsigned
+without it (`installer/signpath/` — the artifact configurations and the
+set-up; the public policy is `docs/code-signing.md`). A local
+`tools/build_installer.py` build is for testing: it is never signed.
+**Linux and macOS**: `tools/build_unix.py` on an Ubuntu 22.04
 runner — `ModbusReader-x86_64.AppImage`, built on the oldest supported glibc
 so it runs on newer ones — and a macOS arm64 runner —
 `ModbusReader-macOS-arm64.zip`, ad-hoc signed, not notarized. Each build is
@@ -471,7 +482,9 @@ commit passes the test suite.
 ## 11. Known limitations
 
 - Polling reads one register per request; block reads are not implemented yet.
-- Builds are not code-signed, so Windows SmartScreen warns on first
-  installation.
+- Windows builds are signed only once SignPath Foundation has accepted the
+  project; until then, and for a new version with few downloads, Windows
+  SmartScreen warns on first installation. Linux and macOS builds are not
+  signed (macOS: ad-hoc only).
 - `ModernScadaApp` is still the largest module and the natural next candidate
   for splitting (project handling, overlay management).

@@ -1,5 +1,5 @@
-# The test suite on Linux and macOS (Windows is where the releases are built
-# and tested by hand). Each run also photographs every screen headless
+# The test suite on Linux and macOS (on Windows it runs in the release build,
+# .github/workflows/build.yml). Each run also photographs every screen headless
 # (tools/ui_snapshots.py) and keeps the pictures as an artifact, to see how
 # the window looks with that system's fonts.
 #

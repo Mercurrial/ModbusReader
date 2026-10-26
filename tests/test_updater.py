@@ -743,7 +743,9 @@ def test_release_tool_moves_the_one_release_to_the_new_tag():
     text = out.getvalue()
     assert applied and applied[0][0] == "99.12.0"
     assert 'git tag -a v99.12.0' in text and "git push origin main v99.12.0" in text
-    up = text.index("gh release upload <cur> --clobber dist/ModbusReader-Setup.exe")
+    # The Windows files are the ones CI built (and signed), not a local build.
+    assert "build_installer.py" not in text
+    up = text.index("gh release upload <cur> --clobber dist/ci/windows/ModbusReader-Setup.exe")
     ed = text.index("gh release edit <cur> --tag v99.12.0")
     assert up < ed
     assert "release create" not in text and "--delete" not in text and "tag -d" not in text
