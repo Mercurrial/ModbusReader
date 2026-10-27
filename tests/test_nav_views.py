@@ -39,8 +39,14 @@ def test_rail_renders_every_page_and_no_overflow(win):
     assert all(b.isVisibleTo(rail) for b in rail._view_btns.values())
     assert {c.group for c in commands.VIEWS} == {g for g, _ in commands.GROUPS}
     assert not hasattr(win.main_toolbar, "btn_more")       # no "⋯" any more
-    for cid in ("settings", "help"):
-        assert rail._cmd_btns[cid].isVisibleTo(rail)
+    assert rail._cmd_btns["help"].isVisibleTo(rail)
+    # Settings sit in the header's top-right corner, not in the rail.
+    assert "settings" not in rail._cmd_btns
+    tb = win.main_toolbar
+    assert tb._cmd_btns["settings"] is tb.btn_settings
+    lo = tb.layout()
+    assert lo.indexOf(tb.btn_settings) == max(
+        lo.indexOf(w) for w in (tb.btn_theme, tb.btn_layout, tb.btn_settings))
 
 
 def test_macros_is_a_page(win):
@@ -98,7 +104,7 @@ def test_settings_overlay_highlights_and_restores(win):
     win._dispatch_command("settings")
     _pump()
     assert win._overlay_page is not None
-    assert tb._cmd_btns["settings"].property("active") == "true"
+    assert win.main_toolbar.btn_settings.property("active") == "true"
     win._overlay_page.reject()                        # pristine -> closes
     _pump()
     assert win._overlay_page is None

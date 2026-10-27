@@ -8,7 +8,8 @@ things:
 
 * **pages** (``commands.VIEWS``), in two sections — *monitor* (where you watch
   the device) and *tools* (instruments you pick up for a job);
-* **housekeeping** (``commands.RAIL_FOOTER``: settings, help) at the bottom;
+* **housekeeping** (``commands.RAIL_FOOTER``: help) at the bottom — settings
+  live in the header's top-right corner, where people look for them;
 * **actions** (connect, watch) are NOT here — they live in the header bar.
 
 Built from the command registry like the toolbar was: one entry per

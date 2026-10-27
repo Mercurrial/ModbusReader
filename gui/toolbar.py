@@ -12,7 +12,8 @@ is true for the WHOLE window:
   button of the whole interface, Connect. Before 2.2 the connection was one
   more grey text button among thirteen, and the port was only in the status
   bar's small print;
-* then the small utilities: watch window, language, theme, layout.
+* then the small utilities: watch window, language, theme, layout and —
+  in the corner, where people look for it first — settings.
 
 Actions are still driven by the command registry: a click emits
 ``command_triggered(cmd_id)`` and gui/main_window.py dispatches it.
@@ -140,6 +141,11 @@ class MainToolBar(QWidget):
         self.btn_layout = self._icon_btn(lc.icon, self._open_layout_menu)
         self._cmd_btns["layout"] = self.btn_layout
         lo.addWidget(self.btn_layout)
+        sc = commands.BY_ID["settings"]
+        self.btn_settings = self._icon_btn(
+            sc.icon, lambda: self.command_triggered.emit(sc.cmd_id))
+        self._cmd_btns["settings"] = self.btn_settings
+        lo.addWidget(self.btn_settings)
 
         self.set_connect_state(False)
         self.set_link_text("")
@@ -251,6 +257,12 @@ class MainToolBar(QWidget):
             cmd = commands.BY_ID.get(cmd_id)
             self._title_key = cmd.label_key if cmd else "registerMap"
         self.lbl_title.setText(self.t(self._title_key))
+        # The gear stays lit while the settings page is open.
+        on = "true" if cmd_id == "settings" else "false"
+        if self.btn_settings.property("active") != on:
+            self.btn_settings.setProperty("active", on)
+            self.btn_settings.style().unpolish(self.btn_settings)
+            self.btn_settings.style().polish(self.btn_settings)
 
     def set_link_text(self, text: str):
         """What the app will talk to: "COM3 · 115200 · 8N1 · ID 10"."""

@@ -56,9 +56,9 @@ _PATHS = {
                 '<path d="M4.5 6.5 6.5 8l-2 1.5M8.5 10h3"/>',
     "download": '<path d="M8 2.5v7M5 6.5 8 9.5l3-3M3.5 13h9"/>',
     "plus":     '<path d="M8 3.2v9.6M3.2 8h9.6"/>',
-    "gear":     '<circle cx="8" cy="8" r="2.3"/>'
-                '<path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2'
-                'M3.6 3.6l1.4 1.4M11 11l1.4 1.4M3.6 12.4l1.4-1.4M11 5l1.4-1.4"/>',
+    # a cog with six teeth (the old eight rays read as a sun)
+    "gear":     '<path d="M6.52 3.43 L6.85 1.50 L9.15 1.50 L9.48 3.43 L11.21 4.43 L13.06 3.76 L14.20 5.74 L12.70 7.00 L12.70 9.00 L14.20 10.26 L13.06 12.24 L11.21 11.57 L9.48 12.57 L9.15 14.50 L6.85 14.50 L6.52 12.57 L4.79 11.57 L2.94 12.24 L1.80 10.26 L3.30 9.00 L3.30 7.00 L1.80 5.74 L2.94 3.76 L4.79 4.43 Z"/>'
+                '<circle cx="8" cy="8" r="2.2"/>',
     "contrast": '<circle cx="8" cy="8" r="6"/>'
                 '<path d="M8 2a6 6 0 0 0 0 12Z" fill="currentColor" stroke="none"/>',
     "keyboard": '<rect x="1.5" y="4" width="13" height="8" rx="1.5"/>'

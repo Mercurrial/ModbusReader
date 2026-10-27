@@ -43,11 +43,13 @@ class Command:
     place     where it appears:
                 "view"   — a page in the left navigation rail (gui/rail.py);
                            gets the [active="true"] highlight while shown.
-                "rail"   — a rail entry pinned to the rail's bottom (settings,
-                           help) — the app's own housekeeping, not a page.
+                "rail"   — a rail entry pinned to the rail's bottom (help) —
+                           the app's own housekeeping, not a page.
                 "button" — action button in the header bar (connect, watch);
                            click dispatches via command_triggered(cmd_id).
-                "icon"   — icon-only header-bar button (toolbar-internal).
+                "icon"   — icon-only header-bar button (toolbar-internal):
+                           theme, layout and settings — the top-right
+                           corner, where people reach for settings first.
                 "hidden" — no button; shortcut-only (the action lives in a
                            dropdown, e.g. New/Open inside the project menu).
     group     rail section of a "view": "monitor" — where you watch the
@@ -111,8 +113,8 @@ COMMANDS: tuple = (
             place="view", group="tools"),
 
     # Rail footer — the app's own housekeeping.
-    Command("settings", "settings", icon="sliders",  shortcut="Ctrl+,",
-            place="rail"),
+    Command("settings", "settings", icon="gear",     shortcut="Ctrl+,",
+            place="icon"),
     Command("help",     "help",     icon="help",     shortcut="F1",
             place="rail"),
 

@@ -108,8 +108,9 @@ glyphs come from `gui/icons.py`. Tests enforce the first and the last.
 ```
 ModernScadaApp (gui/main_window.py)
  ├─ AppContext                     settings, ModbusCore, translator, theme
- ├─ NavRail (gui/rail.py)          every page, in two groups; settings, help
- ├─ MainToolBar (gui/toolbar.py)   project / page, link chip, Connect
+ ├─ NavRail (gui/rail.py)          every page, in two groups; help
+ ├─ MainToolBar (gui/toolbar.py)   project / page, link chip, Connect; settings
+ │                                 in the top-right corner
  ├─ ConnectionCard (gui/connection.py)  the link chip's popover: transport,
  │                                 COM / IP fields, «Проверить связь», recent links
  ├─ pages

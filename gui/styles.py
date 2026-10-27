@@ -1387,6 +1387,9 @@ QLineEdit#wWrite:focus {{
 QSizeGrip#watchGrip {{
     background: transparent;
 }}
+QPushButton#iconBtn[active="true"] {{
+    background: {c["bg_3"]};
+}}
 QPushButton#iconBtn:checked {{
     background: {c["accent_tint"]};
 }}

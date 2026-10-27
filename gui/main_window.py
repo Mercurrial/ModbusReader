@@ -1005,7 +1005,7 @@ class ModernScadaApp(QMainWindow):
                         "the link settings together. This menu also opens or "
                         "creates a stand-alone map (.json). Shortcuts: "
                         "Ctrl+N / Ctrl+O / Ctrl+S.")},
-            {"target": self.nav_rail.btn_settings,
+            {"target": self.main_toolbar.btn_settings,
              "title": L("Настройки", "Settings"),
              "body":  L("Параметры подключения, опроса, внешнего вида и языка. "
                         "Горячая клавиша: Ctrl+,",
