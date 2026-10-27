@@ -114,6 +114,9 @@ class NavRail(QWidget):
         self._relayout()
         self.set_collapsed(self._collapsed, emit=False)
         self._apply_hidden()
+        # The map is on screen at start — lit from the first frame, not only
+        # after the first page switch.
+        self.set_active_view(self._active)
 
     @staticmethod
     def _clean_hidden(hidden) -> set:
