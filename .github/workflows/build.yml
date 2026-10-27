@@ -50,6 +50,16 @@ jobs:
       - name: Dependencies (the pinned versions)
         run: python -m pip install -r requirements-dev.txt
 
+      # The version every signed file must carry: the artifact configurations
+      # sign a file only if its product name is ModbusReader and its product
+      # version is this one (SignPath Foundation's metadata restrictions).
+      - id: version
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path app/version.py -Pattern '^APP_VERSION = "(.+)"').Matches[0].Groups[1].Value
+          "version=$v" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+          Write-Output "version $v"
+
       # The style of installer/ModbusReader.iss needs a current Inno Setup,
       # whatever the runner image carries.
       - name: Inno Setup
@@ -91,6 +101,8 @@ jobs:
           project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'ModbusReader' }}
           signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
           artifact-configuration-slug: programs
+          parameters: |
+            version: "${{ steps.version.outputs.version }}"
           github-artifact-id: ${{ steps.unsigned-programs.outputs.artifact-id }}
           wait-for-completion-timeout-in-seconds: 3600
           output-artifact-directory: signing/programs-signed
@@ -150,6 +162,8 @@ jobs:
           project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'ModbusReader' }}
           signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
           artifact-configuration-slug: installer
+          parameters: |
+            version: "${{ steps.version.outputs.version }}"
           github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
           wait-for-completion-timeout-in-seconds: 3600
           output-artifact-directory: signing/installer-signed

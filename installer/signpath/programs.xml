@@ -4,20 +4,26 @@
      as "unsigned-programs". Paste it into SignPath: project ModbusReader →
      Artifact Configurations → New, slug "programs". -->
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <!-- SignPath Foundation requires metadata restrictions: a file is signed
+       only if its version resource says ModbusReader and the version of
+       this build (app/version.py; the build passes it as "version"). -->
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
   <zip-file>
     <!-- The program in the installer (dist/ModbusReader/ModbusReader.exe) -->
-    <pe-file path="program/ModbusReader.exe">
+    <pe-file path="program/ModbusReader.exe" product-name="ModbusReader" product-version="${version}">
       <authenticode-sign />
     </pe-file>
     <!-- The launcher the installer puts in front of it (build/launcher/) -->
-    <pe-file path="launcher/ModbusReader.exe">
+    <pe-file path="launcher/ModbusReader.exe" product-name="ModbusReader" product-version="${version}">
       <authenticode-sign />
     </pe-file>
     <!-- The portable builds -->
-    <pe-file path="portable/ModbusReader.exe">
+    <pe-file path="portable/ModbusReader.exe" product-name="ModbusReader" product-version="${version}">
       <authenticode-sign />
     </pe-file>
-    <pe-file path="portable/ModbusReader_debug.exe">
+    <pe-file path="portable/ModbusReader_debug.exe" product-name="ModbusReader" product-version="${version}">
       <authenticode-sign />
     </pe-file>
   </zip-file>

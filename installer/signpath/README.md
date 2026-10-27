@@ -89,6 +89,13 @@ SignPath Foundation. Права на программу остаются у ав
    - slug `programs`, содержимое — файл [`programs.xml`](programs.xml)
      целиком;
    - slug `installer`, содержимое — файл [`installer.xml`](installer.xml).
+
+   В обоих файлах есть ограничения по метаданным — их требуют условия
+   SignPath Foundation: файл подписывается, только если в его свойствах
+   «Название продукта» — `ModbusReader`, а «Версия продукта» — версия этой
+   сборки. Версию сборка берёт из `app/version.py` и передаёт в SignPath
+   параметром `version`. Если SignPath откажет с ошибкой про
+   `product-version`, значит, файл собран с другой версией, чем передана.
 3. **Signing Policies.** В `release-signing` утверждающим (Approver) должны
    быть вы. Тот, кто отправляет запросы (Submitter), — пользователь из
    следующего шага.

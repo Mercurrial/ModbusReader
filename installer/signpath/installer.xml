@@ -4,8 +4,14 @@
      uploads as "unsigned-installer". Paste it into SignPath: project
      ModbusReader → Artifact Configurations → New, slug "installer". -->
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <!-- SignPath Foundation requires metadata restrictions: a file is signed
+       only if its version resource says ModbusReader and the version of
+       this build (app/version.py; the build passes it as "version"). -->
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
   <zip-file>
-    <pe-file path="ModbusReader-Setup.exe">
+    <pe-file path="ModbusReader-Setup.exe" product-name="ModbusReader" product-version="${version}">
       <authenticode-sign />
     </pe-file>
   </zip-file>
