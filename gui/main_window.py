@@ -191,20 +191,27 @@ class ModernScadaApp(QMainWindow):
         central.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         self.setCentralWidget(central)
 
-        # Rail on the left (every page), then the work area: header bar over
+        # The rail (every page) — a column on the left or right, or a bar
+        # across the top (_place_rail) — and the work area: header bar over
         # the page stack. The status bar below spans both (QMainWindow).
-        outer = QHBoxLayout(central)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
+        self._shell = QVBoxLayout(central)
+        self._shell.setContentsMargins(0, 0, 0, 0)
+        self._shell.setSpacing(0)
+        self._shell_row = QHBoxLayout()
+        self._shell_row.setContentsMargins(0, 0, 0, 0)
+        self._shell_row.setSpacing(0)
+        self._shell.addLayout(self._shell_row, 1)
         self.nav_rail = NavRail(
             self, theme=self.settings.get("theme", "Dark"),
             accent=self.settings.get("accent", "neutral"), lang=self.lang,
-            collapsed=bool(self.settings.get("rail_collapsed", False)))
-        outer.addWidget(self.nav_rail)
+            collapsed=bool(self.settings.get("rail_collapsed", False)),
+            position=str(self.settings.get("rail_position", "left")),
+            hidden=self.settings.get("rail_hidden") or ())
         work = QWidget()
         work.setObjectName("workArea")
         work.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        outer.addWidget(work, 1)
+        self._shell_row.addWidget(work, 1)
+        self._place_rail()
         root = QVBoxLayout(work)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
@@ -509,6 +516,8 @@ class ModernScadaApp(QMainWindow):
         self.nav_rail.command_triggered.connect(self._dispatch_command)
         self.nav_rail.brand_clicked.connect(self._go_to_register_map)
         self.nav_rail.collapsed_changed.connect(self._on_rail_collapsed)
+        self.nav_rail.position_changed.connect(self._on_rail_position)
+        self.nav_rail.hidden_changed.connect(self._on_rail_hidden)
         self.main_toolbar.link_clicked.connect(self._toggle_conn_card)
         self.main_toolbar.theme_changed.connect(self._on_theme_changed)
         self.main_toolbar.lang_changed.connect(self._on_lang_changed)
@@ -974,17 +983,24 @@ class ModernScadaApp(QMainWindow):
                         "Skip — you can reopen this guide anytime with the "
                         "Help button (F1).")},
             {"target": self.nav_rail,
-             "title": L("Все экраны — слева", "Every page is on the left"),
-             "body":  L("Сверху — «Мониторинг»: карта регистров и дашборд. "
-                        "Ниже — инструменты: консоль, сканер, сниффер, снимки, "
+             "title": {"top": L("Все экраны — сверху", "Every page is at the top"),
+                       "right": L("Все экраны — справа", "Every page is on the right"),
+                       }.get(self.nav_rail.position,
+                             L("Все экраны — слева", "Every page is on the left")),
+             "body":  L("Сначала — «Мониторинг»: карта регистров и дашборд. "
+                        "Дальше — инструменты: консоль, сканер, сниффер, снимки, "
                         "логгер, макросы, эмулятор. Зелёная точка у пункта — "
-                        "инструмент работает в фоне. Панель можно свернуть до "
-                        "значков. Горячие клавиши: Ctrl+1…9.",
-                        "Monitor at the top: the register map and the dashboard. "
-                        "Below it the tools: console, scanner, sniffer, "
+                        "инструмент работает в фоне. Правый щелчок по меню — "
+                        "поставить его слева, справа или сверху, оставить "
+                        "только значки, убрать лишние пункты. Горячие клавиши: "
+                        "Ctrl+1…9.",
+                        "Monitor first: the register map and the dashboard. "
+                        "Then the tools: console, scanner, sniffer, "
                         "snapshots, logger, macros, emulator. A green dot means "
-                        "the tool is working in the background. The panel "
-                        "collapses to icons. Shortcuts: Ctrl+1…9.")},
+                        "the tool is working in the background. Right-click "
+                        "the menu to put it on the left, right or top, keep "
+                        "icons only, or drop pages you do not use. Shortcuts: "
+                        "Ctrl+1…9.")},
             {"target": [tb.btn_link, tb.btn_connect],
              "title": L("Подключение к устройству", "Connect to the device"),
              "body":  L("Слева — с чем программа будет говорить: порт, скорость, "
@@ -1073,6 +1089,7 @@ class ModernScadaApp(QMainWindow):
             # Table appearance (row numbers, column visibility, zebra, row height,
             # state-dot theme, mono values, change highlighting) — in the table.
             self.register_table.apply_settings()
+            self._apply_rail_settings()
             # Log: buffer cap / verbosity / autoscroll + re-render with the new
             # theme colors (apply_settings() already rebuilds — no double pass).
             self.log_panel.apply_settings()
@@ -1864,6 +1881,36 @@ class ModernScadaApp(QMainWindow):
     def _on_rail_collapsed(self, collapsed: bool):
         self.settings["rail_collapsed"] = bool(collapsed)
         save_settings(self.settings)
+
+    def _on_rail_position(self, position: str):
+        self.settings["rail_position"] = position
+        save_settings(self.settings)
+        self._place_rail()
+
+    def _on_rail_hidden(self, hidden: list):
+        self.settings["rail_hidden"] = list(hidden)
+        save_settings(self.settings)
+
+    def _place_rail(self):
+        """The rail where the user put it: a bar above everything, or a
+        column before / after the work area."""
+        rail = self.nav_rail
+        self._shell.removeWidget(rail)
+        self._shell_row.removeWidget(rail)
+        if rail.position == "top":
+            self._shell.insertWidget(0, rail)
+        elif rail.position == "right":
+            self._shell_row.addWidget(rail)
+        else:
+            self._shell_row.insertWidget(0, rail)
+
+    def _apply_rail_settings(self):
+        """Settings → Appearance → Menu (position, icons only)."""
+        rail = self.nav_rail
+        rail.set_position(str(self.settings.get("rail_position", "left")))
+        if rail.collapsed != bool(self.settings.get("rail_collapsed", False)):
+            rail.set_collapsed(bool(self.settings.get("rail_collapsed")), emit=False)
+        self._place_rail()
 
     def _refresh_activity(self):
         """Busy dots in the rail: a tool working in the background."""

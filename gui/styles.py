@@ -128,6 +128,18 @@ QWidget#navRail {{
     background: {c["bg_1"]};
     border-right: 1px solid {c["line_soft"]};
 }}
+QWidget#navRail[pos="right"] {{
+    border-right: none;
+    border-left: 1px solid {c["line_soft"]};
+}}
+QWidget#navRail[pos="top"] {{
+    border-right: none;
+    border-bottom: 1px solid {c["line_soft"]};
+}}
+QFrame#railSep {{
+    background: {c["line"]};
+    border: none;
+}}
 QWidget#railBrand {{
     background: transparent;
     border-radius: 8px;
@@ -174,6 +186,7 @@ QPushButton#railBtn[active="true"] {{
 QPushButton#railBtn[collapsed="true"] {{
     padding: 0;
     text-align: center;
+    min-width: 34px;
 }}
 
 QPushButton#tbBtn {{

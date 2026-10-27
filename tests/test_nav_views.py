@@ -69,6 +69,93 @@ def test_rail_collapses_and_remembers(win):
     assert rail.width() == EXPANDED_W and win.settings["rail_collapsed"] is False
 
 
+def _menu_action(menu, text):
+    """The action called *text* in *menu* or its submenus."""
+    for act in menu.actions():
+        if act.text() == text:
+            return act
+        if act.menu() is not None:
+            hit = _menu_action(act.menu(), text)
+            if hit is not None:
+                return hit
+    return None
+
+
+def test_rail_moves_left_right_top(win):
+    from gui.rail import TOP_H, EXPANDED_W
+    rail = win.nav_rail
+    _menu_action(rail.build_menu(), win.t("railTop")).trigger()
+    _pump()
+    assert win.settings["rail_position"] == "top" and rail.position == "top"
+    assert win._shell.indexOf(rail) == 0                     # above everything
+    assert rail.height() == TOP_H
+    assert not any(cap.isVisibleTo(rail) for cap, _k in rail._captions)
+    assert not rail.btn_collapse.isVisibleTo(rail)
+    # one separator between the two groups, none before the first
+    seps = [sep.isVisibleTo(rail) for _c, sep, _ids in rail._groups]
+    assert seps == [False, True]
+    _menu_action(rail.build_menu(), win.t("railRight")).trigger()
+    _pump()
+    assert win.settings["rail_position"] == "right"
+    row = win._shell_row
+    assert row.indexOf(rail) == row.count() - 1             # after the work area
+    assert rail.width() == EXPANDED_W
+    assert all(cap.isVisibleTo(rail) for cap, _k in rail._captions)
+    _menu_action(rail.build_menu(), win.t("railLeft")).trigger()
+    _pump()
+    assert row.indexOf(rail) == 0 and win._shell.indexOf(rail) == -1
+
+
+def test_rail_bar_keeps_the_current_label_when_narrow(win):
+    rail = win.nav_rail
+    rail.set_position("top")
+    rail.resize(640, rail.height())             # a hidden window defers the
+    rail._fit_bar()                             # resize event: fit by hand
+    assert rail._compact
+    assert rail._view_btns["view_table"].text().strip() == win.t("registerMap")
+    assert rail._view_btns["view_console"].text() == ""
+    win._dispatch_command("view_console")
+    _pump()
+    assert rail._view_btns["view_console"].text().strip() == win.t("viewConsole")
+    assert rail._view_btns["view_table"].text() == ""
+    rail.resize(4000, rail.height())
+    rail._fit_bar()
+    assert not rail._compact
+    assert all(b.text() for b in rail._view_btns.values())
+
+
+def test_rail_hides_pages_but_never_the_map(win):
+    rail = win.nav_rail
+    _menu_action(rail.build_menu("view_sniffer"),
+                 win.t("railHidePage").format(name=win.t("viewSniffer"))).trigger()
+    assert not rail._view_btns["view_sniffer"].isVisibleTo(rail)
+    assert win.settings["rail_hidden"] == ["view_sniffer"]
+    menu = rail.build_menu("view_table")                    # no «remove» for the map
+    assert _menu_action(menu, win.t("railHidePage").format(
+        name=win.t("registerMap"))) is None
+    assert not _menu_action(menu, win.t("registerMap")).isEnabled()
+    win._dispatch_command("view_sniffer")                   # still reachable
+    _pump()
+    assert win.content_stack.currentWidget() is win.sniffer_view
+    _menu_action(rail.build_menu(), win.t("railShowAll")).trigger()
+    assert rail._view_btns["view_sniffer"].isVisibleTo(rail)
+    assert win.settings["rail_hidden"] == []
+    rail.set_hidden(["view_table", "nonsense", "view_logger"])
+    assert rail.hidden == {"view_logger"}
+
+
+def test_rail_follows_the_settings_page(win):
+    win.settings.update({"rail_position": "top", "rail_collapsed": True})
+    win._apply_settings(restyle=False)
+    _pump()
+    assert win.nav_rail.position == "top" and win.nav_rail.collapsed
+    assert win._shell.indexOf(win.nav_rail) == 0
+    assert all(b.text() == "" for b in win.nav_rail._view_btns.values())
+    win.settings.update({"rail_position": "sideways", "rail_collapsed": False})
+    win._apply_settings(restyle=False)
+    assert win.nav_rail.position == "left"
+
+
 def test_rail_marks_a_busy_tool(win):
     rail = win.nav_rail
     rail.set_busy({"view_logger": True})

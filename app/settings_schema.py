@@ -326,6 +326,16 @@ PAGES: tuple = (
                           hint="accentHint",
                           swatches=ACCENT_SWATCHES, default="neutral"),
                 )),
+        # The page menu. Which pages it lists is picked in its own
+        # right-click menu (one checkbox per page did not fit a settings row).
+        Section("railSection", "railSectionDesc",
+                fields=(
+                    _seg("rail_position", "railPosition",
+                         [("left", "railLeft"), ("top", "railTop"),
+                          ("right", "railRight")], default="left"),
+                    _toggle("rail_collapsed", "railIconsOnly",
+                            hint="railIconsOnlyHint", default=False),
+                )),
         Section("typography", fields=(
             # System-font picker with a live preview (kind="font" renders a
             # QFontComboBox + sample text in gui/settings.py).

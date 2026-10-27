@@ -230,7 +230,9 @@ DEFAULT_SETTINGS = {
     # page; the key stays so projects written by older versions round-trip.
     "pinned_views":      ["view_table", "view_console",
                           "view_scanner", "view_sniffer"],
-    "rail_collapsed":    False,   # left rail: icons only
+    "rail_collapsed":    False,   # the rail: icons only
+    "rail_position":     "left",  # the rail: "left" | "right" | "top"
+    "rail_hidden":       [],      # pages the rail does not list (cmd ids)
     "editor_json":       False,   # map editor: JSON preview panel shown
     # Dashboards: a LIST of {name, widgets, links}; dash_index selects the one
     # on screen. (dash_widgets/dash_links are the pre-1.6 single-dashboard
