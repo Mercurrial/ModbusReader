@@ -141,3 +141,94 @@ def test_format_value_edges():
     assert format_value(3.0, "dec") == "3"
     assert format_value(float("inf"), "dec") == "inf"
     assert format_value(float("nan"), "hex") == "nan"
+
+
+# ── the state column: a status dot + a separate log toggle ──────────
+def _state(table, addr, now=None):
+    from gui.register_table import StateDotDelegate
+    idx = table.model().index(table.addr_to_row[addr], COL_STATE)
+    return StateDotDelegate.freshness(idx, table._connected, now)
+
+
+def test_state_dot_tells_freshness(table):
+    import time
+    table.populate(PROFILE)
+    table.set_connected(True)
+    assert _state(table, 5) == "none"                 # nothing yet: a hollow ring
+    table.update_value(5, "1")
+    t0 = time.monotonic()
+    assert _state(table, 5, t0) == "fresh"
+    assert _state(table, 5, t0 + 2.0) == "fresh"      # never late under 3 s
+    assert _state(table, 5, t0 + 4.0) == "late"       # connected, no answers
+    table.set_connected(False)
+    table.mark_all_stale()
+    assert _state(table, 5, t0) == "offline"          # grey, the value stays
+    table.set_connected(True)
+    assert _state(table, 5, t0) == "waiting"          # until the next reading
+    table.update_value(5, "2")
+    assert _state(table, 5) == "fresh"
+
+
+def test_state_late_follows_the_poll_gap(table):
+    """A register read every 5 s is not «late» after 4 s."""
+    from gui.register_table import _ROLE_TS, _ROLE_GAP
+    table.populate(PROFILE)
+    table.set_connected(True)
+    table.update_value(5, "1")
+    item = table.item(table.addr_to_row[5], COL_STATE)
+    item.setData(_ROLE_GAP, 5.0)
+    ts = item.data(_ROLE_TS)
+    assert _state(table, 5, ts + 12.0) == "fresh"
+    assert _state(table, 5, ts + 16.0) == "late"
+
+
+def test_log_toggle_is_its_own_button(table):
+    """Clicking the dot does nothing; the console glyph beside it (and the
+    menu) switch the register's frames into the log."""
+    from PyQt6.QtCore import QPoint
+    from gui.register_table import _ROLE_VERBOSE
+    table.resize(900, 300)
+    table.populate(PROFILE)
+    got = []
+    table.verbose_changed.connect(got.append)
+    row = table.addr_to_row[5]
+    rect = table.visualRect(table.model().index(row, COL_STATE))
+    table._on_cell_clicked(row, COL_STATE)
+    assert got == []                                   # the dot is not a switch
+    assert not table._in_log_zone(QPoint(rect.left() + 10, rect.center().y()))
+    assert table._in_log_zone(QPoint(rect.left() + 34, rect.center().y()))
+    table.toggle_verbose(row)
+    assert got[-1] == {5} and table.item(row, COL_STATE).data(_ROLE_VERBOSE)
+    table.toggle_verbose(row)
+    assert got[-1] == set() and not table.item(row, COL_STATE).data(_ROLE_VERBOSE)
+    mem = 2                                            # the memory area: no toggle
+    table.toggle_verbose(mem)
+    assert got[-1] == set()
+
+
+def test_state_tips_say_what_the_dot_means(table):
+    from PyQt6.QtCore import QPoint
+    table.resize(900, 300)
+    table.populate(PROFILE)
+    table.set_connected(True)
+    row = table.addr_to_row[5]
+    rect = table.visualRect(table.model().index(row, COL_STATE))
+    dot = QPoint(rect.left() + 13, rect.center().y())
+    log = QPoint(rect.left() + 34, rect.center().y())
+    assert table._state_tip(dot) == table.t("stateNone")
+    table.update_value(5, "1")
+    assert table._state_tip(dot) == table.t("stateFresh").format(age=table.t("ageUnderSec"))
+    assert table._state_tip(log) == table.t("logToggleOff")
+    table.toggle_verbose(row)
+    assert table._state_tip(log) == table.t("logToggleOn")
+    assert table._age_text(75) == table.t("ageMin").format(n=1)
+
+
+def test_write_field_only_where_writable(table):
+    table.populate(PROFILE)
+    rw = table.item(table.addr_to_row[5], COL_NEW)
+    ro = table.item(table.addr_to_row[0x10], COL_NEW)
+    assert rw.flags() & Qt.ItemFlag.ItemIsEditable
+    assert not ro.flags() & Qt.ItemFlag.ItemIsEditable
+    assert ro.toolTip() == table.t("newValReadOnly")
+    assert rw.toolTip() == table.t("newValTip")

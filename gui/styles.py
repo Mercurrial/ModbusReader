@@ -677,6 +677,11 @@ QTableWidget QLineEdit {{
     font-family: {MONO_CSS};
     font-size: {fs};
 }}
+/* The New-value editor opens inside the drawn write field: same box, lit. */
+QTableWidget QLineEdit#newValEditor {{
+    border-radius: 4px;
+    padding: 0 7px;
+}}
 
 /* ─── RAW CONSOLE (command strip under the log) ─────────────────── */
 QWidget#console {{

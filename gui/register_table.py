@@ -3,15 +3,23 @@
 MVC-style view.
 
 `RegisterTable` owns everything *about the table itself*: the column schema
-(`COLUMNS`), the state-dot delegate, populating rows from a profile, value
-formatting + per-register view modes (dec/hex/bin), stale marking, verbose-dot
-toggling, and the right-click menu. It references only the `AppContext` (for
+(`COLUMNS`), the state column (a status dot + a «log this register» toggle),
+the write fields of the New-value column, populating rows from a profile, value
+formatting + per-register view modes (dec/hex/bin), stale marking, and the
+right-click menu.
+
+The state column used to be ONE dot doing two jobs — green «a value arrived»
+and, on a click, «write this register's frames to the log» shown as a ring.
+Nobody guessed the click. Now the dot only tells how fresh the value is
+(green fresh, amber late, grey no link, hollow nothing yet) and the log has a
+button of its own: the console glyph next to the dot, shown on the hovered row
+and lit while on — the same switch is in the right-click menu. It references only the `AppContext` (for
 settings/theme/translator) and `datatypes`.
 
 It does NOT know about the Modbus core, the trends panel, the status bar or the
 memory viewer. Instead it emits *intent* signals that the window routes:
     write_requested(addr, dtype, value)     — cell edit or "Write value…"
-    verbose_changed(set[int])               — state-dot click toggled verbose
+    verbose_changed(set[int])               — the log toggle (console glyph)
     value_sampled(reg_id, value)            — a fresh value landed (feed trends)
     inspect_requested(addr, name)           — double-click on a MEMORY_AREA
     trend_add_requested(reg_id, name)       — "Add to Live Chart"
@@ -22,14 +30,15 @@ The window keeps the coordination glue (it owns those services).
 import math
 import re
 import struct
+import time
 from dataclasses import dataclass
 
 from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QMenu,
     QApplication, QStyledItemDelegate, QAbstractItemView, QStyleOptionViewItem,
-    QStyle,
+    QStyle, QToolTip,
 )
-from PyQt6.QtCore import Qt, QSize, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, QPoint, QRect, QRectF, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QFont, QPen
 
 from core import datatypes
@@ -58,6 +67,16 @@ _ROLE_VERBOSE = Qt.ItemDataRole.UserRole + 2
 _ROLE_KEY = Qt.ItemDataRole.UserRole + 3
 # Value cell: still showing the "no reading yet" placeholder (drawn muted).
 _ROLE_PLACEHOLDER = Qt.ItemDataRole.UserRole + 4
+# State item: monotonic time of the last reading, and the gap before it —
+# a value is "late" when it has not come for three of its usual gaps.
+_ROLE_TS = Qt.ItemDataRole.UserRole + 5
+_ROLE_GAP = Qt.ItemDataRole.UserRole + 6
+
+# The state column: the status dot, then the log toggle.
+STATE_W = 46
+_DOT_X = 13                 # dot centre, from the cell's left edge
+_LOG_X0 = 24                # the toggle's zone starts here
+LATE_MIN_S = 3.0            # never "late" sooner than this
 
 
 # ── dashboard column registry ─────────────────────────────────────
@@ -99,7 +118,7 @@ _FLEX_COLS = (COL_CURRENT, COL_NEW)
 # once the flex columns hit their floor the grid stops growing and a scrollbar
 # is allowed (window genuinely too narrow for the content).
 _MINW = {
-    COL_STATE: 24, COL_ADDR: 64, COL_NAME: 130, COL_TYPE: 72,
+    COL_STATE: STATE_W, COL_ADDR: 64, COL_NAME: 130, COL_TYPE: 72,
     COL_ACCESS: 58, COL_CURRENT: 110, COL_NEW: 132,
 }
 
@@ -150,27 +169,49 @@ def format_value(raw: float, mode: str, bits: int = 16, is_float: bool = False) 
 #  STATE DOT DELEGATE
 # ═══════════════════════════════════════════════════════════════════
 class StateDotDelegate(QStyledItemDelegate):
-    """Paints a 6 × 6 colored circle in the state column. Colors come from the
-    active theme's semantic tokens, so the dots track Light/Dark."""
+    """The state column: a status dot and the «log this register» toggle.
 
-    # state value -> theme token (stale uses a muted text gray).
-    _TOKENS = {"ok": "ok", "warn": "warn", "err": "error", "stale": "text_4"}
+    Dot: green — a fresh value; amber — connected, but no value for three
+    of this register's usual gaps (the device stopped answering it); grey —
+    no link (the last value is still shown); a hollow ring — no value since
+    the map was opened. Toggle: the console glyph, on the hovered row
+    (faint) or lit while the register's frames go to the log."""
 
     def __init__(self, theme: dict, parent=None):
         super().__init__(parent)
         self.set_theme(theme)
 
     def set_theme(self, theme: dict):
-        self._colors = {state: QColor(theme[tok])
-                        for state, tok in self._TOKENS.items()}
-        self._ring = QColor(theme.get("accent", "#d8dfe6"))
+        grey = QColor(theme["text_4"])
+        self._colors = {"fresh": QColor(theme["ok"]), "late": QColor(theme["warn"]),
+                        "waiting": grey, "offline": grey, "none": grey}
+        # The toggle: on — a filled accent chip (a pressed button); the
+        # pointer on it — a soft chip; elsewhere on the row — a faint glyph.
+        self._chip = {"on": QColor(theme["accent"]), "hover": QColor(theme["bg_3"])}
+        self._tok = {"on": theme["accent_fg"], "hover": theme["text_1"],
+                     "idle": theme["text_4"]}
+
+    @staticmethod
+    def has_state(index) -> bool:
+        """A register row (a service row — memory area, reserve — has none)."""
+        return index.data(_ROLE_VERBOSE) is not None
+
+    @staticmethod
+    def freshness(index, connected: bool, now: float | None = None) -> str:
+        """"fresh" | "late" | "waiting" | "offline" | "none" for *index*'s row.
+        "waiting": reconnected, the last value is from the link before."""
+        ts = index.data(_ROLE_TS)
+        if ts is None:
+            return "none"
+        if not connected:
+            return "offline"
+        if index.data(Qt.ItemDataRole.UserRole) != "ok":
+            return "waiting"
+        gap = index.data(_ROLE_GAP) or 0.0
+        age = (time.monotonic() if now is None else now) - ts
+        return "fresh" if age <= max(LATE_MIN_S, 3.0 * gap) else "late"
 
     def paint(self, painter: QPainter, option, index):
-        """Dot = data state (grey: nothing fresh, green: reading received
-        since connecting). A ring around it = this register's frames are
-        being written to the log (click the dot to toggle)."""
-        state = index.data(Qt.ItemDataRole.UserRole) or "stale"
-        color = self._colors.get(state, self._colors["stale"])
         # The cell's own background first (zebra stripe, selection, the row
         # line): painting only the dot left this column a dark square in
         # every other row — a checkerboard down the left edge.
@@ -180,24 +221,98 @@ class StateDotDelegate(QStyledItemDelegate):
         widget = option.widget
         style = widget.style() if widget is not None else QApplication.style()
         style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, widget)
-        r  = option.rect
-        cx = r.center().x()
-        cy = r.center().y()
+        if not self.has_state(index):
+            return                                  # a service row: no state
+        table = widget if isinstance(widget, RegisterTable) else None
+        kind = self.freshness(index, bool(table and table._connected))
+        r = option.rect
+        cx, cy = r.left() + _DOT_X, r.center().y()
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        if index.data(_ROLE_VERBOSE):
-            pen = QPen(self._ring)
-            pen.setWidthF(1.5)
+        color = self._colors[kind]
+        if kind == "none":
+            pen = QPen(color)
+            pen.setWidthF(1.2)
             painter.setPen(pen)
             painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawEllipse(cx - 6, cy - 6, 12, 12)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(color)
-        painter.drawEllipse(cx - 3, cy - 3, 6, 6)
+            painter.drawEllipse(QRectF(cx - 3, cy - 3, 6, 6))
+        else:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(color)
+            painter.drawEllipse(QRectF(cx - 3.5, cy - 3.5, 7, 7))
+        on = bool(index.data(_ROLE_VERBOSE))
+        hovered = table is not None and table._hover_row == index.row()
+        if on or hovered:
+            tone = ("on" if on else
+                    "hover" if (hovered and table._hover_log) else "idle")
+            x = r.left() + _LOG_X0 + max(0, (r.width() - _LOG_X0 - 14) // 2)
+            if tone in self._chip:
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(self._chip[tone])
+                painter.drawRoundedRect(QRectF(x - 3, cy - 9, 20, 18), 4, 4)
+            painter.drawPixmap(x, cy - 7, icons.pixmap("terminal", self._tok[tone], 14))
         painter.restore()
 
     def sizeHint(self, option, index):
-        return QSize(24, option.rect.height())
+        return QSize(STATE_W, option.rect.height())
+
+
+class NewValueDelegate(QStyledItemDelegate):
+    """The New-value column: a register you can write gets a real input
+    field — a rounded box with a pencil — and one you cannot gets nothing.
+    Before, both were the same blank cell and only a click told them apart."""
+
+    def __init__(self, theme: dict, parent=None):
+        super().__init__(parent)
+        self.set_theme(theme)
+
+    def set_theme(self, theme: dict):
+        self._fill = QColor(theme["bg_2"])
+        self._line = QColor(theme["line"])
+        self._line_hover = QColor(theme["line_strong"])
+        self._text = QColor(theme["text_1"])
+        self._pencil = {"idle": theme["text_4"], "hover": theme["text_2"]}
+
+    @staticmethod
+    def field_rect(rect: QRect) -> QRect:
+        return rect.adjusted(4, 3, -6, -3)
+
+    def paint(self, painter: QPainter, option, index):
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        text = opt.text
+        opt.text = ""
+        widget = option.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, widget)
+        if not index.flags() & Qt.ItemFlag.ItemIsEditable:
+            return                                  # read-only: an empty cell
+        table = widget if isinstance(widget, RegisterTable) else None
+        hovered = table is not None and table._hover_row == index.row()
+        r = self.field_rect(option.rect)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(self._line_hover if hovered else self._line, 1))
+        painter.setBrush(self._fill)
+        painter.drawRoundedRect(QRectF(r).adjusted(0.5, 0.5, -0.5, -0.5), 4, 4)
+        if text:
+            painter.setPen(self._text)
+            painter.setFont(opt.font)
+            area = r.adjusted(8, 0, -24, 0)
+            painter.drawText(area, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft),
+                             opt.fontMetrics.elidedText(text, Qt.TextElideMode.ElideRight,
+                                                        area.width()))
+        pm = icons.pixmap("edit", self._pencil["hover" if hovered else "idle"], 12)
+        painter.drawPixmap(r.right() - 18, r.center().y() - 6, pm)
+        painter.restore()
+
+    def createEditor(self, parent, option, index):
+        editor = super().createEditor(parent, option, index)
+        editor.setObjectName("newValEditor")
+        return editor
+
+    def updateEditorGeometry(self, editor, option, index):
+        editor.setGeometry(self.field_rect(option.rect))
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -257,6 +372,17 @@ class RegisterTable(QTableWidget):
         self._set_zebra(s.get("zebra_rows", True))
         self._state_delegate = StateDotDelegate(ctx.theme_tokens(), self)
         self.setItemDelegateForColumn(COL_STATE, self._state_delegate)
+        self._new_delegate = NewValueDelegate(ctx.theme_tokens(), self)
+        self.setItemDelegateForColumn(COL_NEW, self._new_delegate)
+        # The hovered row shows its log toggle and lifts its write field.
+        self._hover_row = -1
+        self._hover_log = False
+        self.setMouseTracking(True)
+        # The dots age without new data: a slow tick repaints the column.
+        self._age_timer = QTimer(self)
+        self._age_timer.setInterval(1000)
+        self._age_timer.timeout.connect(self._repaint_states)
+        self._age_timer.start()
 
         hdr = self.horizontalHeader()
         # Left-aligned, like the cells under them: a header centred over a
@@ -265,7 +391,7 @@ class RegisterTable(QTableWidget):
         hdr.setStretchLastSection(False)
         for c in COLUMNS:
             hdr.setSectionResizeMode(c.index, _RESIZE[c.resize])
-        self.setColumnWidth(COL_STATE, 24)
+        self.setColumnWidth(COL_STATE, STATE_W)
         # Width-stealing fill: reentrancy guard so our own setColumnWidth() calls
         # (which re-emit sectionResized) don't recurse. See _reflow_columns().
         self._adjusting = False
@@ -327,7 +453,6 @@ class RegisterTable(QTableWidget):
         register names flip between name / name_en without a full repopulate
         (which would drop live values and view state)."""
         self.apply_headers()
-        dot_tip = self.ctx.t("stateDotTip")
         self.blockSignals(True)
         try:
             for row, reg in enumerate(self._row_regs):
@@ -342,9 +467,10 @@ class RegisterTable(QTableWidget):
                     if cur is not None:
                         cur.setText(self._placeholder(dtype))
                 else:
-                    dot = self.item(row, COL_STATE)
-                    if dot is not None:
-                        dot.setToolTip(dot_tip)
+                    new = self.item(row, COL_NEW)
+                    if new is not None:
+                        new.setToolTip(self.ctx.t("newValTip" if datatypes.is_writable(reg)
+                                                  else "newValReadOnly"))
         finally:
             self.blockSignals(False)
 
@@ -369,6 +495,7 @@ class RegisterTable(QTableWidget):
         self.verticalHeader().setDefaultSectionSize(int(s.get("row_height", 26)))
         tokens = self.ctx.theme_tokens()
         self._state_delegate.set_theme(tokens)
+        self._new_delegate.set_theme(tokens)
         self._highlight = bool(s.get("highlight_changes", True))
         self._flash_brush = QBrush(QColor(tokens["accent_soft"]))
         self._recolor()
@@ -410,6 +537,7 @@ class RegisterTable(QTableWidget):
     # ── window-facing state hooks ──────────────────────────────────
     def set_connected(self, connected: bool):
         self._connected = connected
+        self.viewport().update()                    # the dots follow the link
 
     def set_trended(self, reg_ids):
         self._trended = set(reg_ids)
@@ -479,7 +607,6 @@ class RegisterTable(QTableWidget):
         self._font_pt = size
         ident_font = mono_font(size)
         value_font = ident_font if self._mono_values else self.font()
-        dot_tip = t("stateDotTip")
 
         self.blockSignals(True)
         try:
@@ -500,8 +627,8 @@ class RegisterTable(QTableWidget):
                 state_item = QTableWidgetItem()
                 state_item.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 state_item.setData(Qt.ItemDataRole.UserRole, "stale")
-                if not is_service:
-                    state_item.setToolTip(dot_tip)
+                if not is_service:                   # a service row has no state
+                    state_item.setData(_ROLE_VERBOSE, addr in self._verbose_addrs)
 
                 addr_item = QTableWidgetItem(datatypes.key_label(addr))
                 addr_item.setData(_ROLE_KEY, addr)
@@ -540,6 +667,8 @@ class RegisterTable(QTableWidget):
                 new_val_item.setFont(value_font)
                 if not writable:
                     new_val_item.setFlags(new_val_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    if not is_service:
+                        new_val_item.setToolTip(t("newValReadOnly"))
                 else:
                     new_val_item.setToolTip(t("newValTip"))
 
@@ -671,6 +800,16 @@ class RegisterTable(QTableWidget):
         # scrollbar shows up under the map.
         if event.type() == event.Type.Resize:
             later(0, self, self._reflow_columns)
+        if event.type() == event.Type.ToolTip:
+            pos = event.pos()
+            idx = self.indexAt(pos)
+            if idx.isValid() and idx.column() == COL_STATE:
+                tip = self._state_tip(pos)
+                if tip:
+                    QToolTip.showText(event.globalPos(), tip, self.viewport())
+                else:
+                    QToolTip.hideText()
+                return True
         return super().viewportEvent(event)
 
     def current_values(self, fresh_only: bool = False) -> dict:
@@ -722,8 +861,14 @@ class RegisterTable(QTableWidget):
         try:
             self._fresh.add(addr)
             state = self.item(row, COL_STATE)
-            if state is not None and state.data(Qt.ItemDataRole.UserRole) != "ok":
-                state.setData(Qt.ItemDataRole.UserRole, "ok")
+            if state is not None:
+                now = time.monotonic()
+                prev = state.data(_ROLE_TS)
+                if prev is not None and state.data(Qt.ItemDataRole.UserRole) == "ok":
+                    state.setData(_ROLE_GAP, now - prev)
+                state.setData(_ROLE_TS, now)
+                if state.data(Qt.ItemDataRole.UserRole) != "ok":
+                    state.setData(Qt.ItemDataRole.UserRole, "ok")
             ci = self.item(row, COL_CURRENT)
             if ci:
                 if ci.data(_ROLE_PLACEHOLDER):       # first reading: full colour
@@ -793,8 +938,9 @@ class RegisterTable(QTableWidget):
         later(280, self, _restore)
 
     def mark_all_stale(self):
-        """Reset every state dot to stale (on disconnect). The verbose rings
-        stay: logging for those registers resumes with the next connection."""
+        """Every state dot to "no link" (on disconnect); the last values stay
+        on screen, grey. The log toggles stay: logging for those registers
+        resumes with the next connection."""
         self._fresh.clear()
         self.blockSignals(True)
         try:
@@ -802,6 +948,7 @@ class RegisterTable(QTableWidget):
                 item = self.item(row, COL_STATE)
                 if item:
                     item.setData(Qt.ItemDataRole.UserRole, "stale")
+                    item.setData(_ROLE_GAP, None)
         finally:
             self.blockSignals(False)
         self.viewport().update()
@@ -872,15 +1019,15 @@ class RegisterTable(QTableWidget):
             if item and (item.flags() & Qt.ItemFlag.ItemIsEditable):
                 self.editItem(item)
             return
-        if col != COL_STATE:
-            return
+
+    # ── the log toggle (console glyph in the state column) ─────────
+    def toggle_verbose(self, row: int):
+        """Write this register's TX/RX frames to the log — or stop."""
         addr = self._row_key(row)
-        type_item = self.item(row, COL_TYPE)
-        if addr is None or not type_item or datatypes.is_area(type_item.text()):
-            return
         state_item = self.item(row, COL_STATE)
-        if not state_item:
-            return
+        if (addr is None or state_item is None
+                or state_item.data(_ROLE_VERBOSE) is None):
+            return                                  # a service row
         on = addr not in self._verbose_addrs
         if on:
             self._verbose_addrs.add(addr)
@@ -888,6 +1035,83 @@ class RegisterTable(QTableWidget):
             self._verbose_addrs.discard(addr)
         state_item.setData(_ROLE_VERBOSE, on)
         self.verbose_changed.emit(self._verbose_addrs.copy())
+
+    def _in_log_zone(self, pos: QPoint) -> bool:
+        idx = self.indexAt(pos)
+        if not idx.isValid() or idx.column() != COL_STATE:
+            return False
+        if not StateDotDelegate.has_state(idx):
+            return False
+        return pos.x() >= self.visualRect(idx).left() + _LOG_X0
+
+    def _update_row(self, row: int, cols=(COL_STATE, COL_NEW)):
+        if row < 0:
+            return
+        for col in cols:
+            idx = self.model().index(row, col)
+            if idx.isValid():
+                self.viewport().update(self.visualRect(idx))
+
+    def _repaint_states(self):
+        if not self._connected or not self.rowCount() or self.isColumnHidden(COL_STATE):
+            return
+        x = self.columnViewportPosition(COL_STATE)
+        self.viewport().update(QRect(x, 0, self.columnWidth(COL_STATE),
+                                     self.viewport().height()))
+
+    def mouseMoveEvent(self, event):
+        pos = event.position().toPoint()
+        row = self.rowAt(pos.y())
+        on_log = self._in_log_zone(pos)
+        if row != self._hover_row or on_log != self._hover_log:
+            old = self._hover_row
+            self._hover_row, self._hover_log = row, on_log
+            self._update_row(old)
+            self._update_row(row)
+            if on_log:
+                self.viewport().setCursor(Qt.CursorShape.PointingHandCursor)
+            else:
+                self.viewport().unsetCursor()
+        super().mouseMoveEvent(event)
+
+    def leaveEvent(self, event):
+        old, self._hover_row, self._hover_log = self._hover_row, -1, False
+        self._update_row(old)
+        self.viewport().unsetCursor()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        pos = event.position().toPoint()
+        if event.button() == Qt.MouseButton.LeftButton and self._in_log_zone(pos):
+            self.toggle_verbose(self.rowAt(pos.y()))
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def _state_tip(self, pos: QPoint) -> str:
+        """What the state column says at *pos* (dot or log toggle)."""
+        idx = self.indexAt(pos)
+        if not StateDotDelegate.has_state(idx):
+            return ""
+        t = self.ctx.t
+        if self._in_log_zone(pos):
+            return t("logToggleOn" if idx.data(_ROLE_VERBOSE) else "logToggleOff")
+        kind = StateDotDelegate.freshness(idx, self._connected)
+        if kind == "none":
+            return t("stateNone")
+        if kind in ("offline", "waiting"):
+            return t("stateOffline" if kind == "offline" else "stateWaiting")
+        age = time.monotonic() - float(idx.data(_ROLE_TS))
+        return t("stateFresh" if kind == "fresh" else "stateLate").format(
+            age=self._age_text(age))
+
+    def _age_text(self, seconds: float) -> str:
+        t = self.ctx.t
+        if seconds < 1.0:
+            return t("ageUnderSec")
+        if seconds < 60:
+            return t("ageSec").format(n=int(seconds))
+        return t("ageMin").format(n=int(seconds // 60))
 
     def _on_double_click(self, index):
         row = index.row()
@@ -942,6 +1166,10 @@ class RegisterTable(QTableWidget):
             self.t("watchRemoveFrom" if watched else "watchAddTo"))
         act_watch.triggered.connect(
             lambda: self.watch_toggle_requested.emit(addr_int))
+        act_log = menu.addAction(icons.icon("terminal", ic, 14), self.t("ctxLogFrames"))
+        act_log.setCheckable(True)
+        act_log.setChecked(addr_int in self._verbose_addrs)
+        act_log.triggered.connect(lambda: self.toggle_verbose(row))
 
         # dec/hex/bin is about a raw number; an engineering value or an enum
         # label has no meaningful hex form, so the submenu is not offered.
