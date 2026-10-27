@@ -17,7 +17,11 @@ site_author: Mercurrial
 repo_url: https://github.com/Mercurrial/ModbusReader
 repo_name: Mercurrial/ModbusReader
 edit_uri: edit/main/docs/
-copyright: ModbusReader © 2026 Mercurrial · GNU GPL v3
+# The footer of every page, the home page included. SignPath Foundation wants
+# its notice on the homepage; the English pages carry its exact wording.
+copyright: >-
+  ModbusReader © 2026 Mercurrial · GNU GPL v3 ·
+  <a href="/code-signing/">Бесплатная подпись кода — SignPath.io, сертификат — SignPath Foundation</a>
 
 # docs/ also holds the README pictures and the engineering notes; only the
 # notes stay out of the site.
@@ -108,6 +112,9 @@ plugins:
           name: English
           build: true
           site_name: ModbusReader
+          copyright: >-
+            ModbusReader © 2026 Mercurrial · GNU GPL v3 ·
+            <a href="/en/code-signing/">Free code signing provided by SignPath.io, certificate by SignPath Foundation</a>
           site_description: >-
             Free tool to commission and monitor Modbus RTU (RS-485) devices:
             register map, live trends, dashboard, bus scanner, sniffer,
