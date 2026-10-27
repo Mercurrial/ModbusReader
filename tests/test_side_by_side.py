@@ -162,6 +162,10 @@ def win(tmp_path, monkeypatch):
     from gui import main_window as gui_main
     monkeypatch.setattr(settings_manager, "SETTINGS_FILE", str(tmp_path / "settings.json"),
                         raising=False)
+    # Not a first launch: the welcome guide would hold the «ready» offer
+    # back until it closes (_user_occupied) — right for a user, not here.
+    base = dict(settings_manager.DEFAULT_SETTINGS, guide_seen_main=True)
+    monkeypatch.setattr(gui_main, "load_settings", lambda: dict(base))
     w = gui_main.ModernScadaApp()
     yield w
     w.update_ctl.shutdown()
