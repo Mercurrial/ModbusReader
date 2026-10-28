@@ -42,7 +42,6 @@ def test_first_launch_opens_the_card_before_the_tour(first_run):
 
 def test_picks_apply_to_the_window_at_once(first_run):
     from gui.theme_manager import schemes_for
-    from gui.welcome import font_choices
     w = first_run
     w._maybe_show_onboarding()
     card = w._guide
@@ -56,10 +55,12 @@ def test_picks_apply_to_the_window_at_once(first_run):
     assert w._shell.indexOf(w.nav_rail) == 0
     card.seg_size.setValue(11)
     assert w.settings["font_size"] == 11
-    fams = font_choices()
-    if len(fams) > 1:                       # a machine with a font database
-        card.font_tiles.setValue(fams[1])
-        assert fams[1] in w.settings["font_family"]
+    # Another face than the one in use (on Linux the first offered one IS
+    # the one in use — picking the selected tile rightly changes nothing).
+    others = [t.key for t in card.font_tiles.tiles if t.key != card.font_tiles.value()]
+    if others:                              # a machine with a font database
+        card.font_tiles.setValue(others[0])
+        assert others[0] in w.settings["font_family"]
     card.seg_lang.setValue("en")
     assert w.lang == "en"
     assert card.lbl_title.text() == w.t("welcomeTitle")
