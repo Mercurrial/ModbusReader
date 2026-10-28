@@ -5,12 +5,14 @@ description: Every ModbusReader setting — connection and polling, language, up
 
 # Settings and shortcuts
 
-**Settings** — ++ctrl+comma++ or the button at the bottom of the left rail.
-Changes apply with **Save**; if you leave without saving, the app warns you.
+**Settings** — ++ctrl+comma++ or the gear in the top-right corner of the
+window. Changes apply with **Save**; if you leave without saving, the app
+warns you.
 
 ## Connection
 
-Port, baud rate, parity, stop bits; poll period, response timeout, failed
+The interface — serial port, Modbus TCP or RTU over TCP; port, baud rate,
+parity, stop bits or IP address and TCP port; poll period, response timeout, failed
 polls before the connection counts as lost, inter-frame delay; byte order for
 SHORT, LONG and FLOAT; what to do on connection loss. All of it in detail in
 [Connect a device](../connect.md) and
@@ -22,8 +24,8 @@ SHORT, LONG and FLOAT; what to do on connection loss. All of it in detail in
   The RU/EN switch is also in the window header.
 - **Startup** — reopen the map or project you worked with last time.
 - **Updates** — check automatically (at start-up and every few hours) and a
-  **Check now** button. An update is installed only with your consent — see
-  [Install](../install.md#updates).
+  **Check now** button. The installed app installs an update in the
+  background and offers a restart — see [Install](../install.md#updates).
 
 ## Appearance
 
@@ -35,8 +37,16 @@ SHORT, LONG and FLOAT; what to do on connection loss. All of it in detail in
 - **Contrast** — Soft, Normal, High. High is for a bright shop floor or a
   projector.
 - **Accent color** — 12 options for selection and indicators.
+- **Menu** — where the page menu sits: **left**, **top** or **right**, and
+  **Icons only** (the names move into the tooltips). Which pages the menu
+  lists — right-click the menu itself; the register map cannot be removed,
+  and hidden pages still open with their shortcuts. When the window is too
+  narrow for a menu on top, it keeps the icons and the name of the open page.
 - **Interface font** — any font installed on the system, plus **font size**
   and table **row height**; the sample updates live.
+
+At the first start a "Welcome" card offers the theme, accent colour, menu and
+font — every pick shows on the whole window at once.
 
 ## Table
 
@@ -105,7 +115,7 @@ The full list is in **Settings → Hotkeys**.
 | Next / previous row in the column | ++tab++ / ++shift+tab++ |
 | Register menu | right mouse button |
 | Inspect a memory area | double-click |
-| Log this register's frames | click the state dot |
+| Log this register's frames | the button next to the state dot (shows when you hover the row) |
 
 ### Map editor
 

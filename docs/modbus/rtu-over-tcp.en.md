@@ -11,9 +11,10 @@ computer. It can work in two modes, and the mode decides how you connect to
 it.
 
 !!! note "In ModbusReader"
-    The current version of ModbusReader talks to a device through a COM port.
-    Network connections — "Modbus TCP" and "RTU over TCP" — are being
-    prepared for the next release.
+    Click the link settings in the window header and pick **RTU over TCP**:
+    the converter's IP address and port, the device address on the line —
+    [Connecting over the network](../connect.md#tcp). Not sure which mode the
+    converter is in? Press **Test link**: the app tries both and tells you.
 
 ## Two converter modes
 

@@ -21,8 +21,8 @@ There are two builds — pick either:
 | | Installer | Portable |
 |---|:---:|:---:|
 | File | `ModbusReader-Setup.exe` | `ModbusReader.exe` |
-| Installs to | `C:\Program Files` (all users) or just for you | any folder, a USB stick |
-| Administrator rights | all users — yes, just you — no | not needed |
+| Installs to | just for you (the default) or for all users — in `C:\Program Files` | any folder, a USB stick |
+| Administrator rights | just you — no, all users — yes | not needed |
 | Start menu and desktop shortcuts | ✓ | — |
 | `.mbproj` opens on double-click | ✓ | — |
 | Uninstall | Settings → Apps | delete the file |
@@ -109,17 +109,26 @@ You need Python 3.10 or newer.
 
 ## Updates { #updates }
 
-The installed app checks for a new version at start-up and every few
-hours. When there is one, it shows what is new and installs it only after
-you press **Update**: it downloads the file, verifies its SHA-256 checksum,
-closes and opens again as the new version. Polling and logger recording stop
-while it does.
+The app checks for a new version at start-up and every few hours.
+
+**The installed app** downloads the update, verifies its SHA-256 checksum and
+installs the new version in the background, next to the current one — your
+work and the polling go on. When it is ready, an **Update to …** button
+appears in the page menu: click it and the app restarts as the new version in
+a couple of seconds (polling and logger recording stop meanwhile). If you do
+not restart, the new version opens at the next start, and the old one removes
+itself. When the app is installed for all users, Windows asks for permission,
+so the app asks you once before installing.
+
+**The portable version** shows what is new and updates after you press
+**Update**: it downloads the new file, closes and opens again as the new
+version. A version you do not want can be skipped with **Skip this version**.
 
 On Linux and macOS the app tells you about a new version and opens the
 release page — download the file by hand. Automatic checks can be turned
 off: **Settings → General → Check for updates automatically**.
 
-![The update dialog: version, what's new and the Update button](images/en/update.png){ width="520" }
+![A new version installed in the background: what's new and the Restart button](images/en/update.png){ width="520" }
 
 ## Files the app writes
 
@@ -129,6 +138,9 @@ off: **Settings → General → Check for updates automatically**.
   Attach it to a bug report.
 - Downloaded updates — `%LOCALAPPDATA%\ModbusReader\updates`, removed after
   installing.
+- The installed app keeps each version in its own `app-<version>` folder next
+  to `ModbusReader.exe`, which opens the newest one. Old folders are removed at
+  the next start.
 - Your copy of the demo project — `Documents\ModbusReader`.
 
 Next: the [quick start](quickstart.md).

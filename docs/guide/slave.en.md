@@ -1,6 +1,6 @@
 ---
 seo_title: Modbus slave simulator — the app answers a master as a device
-description: How to test a SCADA, HMI or PLC without the real device — the ModbusReader Modbus RTU slave emulator answers from the register map, functions 01–06, 15, 16, response delay, a log of the master's requests.
+description: How to test a SCADA, HMI or PLC without the real device — the ModbusReader Modbus slave emulator answers from the register map through a COM port or over Modbus TCP, functions 01–06, 15, 16, response delay, a log of the master's requests.
 ---
 
 # Slave emulator
@@ -16,18 +16,43 @@ device does not exist yet, is far away, or is too precious to risk.
 
 1. Open a register map (or a project) — the emulator answers with its
    addresses and types.
-2. On the **Slave emulator** page pick the **port** and the **device
-   address** (1–247). Baud rate, parity and stop bits come from **Settings →
-   Connection** — they must match the master.
+2. On the **Slave emulator** page pick the interface — **Serial port**,
+   **Modbus TCP** or **RTU over TCP** (see [Over the network](#tcp)) — the
+   port and the **device address** (1–247). For a COM port the baud rate,
+   parity and stop bits come from **Settings → Connection** — they must
+   match the master.
 3. Press **Start**. The status line reads: "Answering as device 1 on COM4,
    115200 8N1. Serving 13 registers".
 
 A port has exactly one owner: if this port is being polled, the emulator
-will not start (and vice versa). To test **this app's own** master you need
-two ports: two adapters with a null-modem link, or a pair of virtual COM
+will not start (and vice versa). To test **this app's own** master over a
+COM port you need two ports (over the network [one computer](#tcp) is
+enough): two adapters with a null-modem link, or a pair of virtual COM
 ports (for example, [com0com](https://com0com.sourceforge.net/)) and a second
 copy of ModbusReader. Step by step: [Testing a SCADA with the
 emulator](../examples/test-scada.md).
+
+## Over the network { #tcp }
+
+Pick **Modbus TCP** at the top and the emulator becomes a Modbus TCP server
+that masters reach at this computer's IP address. **RTU over TCP** — the
+emulator answers with RTU frames through a TCP port, like a device behind an
+RS-485 ↔ Ethernet converter in transparent mode.
+
+- **TCP port** — 502 by default on Windows and 1502 on Linux and macOS (ports
+  below 1024 need root there).
+- **Access**: **Whole network** — masters on other computers can connect;
+  **This PC only** — for testing without a network. If Windows asks about
+  network access, allow it, or masters on other computers will not connect.
+- The status line shows where to connect ("Connect to: 192.168.1.5:502") and
+  how many masters are connected — several at once are fine.
+- The emulator answers its own device address and also **unit IDs 0 and
+  255** — many Modbus TCP masters send those.
+
+**Testing without hardware.** Start the emulator over Modbus TCP and connect
+from this same app to `127.0.0.1` and the same port ([connection
+card](../connect.md#tcp)). One computer is enough: no adapters, no second copy
+of the app.
 
 ## Values
 

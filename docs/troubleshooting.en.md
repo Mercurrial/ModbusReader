@@ -68,6 +68,15 @@ above 9, for example. Check the type in the map.
   [console](guide/console.md) as a function 16 frame.
 - Not connected — a write is neither sent nor queued: connect and repeat.
 
+## A network device does not answer (Modbus TCP) { #tcp }
+
+Press **Test link** in the [connection card](connect.md#card): it tells at
+which step the link fails — the address is unreachable, the port is closed or
+the device is silent — and tries other unit IDs and the other mode (Modbus TCP
+or RTU over TCP) by itself. Common causes and what to do about them are in the
+table [If it does not connect](modbus/tcp.md#not-connecting). Don't know the IP
+address? [Find the device on the network](guide/scanner.md#network).
+
 ## "Port is busy"
 
 A port has exactly one owner. While polling runs, the sniffer and the

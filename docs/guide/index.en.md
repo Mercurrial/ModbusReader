@@ -7,12 +7,14 @@ description: Every page and tool of ModbusReader in order — register map, edit
 
 The ModbusReader window is laid out like this:
 
-- **Left** — the page rail. **Monitor** at the top: the register map and the
-  dashboard. **Tools** below. A green dot next to an item means the tool is
-  working in the background (for example, the logger is recording). The rail
-  collapses to icons.
-- **Top** — the project and the current page, the link settings and
-  **Connect** (++f5++).
+- **Left** — the page menu. **Monitor** first: the register map and the
+  dashboard. Then **Tools**. A green dot next to an item means the tool is
+  working in the background (for example, the logger is recording). The menu
+  can sit on top or on the right, keep icons only and drop pages you do not
+  need — right-click it.
+- **Top** — the project and the current page, the link settings (a click
+  opens the [connection card](../connect.md#card)), **Connect** (++f5++) and
+  the [settings](settings.md) gear in the corner.
 - **Bottom** — the transaction log, the raw-frame line and the status bar:
   device address, counters, line statistics.
 

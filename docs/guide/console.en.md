@@ -1,6 +1,6 @@
 ---
-seo_title: Console — sending raw Modbus RTU frames with automatic CRC
-description: How to send any Modbus RTU frame from ModbusReader — the command in hex, CRC16 computed for you, editing the final packet, command history, the transaction log full screen.
+seo_title: Console — sending raw Modbus RTU and TCP frames with automatic CRC and MBAP
+description: How to send any Modbus RTU or Modbus TCP frame from ModbusReader — the command in hex, CRC16 or the MBAP header added for you, editing the final packet, command history, the transaction log full screen.
 ---
 
 # Console
@@ -31,6 +31,13 @@ the last 20 commands (kept between runs).
 The device's answer appears in the log as an `[RX]` line. The console works
 through the open connection: press **Connect** (++f5++) first. A console
 frame jumps the queue, between poll requests.
+
+**Over Modbus TCP** the command is written the same way — address (unit ID),
+function, data — and instead of a CRC the app adds the **MBAP** header:
+transaction id, protocol zero and length. The Packet row shows the frame as
+it goes onto the network; the transaction id counts up with every frame.
+With [RTU over TCP](../modbus/rtu-over-tcp.md) the frame goes out as it would
+to a COM port — with a CRC.
 
 ## Handy frames
 

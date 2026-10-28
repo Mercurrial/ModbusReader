@@ -1,6 +1,6 @@
 ---
-seo_title: ModbusReader — бесплатная программа для Modbus RTU и RS-485
-description: Бесплатная программа для наладки и опроса приборов по Modbus RTU (RS-485) — карта регистров, графики, дашборд, сканер, сниффер, макросы на Python и эмулятор Modbus Slave. Гайды, примеры и основы протокола.
+seo_title: ModbusReader — бесплатная программа для Modbus RTU и Modbus TCP
+description: Бесплатная программа для наладки и опроса приборов по Modbus RTU (RS-485) и Modbus TCP — карта регистров, графики, дашборд, сканер, сниффер, макросы на Python и эмулятор Modbus Slave. Гайды, примеры и основы протокола.
 hide:
   - navigation
   - toc
@@ -8,11 +8,11 @@ hide:
 
 <div class="mr-hero" markdown>
 
-# Бесплатная программа для Modbus RTU
+# Бесплатная программа для Modbus RTU и TCP
 
 <p class="mr-lead">ModbusReader — наладка, опрос и мониторинг приборов по Modbus RTU
-через RS-485: карта регистров с именами и единицами, графики в реальном времени,
-дашборд, сканер, сниффер, макросы и эмулятор прибора (Slave).</p>
+(RS-485) и Modbus TCP: карта регистров с именами и единицами, графики в реальном
+времени, дашборд, сканер, сниффер, макросы и эмулятор прибора (Slave).</p>
 
 [:material-download: Скачать для Windows](https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe){ #mr-download .md-button .md-button--primary data-linux-href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-x86_64.AppImage" data-linux-label="Скачать для Linux" data-mac-href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-macOS-arm64.zip" data-mac-label="Скачать для macOS" data-mobile-href="install/" data-mobile-label="Как установить на компьютер" }
 [:material-rocket-launch: Быстрый старт](quickstart.md){ .md-button }
@@ -52,7 +52,7 @@ hide:
 
     ---
 
-    Адаптер USB-RS-485, проводка A/B, терминатор, скорость и чётность.
+    Адаптер USB-RS-485 и проводка A/B — или прибор в сети по Modbus TCP.
 
     [:octicons-arrow-right-24: Подключить](connect.md)
 
@@ -76,9 +76,18 @@ hide:
 
     Все регистры прибора в одной таблице — имена, единицы, масштаб,
     перечисления. Holding, input, coils и discrete inputs; 11 числовых типов
-    от BOOL до DOUBLE и строки. Запись — двойным щелчком.
+    от BOOL до DOUBLE и строки. Запись — прямо в таблице.
 
     [:octicons-arrow-right-24: Карта регистров](guide/register-map.md)
+
+-   **Modbus RTU и Modbus TCP**
+
+    ---
+
+    RS-485 через USB-адаптер, ПЛК и счётчики в сети, преобразователи
+    RS-485 ↔ Ethernet («RTU по TCP»). «Проверить связь» подскажет, что не так.
+
+    [:octicons-arrow-right-24: Подключение](connect.md)
 
 -   **Графики и наблюдение**
 
@@ -129,7 +138,7 @@ hide:
 
     ---
 
-    Поиск приборов на линии, отправка сырых кадров с автоматическим CRC,
+    Поиск приборов на линии и в сети, отправка сырых кадров с автоматическим CRC,
     многочасовая запись в CSV и сравнение «было — стало».
 
     [:octicons-arrow-right-24: Все инструменты](guide/index.md)
@@ -171,8 +180,9 @@ hide:
   ставят несколько разных утилит.
 - **Карта регистров как в паспорте прибора** — имена, единицы и перечисления
   вместо голых адресов; импорт из Excel и CSV.
-- **Русский и английский интерфейс**, тёмная и светлая темы, автообновление
-  с вашего подтверждения.
+- **Русский и английский интерфейс**, тёмная и светлая темы, акцентные цвета,
+  меню слева, справа или сверху. Обновления ставятся в фоне — переход на новую
+  версию занимает пару секунд.
 
 Текущая версия — **{{ app_version }}**. История изменений —
 в [CHANGELOG](https://github.com/Mercurrial/ModbusReader/blob/main/CHANGELOG.md).
@@ -189,25 +199,24 @@ hide:
 ??? question "Чем ModbusReader отличается от Modbus Poll и Modbus Slave?"
     Мастер, эмулятор прибора и сниффер собраны в одной бесплатной программе;
     карта регистров хранит имена, единицы и перечисления; есть дашборд и
-    макросы на Python. Чего нет — Modbus ASCII и UDP; Modbus TCP и RTU по TCP
-    появятся в следующей версии. Подробное сравнение —
+    макросы на Python. Чего нет — Modbus ASCII и UDP. Подробное сравнение —
     [бесплатная альтернатива Modbus Poll](compare.md).
 
 ??? question "Поддерживается ли Modbus TCP?"
-    В следующей версии — да: подключение к ПЛК, счётчикам и шлюзам по
+    Да, начиная с версии 26.10.3: подключение к ПЛК, счётчикам и шлюзам по
     [Modbus TCP](modbus/tcp.md), к преобразователям RS-485 ↔ Ethernet в режиме
     [RTU по TCP](modbus/rtu-over-tcp.md), эмулятор по TCP и поиск приборов в
-    сети. Текущая версия работает с **Modbus RTU** по последовательному
-    порту — RS-485 или RS-232 через USB-адаптер.
+    сети. Как подключиться — [Подключение по сети](connect.md#tcp).
 
 ??? question "Какой адаптер нужен?"
     Любой USB-RS-485 адаптер, который система видит как COM-порт: на
     микросхемах FTDI, CP210x или CH340. См. [Подключение к прибору](connect.md).
 
 ??? question "Можно ли попробовать без прибора?"
-    Да. При первом запуске открывается демо-проект, а вторая копия
-    программы в режиме [эмулятора](guide/slave.md) на паре виртуальных
-    COM-портов «оживит» его. См. [Проверка SCADA эмулятором](examples/test-scada.md).
+    Да. При первом запуске открывается демо-проект. Чтобы он «ожил»,
+    запустите [эмулятор](guide/slave.md) по Modbus TCP и подключитесь из этой
+    же программы к `127.0.0.1` — хватит одного компьютера. См. также
+    [Проверка SCADA эмулятором](examples/test-scada.md).
 
 ??? question "На каких системах работает?"
     Windows 10 (1809+) и 11 — установщик и портативная версия; Linux —

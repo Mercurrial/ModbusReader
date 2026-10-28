@@ -11,9 +11,9 @@ changes. PLCs, meters, drives with a network card and RS-485 ↔ Ethernet
 gateways support it.
 
 !!! note "Modbus TCP in ModbusReader"
-    The current version of ModbusReader works with Modbus RTU. Connecting
-    over Modbus TCP and "RTU over TCP", a TCP emulator and finding devices on
-    the network are being prepared for the next release.
+    Click the link settings in the window header and pick **Modbus TCP**: IP
+    address, port and unit ID — [Connecting over the network](../connect.md#tcp).
+    The TCP emulator and finding devices on the network are described there too.
 
 ## Port 502
 
@@ -98,7 +98,7 @@ order](data-types.md) and [exception codes](functions.md) are exactly the
 same over TCP: a device's register map does not depend on how you connect to
 it.
 
-## If it does not connect
+## If it does not connect { #not-connecting }
 
 | What you see | Cause |
 |---|---|

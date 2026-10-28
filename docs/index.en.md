@@ -1,6 +1,6 @@
 ---
-seo_title: ModbusReader — free Modbus RTU tool for Windows, Linux and macOS
-description: Free, open-source tool to commission and monitor Modbus RTU (RS-485) devices — register map, live trends, dashboard, bus scanner, sniffer, Python macros and a Modbus slave simulator. Guides, examples and protocol basics.
+seo_title: ModbusReader — free Modbus RTU and Modbus TCP tool for Windows, Linux and macOS
+description: Free, open-source tool to commission and monitor Modbus RTU (RS-485) and Modbus TCP devices — register map, live trends, dashboard, bus scanner, sniffer, Python macros and a Modbus slave simulator. Guides, examples and protocol basics.
 hide:
   - navigation
   - toc
@@ -8,11 +8,11 @@ hide:
 
 <div class="mr-hero" markdown>
 
-# A free Modbus RTU tool
+# A free Modbus RTU and TCP tool
 
-<p class="mr-lead">ModbusReader commissions, polls and monitors Modbus RTU devices
-over RS-485: a register map with names and units, live trends, a dashboard,
-a bus scanner, a sniffer, macros and a device emulator (slave).</p>
+<p class="mr-lead">ModbusReader commissions, polls and monitors Modbus RTU (RS-485)
+and Modbus TCP devices: a register map with names and units, live trends, a
+dashboard, a scanner, a sniffer, macros and a device emulator (slave).</p>
 
 [:material-download: Download for Windows](https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-Setup.exe){ #mr-download .md-button .md-button--primary data-linux-href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-x86_64.AppImage" data-linux-label="Download for Linux" data-mac-href="https://github.com/Mercurrial/ModbusReader/releases/latest/download/ModbusReader-macOS-arm64.zip" data-mac-label="Download for macOS" data-mobile-href="install/" data-mobile-label="How to install on a computer" }
 [:material-rocket-launch: Quick start](quickstart.md){ .md-button }
@@ -53,7 +53,7 @@ free · open source (GPL-3.0) · English and Russian UI</p>
 
     ---
 
-    USB-to-RS-485 adapter, A/B wiring, termination, baud rate and parity.
+    A USB-to-RS-485 adapter and A/B wiring — or a device on the network over Modbus TCP.
 
     [:octicons-arrow-right-24: Connect](connect.md)
 
@@ -78,9 +78,18 @@ free · open source (GPL-3.0) · English and Russian UI</p>
 
     Every register of the device in one table — names, units, scaling,
     enumerations. Holding, input, coils and discrete inputs; 11 numeric types
-    from BOOL to DOUBLE plus strings. Double-click to write.
+    from BOOL to DOUBLE plus strings. Write right in the table.
 
     [:octicons-arrow-right-24: Register map](guide/register-map.md)
+
+-   **Modbus RTU and Modbus TCP**
+
+    ---
+
+    RS-485 through a USB adapter, PLCs and meters on the network, RS-485 ↔
+    Ethernet converters ("RTU over TCP"). "Test link" tells what is wrong.
+
+    [:octicons-arrow-right-24: Connecting](connect.md)
 
 -   **Trends and watch**
 
@@ -131,7 +140,7 @@ free · open source (GPL-3.0) · English and Russian UI</p>
 
     ---
 
-    Find the devices on a line, send raw frames with automatic CRC, log for
+    Find the devices on a line and on the network, send raw frames with automatic CRC, log for
     hours to CSV and compare "before vs after".
 
     [:octicons-arrow-right-24: All tools](guide/index.md)
@@ -173,8 +182,9 @@ free · open source (GPL-3.0) · English and Russian UI</p>
   take several different tools.
 - **A register map like the device datasheet** — names, units and
   enumerations instead of bare addresses; import from Excel and CSV.
-- **English and Russian UI**, dark and light themes, updates installed only
-  when you say so.
+- **English and Russian UI**, dark and light themes, accent colours, the menu
+  on the left, right or top. Updates install in the background — switching to
+  a new version takes a couple of seconds.
 
 The current version is **{{ app_version }}**. Release notes are in the
 [CHANGELOG](https://github.com/Mercurrial/ModbusReader/blob/main/CHANGELOG.md).
@@ -190,17 +200,15 @@ bugs to [Issues](https://github.com/Mercurrial/ModbusReader/issues).
 ??? question "How does ModbusReader differ from Modbus Poll and Modbus Slave?"
     Master, device emulator and sniffer in one free app; a register map
     holding names, units and enumerations; a dashboard and Python macros.
-    What it lacks is Modbus ASCII and UDP; Modbus TCP and RTU over TCP arrive
-    in the next version. A detailed comparison:
+    What it lacks is Modbus ASCII and UDP. A detailed comparison:
     [a free Modbus Poll alternative](compare.md).
 
 ??? question "Does it support Modbus TCP?"
-    From the next version, yes: connecting to PLCs, meters and gateways over
+    Yes, since version 26.10.3: connecting to PLCs, meters and gateways over
     [Modbus TCP](modbus/tcp.md), to RS-485 ↔ Ethernet converters in
     [RTU over TCP](modbus/rtu-over-tcp.md) mode, a TCP emulator and a search
-    for devices on the network. The current version works with
-    **Modbus RTU** over a serial port — RS-485 or RS-232 through a USB
-    adapter.
+    for devices on the network. How to connect:
+    [Connecting over the network](connect.md#tcp).
 
 ??? question "Which adapter do I need?"
     Any USB-to-RS-485 adapter the system sees as a COM port: FTDI, CP210x or

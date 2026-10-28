@@ -14,21 +14,42 @@ table. While polling runs, values update on every cycle.
 
 | Column | Shows |
 |---|---|
-| ● | State dot: green — a value has arrived since connecting |
+| ● | [State dot](#state): is the value fresh, and the log button for this register |
 | Address | Zero-based address in hex with a table prefix: `0x000A`, `IR 0x0001`, `CO 0x0000`, `DI 0x0000` — see [Tables and addresses](../modbus/addressing.md) |
 | Name | The map name; in the English UI the English name, if set |
 | Data type | `FLOAT`, `UINT16`, `BOOL`… — see [Data types](../modbus/data-types.md) |
 | Access | `R` — read only, `RW` — read and write, `W` — write only |
 | Value | The current value with scaling, unit and enum label |
-| New value | The field for writing to the device |
+| New value | The field for writing to the device — only on registers that can be written |
 
 Hide columns you don't need in **Settings → Table**. Row height, zebra
 striping, monospace values and the flash on change live there too.
 
+## The state dot { #state }
+
+The dot left of the address tells how fresh the value is:
+
+| Dot | Meaning |
+|---|---|
+| Green | The value is fresh |
+| Amber | The link is up, but the device stopped answering this register |
+| Grey | No link — the last value received is shown |
+| Hollow ring | No value yet |
+
+Hover over the dot and the tooltip says how many seconds ago the value
+came. "Stopped answering" is measured per register: one polled every 5
+seconds turns amber no sooner than after 15.
+
+Next to the dot is the **exchange log** button (the console icon). It shows up
+when you hover over the row; a click writes this register's requests and
+answers to the log, and the button stays filled while the log is on. The same
+is in the right-click menu: **Show exchange in the log**.
+
 ## Writing a value
 
-1. Click the **New value** cell of an RW register (or select the row and
-   press ++f2++).
+1. Click the field with a pencil in the **New value** column (or select the
+   row and press ++f2++). Only `RW` and `W` registers have the field; for a
+   read-only register the cell is empty.
 2. Type the value and press ++enter++. ++tab++ / ++shift+tab++ move to the
    next / previous row of the column.
 
@@ -49,6 +70,8 @@ Right-click a row:
 - **Add to live chart** / **Remove from chart** — a live [trend](trends.md)
   on the right (up to 8 at once).
 - **Add to watch** — into the [watch window](trends.md#watch) (++f6++).
+- **Show exchange in the log** — this register's requests and answers in the
+  log (like the button next to the [state dot](#state)).
 - **View as** — decimal, hexadecimal or binary. Not offered for registers
   with scaling, an enum, or strings: an engineering value has no "hex view".
 - **Copy value**, **Copy address**.
@@ -72,8 +95,8 @@ At the bottom of the window — every exchanged frame in hex, decoded:
 - The **All / TX / RX / Errors** tabs filter the log, **Find in log**
   searches its text.
 - The log can be saved to `.txt` or cleared.
-- **Clicking a register's state dot** turns on a detailed log for that
-  register (a ring appears around the dot) — handy when you need to see the
+- **The log button** next to the [state dot](#state) turns on a detailed log
+  for that register — handy when you need to see the
   raw words of one FLOAT to find its byte order.
 - Verbosity, panel height and entry limit — **Settings → Log**.
 

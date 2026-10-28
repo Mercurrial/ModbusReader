@@ -1,12 +1,33 @@
 ---
-seo_title: Connecting an RS-485 device — adapter, A/B wiring, link settings
-description: How to connect a Modbus RTU device to a PC — USB-to-RS-485 adapter and driver, A and B wiring, common ground, 120 Ω termination, baud rate, parity, timeouts and poll period in ModbusReader.
+seo_title: Connecting a device — RS-485 and Modbus TCP, adapter, A/B wiring, link settings
+description: How to connect a Modbus device to a PC — USB-to-RS-485 adapter, A and B wiring, 120 Ω termination, baud rate and parity; Modbus TCP and RS-485 ↔ Ethernet converters by IP address; link test and finding devices on the network in ModbusReader.
 ---
 
 # Connect a device
 
-ModbusReader talks to **Modbus RTU** devices through a serial port: RS-485
-(most often) or RS-232. The computer needs an adapter for that.
+ModbusReader talks to **Modbus RTU** devices through a serial port — RS-485
+(most often) or RS-232, which needs an adapter — and to devices on a network:
+over **Modbus TCP** and through RS-485 ↔ Ethernet converters in **RTU over
+TCP** mode (see [Connecting over the network](#tcp)).
+
+## The connection card { #card }
+
+Click the link settings in the window header (`COM3 · 9600 · 8E1 · ID 10`) —
+the connection card opens. It holds everything needed to reach a device:
+
+![The connection card: Modbus TCP, IP address and port, unit ID, "Link OK · answered in 12 ms", recent connections](images/en/connection.png){ width="404" }
+
+- the **interface** — Serial port, Modbus TCP or RTU over TCP;
+- the fields for it: port and framing for a COM port, IP address and port
+  for the network, the device address;
+- **Test link** — one request to the device and an answer in words: "Link OK ·
+  answered in 12 ms" or what exactly is wrong;
+- **Recent** — connections that worked before, one click away;
+- **Connect** — apply and start polling.
+
+The rest — timeouts, byte order, reconnecting — is behind **All connection
+settings** (**Settings → Connection**). If a connection fails, the card opens
+by itself and shows the reason.
 
 ## Adapter
 
@@ -22,7 +43,7 @@ How to find the port:
     **Device Manager → Ports (COM & LPT)**: the adapter appears as
     `USB Serial Port (COM5)` or similar. The number changes if you plug the
     adapter into another USB socket. The port list is also in the
-    **Settings → Connection → Port** drop-down.
+    connection card.
 
 === "Linux"
 
@@ -80,7 +101,7 @@ devices one after another (more with modern transceivers).
 
 ## Link settings
 
-**Settings → Connection** (or click the link chip in the window header):
+In the connection card (or in **Settings → Connection**):
 
 | Setting | Values | What matters |
 |---|---|---|
@@ -92,12 +113,56 @@ devices one after another (more with modern transceivers).
 Data bits are always 8. The status bar shows the framing in short: `8N1` —
 8 bits, no parity, 1 stop bit; `8E1` — even parity.
 
-**The device address (Slave ID, 1–247)** is set in the status bar at the
-bottom of the window: click `ID: 1`, type a number and press ++enter++.
+**The device address (Slave ID, 1–247)** is the **Address (ID)** field in the
+card. You can also change it in the status bar at the bottom of the window:
+click `ID: 1`, type a number and press ++enter++.
 
 !!! note "Changes apply when you connect"
     Port settings apply to a new connection. If you change them while
     polling, reconnect (++f5++ twice). The device address applies at once.
+
+## Connecting over the network { #tcp }
+
+### Modbus TCP
+
+PLCs, meters, drives with a network card, Modbus TCP ↔ RTU gateways. In the
+connection card pick **Modbus TCP**:
+
+| Field | What to enter |
+|---|---|
+| IP address | The device address, e.g. `192.168.1.20` |
+| Port | `502` — the standard Modbus TCP port |
+| Unit ID | Usually `1`; some devices want `255` or `0`. For a gateway — the address of the device on the RS-485 line behind it |
+
+The computer and the device must be on the same network: a device at
+`192.168.1.20` will not answer a computer at `192.168.0.5` until one of the
+addresses is changed. Unit ID and the MBAP header are explained in
+[Modbus TCP](modbus/tcp.md).
+
+### RTU over TCP
+
+RS-485 ↔ Ethernet converters in transparent mode (USR-TCP232, Moxa NPort and
+the like) pass RTU frames over the network as they are. Pick **RTU over
+TCP**: the converter's IP address and port (see its web interface) and the
+device address on the line. Baud rate and parity of the line are set in the
+converter itself. How transparent mode differs from a gateway:
+[RTU over TCP and converters](modbus/rtu-over-tcp.md).
+
+### If the device is silent
+
+**Test link** tells at which step the link fails: the address is
+unreachable, the port is closed, the connection is up but the device does not
+answer. When the device is silent, the test tries what a newcomer cannot
+know: unit IDs `1`, `255` and `0` and the other mode (Modbus TCP or RTU over
+TCP). If an alternative works, the card offers it as one button: **Use 255**
+or **Switch**.
+
+### Find a device on the network
+
+Don't know the IP address? Press **Find on network** in the card. The
+[scanner](guide/scanner.md#network) opens in **Network (TCP)** mode: it walks
+the addresses of your subnet and shows where Modbus answers. Double-click a
+find to connect.
 
 ## Polling and timeouts
 
@@ -132,9 +197,10 @@ order**, separately for SHORT, LONG and FLOAT. If a FLOAT reads `-775.2` or
 
 ## Checking the link
 
-1. Press **Connect** (++f5++).
-2. Watch the **line statistics** in the bottom-right corner: a growing count
-   of answers means the link works.
+1. In the connection card press **Test link** — the app asks the device one
+   question and tells you in words what happened.
+2. Press **Connect** (++f5++) and watch the **line statistics** in the
+   bottom-right corner: a growing count of answers means the link works.
 3. No answers at all — check the port, baud rate, parity, address and A/B
    polarity. Don't know the address or speed — run the
    [scanner](guide/scanner.md).
