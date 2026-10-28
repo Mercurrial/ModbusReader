@@ -14,6 +14,8 @@ every link.
     tcp      Modbus TCP: MBAP header, no CRC — PLCs, meters, gateways
     rtu_tcp  RTU frames through a TCP socket — a serial-to-Ethernet
              converter in transparent mode (USR, Moxa NPort "TCP server")
+    sim      the demo project's made-up device (core/simulator.py) — opens
+             only while the demo project is open; never a «recent» link
 
 Adding a transport = adding ONE descriptor here. Nothing in ModbusCore changes.
 
@@ -161,12 +163,24 @@ def host_port(settings) -> str:
     return f"{host}:{port}"
 
 
+# ── the demo's simulated device ───────────────────────────────────────
+def _make_sim(settings, timeout):
+    from core.simulator import SimMaster
+    return SimMaster(timeout=timeout, retries=1)
+
+
+def _describe_sim(settings):
+    return "SIM"
+
+
 # ── the registry (declaration order = preference order) ───────────────
 TRANSPORTS: tuple = (
     Transport("serial",  "RTU",     _make_serial,  _describe_serial),
     Transport("tcp",     "TCP",     _make_tcp,     host_port, network=True),
     Transport("rtu_tcp", "RTU/TCP", _make_rtu_tcp, host_port, network=True),
+    Transport("sim",     "SIM",     _make_sim,     _describe_sim),
 )
+SIM_ID = "sim"
 
 BY_ID = {t.transport_id: t for t in TRANSPORTS}
 DEFAULT_ID = "serial"
@@ -200,6 +214,8 @@ def summary(settings) -> str:
     t = active(settings)
     if t.network:
         return f"{t.label} · {host_port(settings)}"
+    if t.transport_id == SIM_ID:
+        return t.label
     return (f"{settings.get('port', 'COM1')} · {settings.get('baudrate', '115200')}"
             f" · {serial_framing(settings)}")
 
@@ -240,13 +256,19 @@ RECENT_MAX = 6
 
 def remember(recent, settings, when: float = 0.0) -> list:
     """*recent* (a list of link dicts, newest first) with the connection in
-    *settings* moved to the front. Garbage entries are dropped."""
+    *settings* moved to the front. Garbage entries are dropped, and so is
+    the demo's simulated device: it is not a link anyone reconnects to."""
+    if active(settings).transport_id == SIM_ID:
+        return [i for i in recent if isinstance(i, dict)
+                and i.get("transport") in BY_ID and i.get("transport") != SIM_ID
+                ][:RECENT_MAX] if isinstance(recent, list) else []
     entry = dict(link_of(settings))
     if when:
         entry["used"] = float(when)
     out = [entry]
     for item in recent if isinstance(recent, list) else []:
-        if not isinstance(item, dict) or item.get("transport") not in BY_ID:
+        if (not isinstance(item, dict) or item.get("transport") not in BY_ID
+                or item.get("transport") == SIM_ID):
             continue
         if _same_link(item, entry):
             continue

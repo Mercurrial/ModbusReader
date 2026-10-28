@@ -227,6 +227,8 @@ class ModbusCore(QThread):
 
     def _describe(self):
         """Human link string for status messages, e.g. 'COM1 (115200)'."""
+        if self.transport.transport_id == transports.SIM_ID:
+            return self._msg("simLink")
         return self.transport.describe(self.settings)
 
     def start(self, *args, **kwargs):

@@ -136,7 +136,11 @@ def main():
     for r in REGISTERS:                    # what the map editor writes
         r.setdefault("length", datatypes.addr_span(r))
     settings = dict(DEFAULT_SETTINGS)
-    settings.update({"port": "COM1", "baudrate": "115200", "slave_id": 1})
+    # The demo talks to its own made-up device (core/simulator.py): Connect
+    # brings it to life with no cable. The serial fields stay for a user who
+    # switches the demo to a real port.
+    settings.update({"transport": "sim", "port": "COM1", "baudrate": "115200",
+                     "slave_id": 1})
     os.makedirs(os.path.join(ROOT, "examples"), exist_ok=True)
     en_regs, en_cards = english(REGISTERS, DASHBOARD)
     for lang, name, regs, cards in (("ru", "demo.mbproj", REGISTERS, DASHBOARD),
@@ -144,7 +148,8 @@ def main():
         path = os.path.join(ROOT, "examples", name)
         formats.dump_project(path, PROJECT_NAME[lang], settings, regs,
                              dashboards=[{"name": DASHBOARD_NAME[lang],
-                                          "widgets": cards, "links": []}])
+                                          "widgets": cards, "links": []}],
+                             simulation="thermo")
         print("written:", path)
 
 

@@ -181,7 +181,7 @@ through `request_op`; `ScannerWorker` the same way; `SnifferWorker` and
 |---|---|
 | `modbus_core.py` | The master link thread: queues, polling, reads, writes, raw frames, frame logging. |
 | `modbus_client.py` | The app's own Modbus client: `RtuMaster` (serial, t3.5 framing, echo and noise handling), `TcpMaster` (MBAP; drains late answers, reopens a connection the device closed) and `RtuOverTcpMaster` (RTU frames through a converter's socket, via `SocketLine`); every answer carries its outcome — ok / exception / timeout / crc; `link_error_kind` names why a link did not open. |
-| `transports.py` | `Transport` registry — serial, Modbus TCP, RTU over TCP; one-line link summary, device-address range per link, the recent-links list; parity normalisation. |
+| `transports.py` | `Transport` registry — serial, Modbus TCP, RTU over TCP, and `sim` (the demo's made-up device); one-line link summary, device-address range per link, the recent-links list; parity normalisation. |
 | `linktest.py` | «Проверить связь»: one request, a diagnosis in words; for TCP also tries other unit ids and the other framing. |
 | `netscan.py` | Finds Modbus TCP devices in an IP range (parallel probes); the PC's own IPv4 addresses and subnets. |
 | `datatypes.py` | Register type registry, codecs, address span, Modbus tables (`AREAS`), register keys. |
@@ -191,6 +191,7 @@ through `request_op`; `ScannerWorker` the same way; `SnifferWorker` and
 | `scanner_engine.py` | Device and register scans. |
 | `sniffer_core.py` | CRC16, frame carving and decoding, the passive sniffer thread. |
 | `slave_core.py` | The slave emulator: pure `build_response`, `SlaveStore`, `SlaveServer` (COM port), `SlaveTcpServer` (Modbus TCP or RTU over TCP, many masters at once). |
+| `simulator.py` | The demo project's device (transport `sim`): a temperature-controller model over a `SlaveStore`, answered by `build_response`; exists only while a project marked `"simulation"` is open with its own map (`attach` / `detach` from the window). |
 | `macro_engine.py` | Macro runner: AST gate, restricted builtins, domain API, stop via line tracer. |
 | `dash_model.py` | Dashboard widget kinds, snapping, the automation graph, gate conditions. |
 | `datalog.py` | CSV logger writer (UTF-8 with BOM, rotation, buffered flushing). |

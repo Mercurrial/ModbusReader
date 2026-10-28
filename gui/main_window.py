@@ -592,7 +592,7 @@ class ModernScadaApp(QMainWindow):
             if not transports.host_value(self.settings):
                 self.conn_card.open_below(self.main_toolbar.btn_link)
                 return
-        else:
+        elif transports.active(self.settings).transport_id != transports.SIM_ID:
             # One port, one owner: the slave emulator may be serving this port.
             busy = self.slave_view.serving_port()
             if busy and busy.casefold() == str(self.settings.get("port", "")).casefold():
@@ -666,6 +666,8 @@ class ModernScadaApp(QMainWindow):
         text = transports.summary(s)
         if transports.is_network(s) and not transports.host_value(s):
             text = f"{transports.active(s).label} · {self.t('connNoHost')}"
+        elif transports.active(s).transport_id == transports.SIM_ID:
+            text = self.t("simChip")
         self.status_bar.lbl_params.setText(text)
         self.status_bar.set_id_range(*transports.id_range(s))
         self.main_toolbar.set_link_text(text + f" · ID {s.get('slave_id', 10)}")
@@ -1245,6 +1247,35 @@ class ModernScadaApp(QMainWindow):
         self.settings["last_project_path"] = self.project_path
         self.settings["last_project_name"] = self.project_name
         self._refresh_project_button()
+        self._sync_simulation()
+
+    def _sync_simulation(self):
+        """The demo project's made-up device (core/simulator.py) exists while
+        the demo project — a project file with "simulation" — is open with
+        its own map. Any other project, a map opened from a file, a new
+        project: the device is gone, and a link still pointing at it falls
+        back to the COM port."""
+        from core import simulator, transports
+        kind = ""
+        if self.project_path and not self.profile_path:
+            kind = formats.project_simulation(self.project_path)
+        if kind not in simulator.KINDS:
+            kind = ""
+        self._sim_kind = kind
+        if kind:
+            simulator.attach(self.profile_data, kind)
+        else:
+            simulator.detach()
+            if self.settings.get("transport") == transports.SIM_ID:
+                core = self.modbus_core
+                if core.is_running or core.isRunning():
+                    core.stop()
+                    core.wait(3000)
+                self.settings["transport"] = transports.DEFAULT_ID
+                save_settings(self.settings)
+        if hasattr(self, "conn_card"):
+            self.conn_card.set_sim_available(bool(kind))
+            self._refresh_link_label()
 
     def _refresh_project_button(self):
         if not hasattr(self, "btn_profile"):
@@ -1343,10 +1374,20 @@ class ModernScadaApp(QMainWindow):
         self._write_project(path, name)
 
     def _write_project(self, path: str, name: str):
+        from core import transports
+        # The demo keeps its made-up device when saved over itself; a copy
+        # saved elsewhere is an ordinary project (on the COM port).
+        same = bool(self.project_path) and (
+            os.path.normcase(os.path.abspath(path))
+            == os.path.normcase(os.path.abspath(self.project_path)))
+        sim = getattr(self, "_sim_kind", "") if same else ""
+        settings = self.settings
+        if not sim and settings.get("transport") == transports.SIM_ID:
+            settings = dict(settings, transport=transports.DEFAULT_ID)
         try:
             self._save_window_geometry()          # fresh layout numbers
-            formats.dump_project(path, name, self.settings, self.profile_data,
-                                 self.dash_view.all_boards())
+            formats.dump_project(path, name, settings, self.profile_data,
+                                 self.dash_view.all_boards(), simulation=sim)
         except Exception as e:
             themed_info(self, self.ctx.theme, "error", self.t("errTitle"),
                         f"{type(e).__name__}: {e}")
@@ -1674,6 +1715,11 @@ class ModernScadaApp(QMainWindow):
         self.logger_view.refresh_columns()
         self.watch_window.refresh_map()
         self.slave_view.map_changed()
+        if path:
+            self._sync_simulation()          # a map from a file: not the demo's
+        elif getattr(self, "_sim_kind", ""):
+            from core import simulator
+            simulator.attach(regs, self._sim_kind)   # the demo's map, edited
 
     def _refresh_profile_label(self):
         if self.profile_path:

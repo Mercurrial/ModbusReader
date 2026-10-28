@@ -3,12 +3,14 @@
   "version": 1,
   "name": "Демо-термоконтроллер",
   "connection": {
-    "transport": "serial",
+    "transport": "sim",
     "port": "COM1",
     "baudrate": "115200",
     "parity": "None (N)",
     "stopbits": "1",
     "slave_id": 1,
+    "host": "",
+    "tcp_port": 502,
     "timeout": 1000,
     "poll_rate": 500,
     "interframe_delay": 50,
@@ -351,5 +353,6 @@
     "log_height": 150,
     "show_log": true,
     "graph_width": 420
-  }
+  },
+  "simulation": "thermo"
 }

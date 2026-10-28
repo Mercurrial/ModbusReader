@@ -139,7 +139,7 @@ WHY_KEYS = {
     "resolve": "linkWhyResolve", "refused": "linkWhyRefused",
     "timeout": "linkWhyTimeout", "unreachable": "linkWhyUnreachable",
     "closed": "linkWhyClosed", "busy": "linkWhyBusy", "denied": "linkWhyDenied",
-    "missing": "linkWhyMissing",
+    "missing": "linkWhyMissing", "sim_off": "linkWhySimOff",
 }
 
 # i18n key per Modbus exception code (what the device said).

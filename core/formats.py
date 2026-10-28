@@ -350,11 +350,13 @@ def _project_dashboards(doc: dict) -> list:
 
 
 def make_project(name, settings: dict, registers, dashboards=None,
-                 layout=None) -> dict:
+                 layout=None, simulation: str = "") -> dict:
     """Build a current-version project from live app state.
 
     *dashboards* is a list of ``{name, widgets, links}`` dicts; a bare widget
-    list is accepted too and becomes a single unnamed dashboard."""
+    list is accepted too and becomes a single unnamed dashboard.
+    *simulation* marks the demo project (``"thermo"``): only a project that
+    carries it may use the simulated device (core/simulator.py)."""
     conn = {k: settings.get(k) for k in PROJECT_CONNECTION_KEYS
             if k in settings}
     lay = layout if layout is not None else {
@@ -364,7 +366,7 @@ def make_project(name, settings: dict, registers, dashboards=None,
         dashboards = [{"name": "", "widgets": dashboards, "links": []}]
     boards = [make_dashboard(d.get("name", ""), d.get("widgets"),
                              d.get("links")) for d in (dashboards or [])]
-    return {
+    doc = {
         "format": PROJECT_KIND,
         "version": PROJECT_VERSION,
         "name": name or "",
@@ -373,6 +375,9 @@ def make_project(name, settings: dict, registers, dashboards=None,
         "dashboards": boards or [make_dashboard("", [], [])],
         "layout": lay,
     }
+    if simulation:
+        doc["simulation"] = str(simulation)
+    return doc
 
 
 def load_project(path: str) -> dict:
@@ -381,10 +386,22 @@ def load_project(path: str) -> dict:
 
 
 def dump_project(path: str, name, settings, registers, dashboards=None,
-                 layout=None):
+                 layout=None, simulation: str = ""):
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(make_project(name, settings, registers, dashboards, layout),
+        json.dump(make_project(name, settings, registers, dashboards, layout,
+                               simulation),
                   f, indent=2, ensure_ascii=False)
+
+
+def project_simulation(path: str) -> str:
+    """The simulation a project file carries ("thermo" for the demo), ""
+    for any other project, a map, or a file that cannot be read."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            doc = json.load(f)
+    except (OSError, ValueError):
+        return ""
+    return str(doc.get("simulation") or "") if looks_like_project(doc) else ""
 
 
 def looks_like_project(doc) -> bool:

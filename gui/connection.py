@@ -24,6 +24,8 @@ it — the full Settings page keeps the rest (timeouts, codecs, reconnects).
   unit ids, and the other framing (Modbus TCP vs RTU over TCP) — a working
   alternative is offered as one click.
 * A connect that fails opens this card with the reason (ModbusCore.open_failed).
+* «Демо» — the demo project's made-up device (core/simulator.py): offered
+  only while the demo project is open (``set_sim_available``).
 """
 
 import threading
@@ -128,7 +130,14 @@ class ConnectionCard(QFrame):
         self.seg = Segmented([(t.transport_id, t.transport_id)
                               for t in transports.TRANSPORTS], "serial")
         self.seg.valueChanged.connect(self._on_transport)
+        self.seg._buttons[transports.SIM_ID].setVisible(False)   # the demo only
         lo.addWidget(self.seg)
+
+        # ── the demo's simulated device: nothing to fill in ──
+        self.lbl_sim = self._label("connHint")
+        self.lbl_sim.setWordWrap(True)
+        self.lbl_sim.setFixedWidth(_CARD_WIDTH - 2 * 18)
+        lo.addWidget(self.lbl_sim)
 
         # ── serial ──
         self.box_serial = QWidget()
@@ -404,15 +413,19 @@ class ConnectionCard(QFrame):
                "baudrate": str(transports.baudrate_value(self.cb_baud.currentText())),
                "parity": self.seg_parity.value(),
                "stopbits": self.seg_stop.value()}
-        if transports.get(tid).network:
+        if transports.get(tid).network or tid == transports.SIM_ID:
             # The serial fields keep their saved values: switching to TCP and
             # back must not lose the COM port the user had.
             for k in ("port", "baudrate", "parity", "stopbits"):
                 out[k] = self.ctx.settings.get(k, out[k])
-        else:
+        if not transports.get(tid).network:
             for k in ("host", "tcp_port"):
                 out[k] = self.ctx.settings.get(k, out[k])
         return out
+
+    def set_sim_available(self, on: bool):
+        """The demo project is open: offer its simulated device."""
+        self.seg._buttons[transports.SIM_ID].setVisible(bool(on))
 
     def changed(self) -> bool:
         return transports.link_of(self.draft()) != transports.link_of(self.ctx.settings)
@@ -434,7 +447,7 @@ class ConnectionCard(QFrame):
         self._clear_result()
         self._on_edited()
         self._fit()
-        if tid != "serial" and not self.ed_host.text().strip():
+        if transports.get(tid).network and not self.ed_host.text().strip():
             self.ed_host.setFocus()
 
     def _apply_id_range(self, tid):
@@ -446,13 +459,17 @@ class ConnectionCard(QFrame):
     def _show_blocks(self):
         tid = self.seg.value()
         net = transports.get(tid).network
-        self.box_serial.setVisible(not net)
+        sim = tid == transports.SIM_ID
+        self.box_serial.setVisible(not net and not sim)
         self.box_net.setVisible(net)
+        self.lbl_sim.setVisible(sim)
         self.btn_find.setVisible(tid == "tcp")
         t = self.ctx.t
         self.lbl_id.setText(t("connUnitId") if tid == "tcp" else t("connSlaveId"))
-        self.lbl_id_hint.setText(t("connUnitHint") if tid == "tcp" else "")
-        self.lbl_id_hint.setVisible(tid == "tcp")
+        self.lbl_id_hint.setText(t("connUnitHint") if tid == "tcp"
+                                 else t("connSimIdHint") if sim else "")
+        self.lbl_id_hint.setVisible(tid == "tcp" or sim)
+        self.lbl_sim.setText(t("connSimHint"))
         self.lbl_net_hint.setText(t("connTcpHint") if tid == "tcp" else t("connRtuTcpHint"))
 
     def _on_edited(self, *_):
@@ -526,7 +543,7 @@ class ConnectionCard(QFrame):
             self.ed_host.setFocus()
             self._show_result("error", t("connNeedHost"))
             return False
-        if not transports.get(d["transport"]).network and not d["port"]:
+        if d["transport"] == "serial" and not d["port"]:
             self._show_result("error", t("connNeedPort"))
             return False
         return True
@@ -657,7 +674,8 @@ class ConnectionCard(QFrame):
         elif report.status == "garbled":
             text = t("connTestGarbledTcp" if tid == "tcp" else "connTestGarbled")
         else:
-            text = t({"tcp": "connTestSilentTcp", "rtu_tcp": "connTestSilentRtuTcp"}
+            text = t({"tcp": "connTestSilentTcp", "rtu_tcp": "connTestSilentRtuTcp",
+                      transports.SIM_ID: "connTestSilentSim"}
                      .get(tid, "connTestSilentSerial")).format(id=report.unit)
         if report.suggest_unit is not None:
             self._suggestion = ("unit", report.suggest_unit)
@@ -755,7 +773,7 @@ class ConnectionCard(QFrame):
     def retranslate(self, t):
         self.lbl_title.setText(t("connTitle"))
         for tid, key in (("serial", "connSerial"), ("tcp", "connTcp"),
-                         ("rtu_tcp", "connRtuTcp")):
+                         ("rtu_tcp", "connRtuTcp"), (transports.SIM_ID, "connSim")):
             self.seg._buttons[tid].setText(t(key))
         self.lbl_port.setText(t("port"))
         self.lbl_baud.setText(t("baudrate"))

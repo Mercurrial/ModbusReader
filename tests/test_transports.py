@@ -4,7 +4,7 @@ from core import transports as tr
 
 
 def test_registry_shape():
-    assert [t.transport_id for t in tr.TRANSPORTS] == ["serial", "tcp", "rtu_tcp"]
+    assert [t.transport_id for t in tr.TRANSPORTS] == ["serial", "tcp", "rtu_tcp", "sim"]
     assert tr.DEFAULT_ID == "serial"
     assert tr.get("nope").transport_id == "serial"   # unknown -> serial
 
