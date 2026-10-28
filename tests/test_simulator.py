@@ -177,3 +177,16 @@ def test_saving_keeps_the_mark_and_a_copy_loses_it(win, tmp_path):
     assert formats.project_simulation(copy) == ""
     assert json.load(open(copy, encoding="utf-8"))["connection"]["transport"] == "serial"
     assert win._sim_kind == "" and win.settings["transport"] == "serial"
+
+
+def test_the_status_bar_names_the_link_in_use(win):
+    """It said «Подключено: RTU» whatever the link — Modbus TCP included."""
+    from core import transports
+    core = win.modbus_core
+    for tid, expect in (("tcp", "TCP"), ("rtu_tcp", "RTU/TCP"), ("serial", "RTU"),
+                        ("sim", win.t("connSim"))):
+        core.transport = transports.get(tid)
+        win._on_connection_status(True, "")
+        assert win.status_bar.lbl_status.text() == win.t("stConnected").format(link=expect)
+    win._on_connection_status(False, "")
+    assert win.status_bar.lbl_status.text() == win.t("stDisconnected")

@@ -1556,8 +1556,7 @@ class ModernScadaApp(QMainWindow):
             self.search_input.setPlaceholderText(t("search"))
         # Status bar owns no translator — refresh its texts from here.
         connected = self.modbus_core.is_running
-        self.status_bar.set_connection_status(
-            connected, t("stConnected" if connected else "stDisconnected"))
+        self.status_bar.set_connection_status(connected, self._status_text(connected))
         self._refresh_profile_label()
         self._update_badge()
         self._refresh_link_label()
@@ -1735,9 +1734,18 @@ class ModernScadaApp(QMainWindow):
     #  MODBUS SIGNAL HANDLERS
     # ===========================================================
 
+    def _status_text(self, connected: bool) -> str:
+        """«Подключено: TCP» — the link the open connection uses. The text
+        once said «RTU» whatever the link, Modbus TCP included."""
+        if not connected:
+            return self.t("stDisconnected")
+        from core import transports
+        tr = self.modbus_core.transport
+        name = self.t("connSim") if tr.transport_id == transports.SIM_ID else tr.label
+        return self.t("stConnected").format(link=name)
+
     def _on_connection_status(self, connected: bool, message: str):
-        self.status_bar.set_connection_status(
-            connected, self.t("stConnected" if connected else "stDisconnected"))
+        self.status_bar.set_connection_status(connected, self._status_text(connected))
         self.main_toolbar.set_connect_state(connected)
         if connected:
             # A link that worked goes to the card's «Недавние».

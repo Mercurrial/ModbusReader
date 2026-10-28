@@ -295,7 +295,7 @@ STRINGS = {
         'ctxCopyAddr': 'Копировать адрес',
         'ctxWrite': 'Записать значение…',
         # Status bar / log / header
-        'stConnected': 'Подключено: RTU',
+        'stConnected': 'Подключено: {link}',
         'stDisconnected': 'Нет подключения',
         'stProfile': 'Карта: {name}',
         'logPlaceholder': 'Журнал обмена — ожидание подключения…',
@@ -1286,7 +1286,7 @@ STRINGS = {
         'ctxCopyAddr': 'Copy address',
         'ctxWrite': 'Write value…',
         # Status bar / log / header
-        'stConnected': 'Connected: RTU',
+        'stConnected': 'Connected: {link}',
         'stDisconnected': 'Disconnected',
         'stProfile': 'Map: {name}',
         'logPlaceholder': 'Transaction log — waiting for connection…',
