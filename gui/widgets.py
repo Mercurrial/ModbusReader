@@ -257,6 +257,10 @@ class EmptyState(QWidget):
     """"Nothing here yet" — an icon in a soft tile, a title, one or two
     sentences and (optionally) the action that fills the page.
 
+    The sentences wrap at 440 px, or narrower when the pane is narrower: a
+    fixed 440 ran past the edge of the watch window (~390 px inside), and
+    the end of the line was simply cut off.
+
     Replaces bare black grids: an empty page is where a newcomer decides
     whether the tool is broken, so it says what the page is for and offers
     the first step. ``setText`` keeps the old QLabel#emptyState call sites
@@ -294,7 +298,7 @@ class EmptyState(QWidget):
         self.lbl_body.setObjectName("emptyBody")
         self.lbl_body.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_body.setWordWrap(True)
-        self.lbl_body.setFixedWidth(440)
+        self.lbl_body.setFixedWidth(self.BODY_W)
         col.addWidget(self.lbl_body, 0, Qt.AlignmentFlag.AlignHCenter)
         self._fit_body()
         self._actions = QHBoxLayout()
@@ -328,12 +332,30 @@ class EmptyState(QWidget):
             self.lbl_body.setText(body)
             self._fit_body()
 
+    BODY_W = 440
+
+    def _body_width(self) -> int:
+        """440, or what the pane has room for (never under 160)."""
+        m = self.layout().contentsMargins()
+        room = self.width() - m.left() - m.right()
+        if not self.isVisible() or room <= 0:
+            return self.BODY_W
+        return max(160, min(self.BODY_W, room))
+
     def _fit_body(self):
         # A wrapped label inside centring layouts is sized from its one-line
-        # hint and gets clipped; pin the height its width actually needs.
+        # hint and gets clipped; pin the width the pane allows and the
+        # height that width actually needs.
         self.lbl_body.ensurePolished()
-        self.lbl_body.setFixedHeight(max(0, self.lbl_body.heightForWidth(440)))
+        w = self._body_width()
+        self.lbl_body.setFixedWidth(w)
+        self.lbl_body.setFixedHeight(max(0, self.lbl_body.heightForWidth(w)))
         self.lbl_body.setVisible(bool(self.lbl_body.text()))
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        if self._body_width() != self.lbl_body.maximumWidth():
+            self._fit_body()
 
     # The final font is only known once the widget is polished — a page with
     # its own stylesheet (the map editor) restyles the body after __init__,

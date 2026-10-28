@@ -261,6 +261,22 @@ def test_watch_window_has_its_own_chrome(watch):
     assert watch.btn_close is not None and watch.grip is not None
 
 
+def test_the_empty_watch_window_wraps_its_text_inside(watch):
+    """The empty-state text was 440 px wide in a ~390 px window: the end of
+    the line («…Добавить в наблюдение») was cut off at the edge."""
+    from PyQt6.QtWidgets import QApplication
+    watch.resize(440, 340)
+    watch.show()
+    for _ in range(5):
+        QApplication.processEvents()
+    empty, body = watch.empty, watch.empty.lbl_body
+    assert empty.isVisible()
+    left = body.mapTo(empty, body.rect().topLeft()).x()
+    assert left >= 0 and left + body.width() <= empty.width()
+    assert body.height() >= body.heightForWidth(body.width())   # no clipped line
+    watch.hide()
+
+
 @pytest.fixture()
 def win(tmp_path, monkeypatch):
     from gui import main_window as gui_main
