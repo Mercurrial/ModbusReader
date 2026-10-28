@@ -58,10 +58,10 @@ class ScannerWorker(QThread):
 
     # ── probes ────────────────────────────────────────────────────────
     def _probe_device(self, sid: int) -> int:
-        t0 = time.monotonic()
+        t0 = time.perf_counter()
         state = self.core.request_op("probe", 0, "SHORT", slave=sid,
                                      timeout=30.0)
-        ms = (time.monotonic() - t0) * 1000.0
+        ms = (time.perf_counter() - t0) * 1000.0
         if state in ("alive", "exception"):
             self.found.emit({"mode": "devices", "id": sid, "state": state,
                              "ms": ms})
@@ -69,10 +69,10 @@ class ScannerWorker(QThread):
         return 0
 
     def _probe_register(self, addr: int) -> int:
-        t0 = time.monotonic()
+        t0 = time.perf_counter()
         state = self.core.request_op("probe", addr, "SHORT",
                                      slave=self.slave_id, timeout=30.0)
-        ms = (time.monotonic() - t0) * 1000.0
+        ms = (time.perf_counter() - t0) * 1000.0
         if state == "alive":
             # A second read to fetch the actual value for display.
             try:

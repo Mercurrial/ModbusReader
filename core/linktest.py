@@ -67,9 +67,9 @@ def probe_target(registers) -> tuple:
 
 def _ask(client, area: str, addr: int, unit: int):
     fn = getattr(client, _READERS.get(area, "read_holding_registers"))
-    t0 = time.monotonic()
+    t0 = time.perf_counter()         # not monotonic: 15.6 ms steps on Windows
     res = fn(address=addr, count=1, device_id=unit)
-    return res, (time.monotonic() - t0) * 1000.0
+    return res, (time.perf_counter() - t0) * 1000.0
 
 
 def run(settings: dict, unit: int, timeout: float, area: str = "holding",

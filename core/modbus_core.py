@@ -191,14 +191,14 @@ class ModbusCore(QThread):
         1-register read, with what exactly came back — {"state": ok |
         exception | timeout | crc, "code": exception code, "ms": time}."""
         area, raw = datatypes.split_key(int(key))
-        t0 = time.monotonic()
+        t0 = time.perf_counter()
         try:
             res = self._counted_read(raw, 1, slave=slave, area=area)
         except Exception:
             return {"state": "timeout", "code": 0, "ms": None}
         return {"state": linestats.classify(res),
                 "code": int(getattr(res, "exception_code", 0) or 0),
-                "ms": (time.monotonic() - t0) * 1000.0}
+                "ms": (time.perf_counter() - t0) * 1000.0}
 
     def _read_value(self, addr, dtype, slave=None, count=None):
         """Синхронное чтение одного регистра → число. Также обновляет дашборд
@@ -420,15 +420,19 @@ class ModbusCore(QThread):
 
     # ── counted exchanges (line statistics) ───────────────────────────
     def _counted(self, fn, *args, **kwargs):
-        """Run one request and record its outcome + response time."""
-        t0 = time.monotonic()
+        """Run one request and record its outcome + response time.
+
+        Response times are taken with perf_counter: on Windows the monotonic
+        clock ticks every 15.6 ms, so a device answering in 3 ms showed as
+        0 or 16 ms — the statistics and the link test were quantised."""
+        t0 = time.perf_counter()
         try:
             res = fn(*args, **kwargs)
         except Exception:
             self.stats.record("timeout")           # the link failed (ModbusLinkError)
             raise
         outcome = linestats.classify(res)
-        self.stats.record(outcome, time.monotonic() - t0
+        self.stats.record(outcome, time.perf_counter() - t0
                           if outcome in ("ok", "exception") else None)
         return res
 
@@ -648,19 +652,19 @@ class ModbusCore(QThread):
             self.log_msg.emit("ERR", self._msg("coreRawNoPort"))
             return
         quiet = getattr(client, "quiet_s", 0.05)
-        t0 = time.monotonic()
+        t0 = time.perf_counter()
         try:
             sock.reset_input_buffer()
             sock.write(bytes(frame))
             buf = bytearray()
-            deadline = time.monotonic() + self.timeout
+            deadline = time.perf_counter() + self.timeout
             last_rx = 0.0
-            while time.monotonic() < deadline:
+            while time.perf_counter() < deadline:
                 n = sock.in_waiting
                 if n:
                     buf += sock.read(n)
-                    last_rx = time.monotonic()
-                elif buf and time.monotonic() - last_rx > quiet:
+                    last_rx = time.perf_counter()
+                elif buf and time.perf_counter() - last_rx > quiet:
                     break  # ответ пришёл и линия замолчала
                 else:
                     time.sleep(0.005)
@@ -685,7 +689,7 @@ class ModbusCore(QThread):
         """Raw console over Modbus TCP: *frame* already carries its MBAP
         header. The answer is complete when its header says so."""
         import socket as _socket
-        t0 = time.monotonic()
+        t0 = time.perf_counter()
         try:
             sock = client._send(frame)
         except Exception as e:
@@ -696,12 +700,12 @@ class ModbusCore(QThread):
         deadline = t0 + self.timeout
         last_rx = 0.0
         try:
-            while time.monotonic() < deadline:
+            while time.perf_counter() < deadline:
                 if len(buf) >= 6:
                     need = 6 + int.from_bytes(buf[4:6], "big")
                     if int.from_bytes(buf[2:4], "big") == 0 and len(buf) >= need:
                         break
-                if buf and time.monotonic() - last_rx > client.quiet_s:
+                if buf and time.perf_counter() - last_rx > client.quiet_s:
                     break
                 try:
                     sock.settimeout(0.02)
@@ -712,7 +716,7 @@ class ModbusCore(QThread):
                     client.close()          # the device closed it; reopened next time
                     break
                 buf += chunk
-                last_rx = time.monotonic()
+                last_rx = time.perf_counter()
         except OSError as e:
             client.close()
             self.log_msg.emit("ERR", f"RAW: {e}")

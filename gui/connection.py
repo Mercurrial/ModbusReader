@@ -613,14 +613,14 @@ class ConnectionCard(QFrame):
     def _probe_via_core(self, core, area, addr, unit):
         import time
         key = (datatypes.AREAS[area].code << 16) | addr
-        t0 = time.monotonic()
+        t0 = time.perf_counter()
         try:
             got = core.request_op("ping", key, "SHORT", slave=unit,
                                   timeout=self._timeout() * 3 + 2)
         except RuntimeError as e:
             return linktest.LinkReport("open_fail", unit=unit, kind="closed",
                                        error_text=str(e))
-        ms = got.get("ms") or (time.monotonic() - t0) * 1000.0
+        ms = got.get("ms") or (time.perf_counter() - t0) * 1000.0
         state = got.get("state")
         if state == "ok":
             return linktest.LinkReport("ok", unit=unit, ms=ms)

@@ -108,7 +108,7 @@ def suggest_range() -> tuple:
 def probe(ip: str, port: int = 502, connect_s: float = CONNECT_S,
           answer_s: float = 0.6, units=UNITS, stop=None) -> dict | None:
     """One address: None when the port is closed / nobody is there."""
-    t0 = time.monotonic()
+    t0 = time.perf_counter()
     try:
         sock = socket.create_connection((ip, int(port)), timeout=connect_s)
     except OSError:
@@ -135,7 +135,7 @@ def probe(ip: str, port: int = 502, connect_s: float = CONNECT_S,
             sock.close()
         except OSError:
             pass
-    hit["ms"] = (time.monotonic() - t0) * 1000.0
+    hit["ms"] = (time.perf_counter() - t0) * 1000.0
     return hit
 
 
