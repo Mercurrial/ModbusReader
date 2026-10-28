@@ -156,6 +156,17 @@ def test_rail_follows_the_settings_page(win):
     assert win.nav_rail.position == "left"
 
 
+def test_a_top_bar_never_holds_the_window_wider(win):
+    """Fixed-width labels used to add up to the window's minimum width — the
+    bar could never drop to icons, the window grew instead."""
+    w = win
+    beside = w.minimumSizeHint().width()                # the rail on the left
+    w.settings["rail_position"] = "top"
+    w._apply_settings(restyle=False)
+    assert w.nav_rail.minimumSizeHint().width() == 0
+    assert w.minimumSizeHint().width() <= beside        # was ~1.3× wider
+
+
 def test_rail_marks_a_busy_tool(win):
     rail = win.nav_rail
     rail.set_busy({"view_logger": True})

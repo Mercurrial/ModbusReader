@@ -36,7 +36,7 @@ from PyQt6 import sip
 from PyQt6.QtCore import Qt, QSize, pyqtSignal, QRectF
 from PyQt6.QtGui import QPainter, QColor, QFont, QFontMetrics, QActionGroup
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                             QPushButton, QSizePolicy, QFrame, QMenu)
+                             QPushButton, QSizePolicy, QFrame, QMenu, QLayout)
 
 from app import commands
 from gui import icons
@@ -214,6 +214,10 @@ class NavRail(QWidget):
         horiz = self.horizontal
         lo = QHBoxLayout(self) if horiz else QVBoxLayout(self)
         lo.setSpacing(2)
+        if horiz:
+            # The labels' total must not become the WINDOW's minimum width:
+            # a narrow window drops the bar to icons (_fit_bar) instead.
+            lo.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
         if horiz:
             lo.setContentsMargins(10, 0, 10, 0)
             self.brand.setFixedHeight(40)
@@ -402,6 +406,12 @@ class NavRail(QWidget):
     def resizeEvent(self, e):
         super().resizeEvent(e)
         self._fit_bar()
+
+    def minimumSizeHint(self):
+        # A bar never holds the window wider: it drops to icons instead.
+        if self.horizontal:
+            return QSize(0, TOP_H)
+        return super().minimumSizeHint()
 
     # ── the right-click menu ──────────────────────────────────────────
     def build_menu(self, page: str | None = None) -> QMenu:
