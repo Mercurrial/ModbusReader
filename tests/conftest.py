@@ -27,6 +27,11 @@ def qt_app():
     from gui import main_window as gui_main
     settings_manager.SETTINGS_FILE = os.path.join(
         tempfile.mkdtemp(prefix="mbr-tests-"), "app_settings.json")
+    # Nor the real Projects folder: every window puts the demo's copy there
+    # once (gui/main_window._seed_projects) — from the sources that is the
+    # developer's own Documents/ModbusReader.
+    from app import projects
+    projects._cache["dir"] = tempfile.mkdtemp(prefix="mbr-projects-")
     # Keep the real implementation reachable under another name: a test that
     # wants to exercise saving itself (atomic write, backup path) must point
     # SETTINGS_FILE at a tmp_path first and call this explicitly.

@@ -214,7 +214,7 @@ def test_demo_project_button_opens_a_private_copy(tmp_path, monkeypatch):
     from gui import main_window as gui_main
     monkeypatch.setattr(settings_manager, "SETTINGS_FILE",
                         str(tmp_path / "settings.json"), raising=False)
-    monkeypatch.setattr(gui_main, "demo_copy_dir", lambda: str(tmp_path / "docs"))
+    monkeypatch.setattr("app.projects.projects_dir", lambda: str(tmp_path / "docs"))
     w = gui_main.ModernScadaApp()
     try:
         labels = [b.text() for b in w.map_empty.buttons]
@@ -274,7 +274,7 @@ def test_demo_button_opens_the_english_demo_in_the_english_ui(tmp_path, monkeypa
     from gui import main_window as gui_main
     monkeypatch.setattr(settings_manager, "SETTINGS_FILE",
                         str(tmp_path / "settings.json"), raising=False)
-    monkeypatch.setattr(gui_main, "demo_copy_dir", lambda: str(tmp_path / "docs"))
+    monkeypatch.setattr("app.projects.projects_dir", lambda: str(tmp_path / "docs"))
     assert gui_main.demo_project_path("en").endswith("demo_en.mbproj")
     assert gui_main.demo_project_path("ru").endswith("demo.mbproj")
     w = gui_main.ModernScadaApp()

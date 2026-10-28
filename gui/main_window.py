@@ -47,12 +47,11 @@ def demo_project_path(lang: str = "ru") -> str:
     return ""
 
 
-def demo_copy_dir() -> str:
-    """Where «Демо-проект» puts the user's own copy (Documents/ModbusReader)."""
-    from PyQt6.QtCore import QStandardPaths
-    docs = QStandardPaths.writableLocation(
-        QStandardPaths.StandardLocation.DocumentsLocation) or os.path.expanduser("~")
-    return os.path.join(docs, "ModbusReader")
+def projects_dir() -> str:
+    """Where the project dialogs open and the demo's copy goes: the Projects
+    folder in the program folder (app/projects.py)."""
+    from app import projects
+    return projects.projects_dir()
 from gui.dialogs import themed_info, themed_message, themed_input
 from gui.qt_utils import later, fit_on_screens
 from core import datatypes
@@ -115,6 +114,8 @@ class ModernScadaApp(QMainWindow):
 
         # Start with nothing "typed into": no caret in the search box.
         later(0, self, self._park_focus)
+
+        self._seed_projects()
 
         # Show the interactive guide once, on the very first launch only.
         # The spotlight rectangles need the window laid out, hence the delay.
@@ -1335,7 +1336,7 @@ class ModernScadaApp(QMainWindow):
             return
         name = name.strip() or default
         path, _ = QFileDialog.getSaveFileName(
-            self, self.t("projectSaveAs"), f"{name}.mbproj",
+            self, self.t("projectSaveAs"), os.path.join(projects_dir(), f"{name}.mbproj"),
             "ModbusReader project (*.mbproj)")
         if not path:
             return
@@ -1362,7 +1363,7 @@ class ModernScadaApp(QMainWindow):
                 return
         if not path:
             path, _ = QFileDialog.getOpenFileName(
-                self, self.t("projectOpen"), "",
+                self, self.t("projectOpen"), projects_dir(),
                 self.t("filterProject") + " (*.mbproj);;JSON (*.json)")
         if not path:
             return
@@ -1428,7 +1429,8 @@ class ModernScadaApp(QMainWindow):
                 return
         try:
             path, _ = QFileDialog.getOpenFileName(
-                self, self.t("openProfile"), "", self.t("filterMap") + " (*.json)"
+                self, self.t("openProfile"), projects_dir(),
+                self.t("filterMap") + " (*.json)"
             )
         except Exception as e:
             import traceback
@@ -2022,23 +2024,25 @@ class ModernScadaApp(QMainWindow):
         or demo_en.mbproj in the English UI) with its dashboard — the quickest
         look at the app.
 
-        Opened as the user's OWN copy in Documents/ModbusReader: the bundled
-        file sits inside the program folder, where a Save would write and the
-        next update would wipe it. An existing copy (maybe edited) is kept.
-        The copy is named in the UI language too, so each language has its
-        own."""
-        import shutil
-        src = demo_project_path(self.lang)
-        if not src:
+        Opened as the user's OWN copy in the Projects folder: the bundled
+        file sits inside the program, where a Save would write and the next
+        update would wipe it. An existing copy (maybe edited) is kept. The
+        copy is named in the UI language too, so each language has its own."""
+        from app import projects
+        dst = projects.demo_copy(demo_project_path(self.lang), self.t("demoFileName"))
+        if dst:
+            self._open_project(dst)
+
+    def _seed_projects(self):
+        """Once: the demo's copy into the Projects folder, so the folder the
+        «Открыть проект» dialog opens in is not empty on first sight (also for
+        an update from a version that kept projects in Documents)."""
+        if self.settings.get("projects_seeded"):
             return
-        dst = os.path.join(demo_copy_dir(), self.t("demoFileName") + ".mbproj")
-        try:
-            if not os.path.exists(dst):
-                os.makedirs(os.path.dirname(dst), exist_ok=True)
-                shutil.copyfile(src, dst)
-        except OSError:
-            dst = src                        # read-only Documents: open it as is
-        self._open_project(dst)
+        from app import projects
+        projects.demo_copy(demo_project_path(self.lang), self.t("demoFileName"))
+        self.settings["projects_seeded"] = True
+        save_settings(self.settings)
 
     def _create_config(self):
         """«Создать карту»: the editor opens EMPTY for a brand-new map."""

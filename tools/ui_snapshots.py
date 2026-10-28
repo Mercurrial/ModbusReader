@@ -52,6 +52,8 @@ def main():
 
     from app import settings_manager
     settings_manager.SETTINGS_FILE = os.path.join(tempfile.mkdtemp(), "app_settings.json")
+    from app import projects            # the demo copy: not into real Documents
+    projects._cache["dir"] = tempfile.mkdtemp()
     s = dict(settings_manager.DEFAULT_SETTINGS)
     s.update({"theme": args.theme, "lang": args.lang, "guide_seen_main": True,
               "guide_seen_macros": True, "load_last": False})

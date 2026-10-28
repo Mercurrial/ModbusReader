@@ -157,6 +157,12 @@ Type: filesandordirs; Name: "{app}\_internal"
 ; start a half-copied folder otherwise).
 Type: files; Name: "{app}\{#VersionDir}\.installed"
 
+[Dirs]
+; Projects live in the program's own folder (app/projects.py) — writable for
+; every user (an all-users install is in Program Files) and kept on
+; uninstall: it holds the user's work.
+Name: "{app}\Projects"; Permissions: users-modify; Flags: uninsneveruninstall
+
 [Files]
 Source: "..\build\launcher\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\dist\ModbusReader\*"; DestDir: "{app}\{#VersionDir}"; Flags: ignoreversion recursesubdirs createallsubdirs

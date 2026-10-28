@@ -173,6 +173,7 @@ through `request_op`; `ScannerWorker` the same way; `SnifferWorker` and
 | `version.py` | Version, release date, update repository, licence id, donation link. |
 | `fonts.py` | Font list for the picker without symbol fonts; validation of the saved face. |
 | `paths.py` | Project root and bundled resources. |
+| `projects.py` | The Projects folder: beside the program (installed: next to the version folders; portable: next to the exe), Documents/ModbusReader where that cannot be written; the demo's copy. |
 
 ### core/
 

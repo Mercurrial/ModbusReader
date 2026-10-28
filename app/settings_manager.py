@@ -17,6 +17,10 @@ else:                                       # running from source
     from app.paths import ROOT as _APP_DIR
 
 
+# The folder this copy of the program runs from (app/projects.py puts the
+# Projects folder next to it).
+APP_DIR = _APP_DIR
+
 VERSION_DIR_PREFIX = "app-"
 
 
@@ -251,6 +255,9 @@ DEFAULT_SETTINGS = {
 
     # First-run coach-mark guides (set once auto-shown, so they don't reopen).
     "guide_seen_main":   False,
+    # The demo project's copy has been put into the Projects folder once
+    # (app/projects.py); a copy the user deleted is not brought back unasked.
+    "projects_seeded":   False,
     "guide_seen_macros": False,
     "guide_seen_editor": False,
 }
