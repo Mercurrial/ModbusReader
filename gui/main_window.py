@@ -1054,12 +1054,54 @@ class ModernScadaApp(QMainWindow):
         self._guide.show_guide()
 
     def _maybe_show_onboarding(self):
-        """Auto-open the main guide once, on the very first launch. The
-        guide_seen_main flag is persisted so it never reappears unprompted;
-        the Help button / F1 still open it on demand."""
+        """Once, on the very first launch: «make it yours» (theme, accent,
+        menu, font — gui/welcome.py), then the button tour. The
+        guide_seen_main flag is persisted so neither reappears unprompted;
+        the Help button / F1 still open the tour on demand."""
         self.settings["guide_seen_main"] = True
         save_settings(self.settings)
-        self._show_help()
+        self._show_welcome()
+
+    def _show_welcome(self):
+        from gui.welcome import WelcomeSetup
+        if getattr(self, "_guide", None) is not None:
+            return
+        card = WelcomeSetup(self.centralWidget(), self.settings,
+                            self.ctx.theme_tokens(), self.lang)
+        card.changed.connect(self._apply_welcome)
+        card.finished.connect(self._welcome_done)
+        # Held in _guide: one overlay at a time, and an update offer waits
+        # for it like it waits for the tour (UpdateController._user_occupied).
+        self._guide = card
+        card.show_setup()
+
+    def _apply_welcome(self, values: dict):
+        """A pick on the welcome card: applied exactly like a saved Settings
+        page, then the card takes the new palette and language."""
+        from gui.theme_manager import schemes_for, DEFAULT_SCHEME
+        from app.settings_schema import _derive_font_family, _font_from_widget
+        values = dict(values)
+        theme = values.get("theme")
+        if theme and self.settings.get("scheme") not in schemes_for(theme):
+            values["scheme"] = DEFAULT_SCHEME.get(str(theme).lower(), "")
+        if "font_choice" in values:
+            values["font_choice"] = _font_from_widget(values["font_choice"])
+            values.update(_derive_font_family(values["font_choice"]))
+        prev_lang = self.lang
+        prev_style = {k: self.settings.get(k) for k in self._STYLE_KEYS}
+        self._finish_settings_apply(values, prev_lang, prev_style)
+        card = self._guide
+        if card is not None and hasattr(card, "apply_theme"):
+            card.apply_theme(self.ctx.theme_tokens())
+            if self.lang != prev_lang:
+                card.retranslate(self.lang)
+            card.raise_()
+            card.setFocus()
+
+    def _welcome_done(self, tour: bool):
+        self._guide = None
+        if tour:
+            later(0, self, self._show_help)
 
     def _apply_settings(self, restyle: bool = True):
         # Re-applying the global stylesheet repolishes the whole widget tree —

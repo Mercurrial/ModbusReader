@@ -245,6 +245,13 @@ class SwatchPicker(QWidget):
     def value(self):
         return self._value
 
+    def set_ring(self, ring: str):
+        """The selection ring's colour — the theme's text colour, so a theme
+        switch under a live picker (the welcome card) keeps it readable."""
+        for sw in self._buttons.values():
+            sw._ring = QColor(ring)
+            sw.update()
+
 
 class EmptyState(QWidget):
     """"Nothing here yet" — an icon in a soft tile, a title, one or two

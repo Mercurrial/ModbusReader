@@ -102,6 +102,10 @@ glyphs come from `gui/icons.py`. Tests enforce the first and the last.
    (`tests/test_startup.py` guards this).
 6. Opens a project passed on the command line (a double-clicked `.mbproj`) or,
    on the first launch, the demo project (`startup_document`).
+7. On the first launch only: the «make it yours» card (`gui/welcome.py` —
+   language, theme, accent, menu position, font; every pick applied to the
+   live window like a saved Settings page), then the button tour
+   (`gui/onboarding.py`).
 
 ### The main window
 
@@ -211,7 +215,7 @@ through `request_op`; `ScannerWorker` the same way; `SnifferWorker` and
 | `update.py` | Update checks, the update dialog, download thread. |
 | `rail.py`, `toolbar.py`, `statusbar.py` | Window chrome. |
 | `connection.py` | The connection card under the header's link chip. |
-| `import_dialog.py`, `scaling_dialog.py`, `memory_viewer.py`, `onboarding.py`, `dialogs.py` | Dialogs, the memory viewer and the first-run guide. |
+| `import_dialog.py`, `scaling_dialog.py`, `memory_viewer.py`, `onboarding.py`, `welcome.py`, `dialogs.py` | Dialogs, the memory viewer, the first-launch card and the button tour. |
 | `widgets.py` | Shared widgets: segmented control, toggle, slider, empty states, row-number header, drop button. |
 | `theme_manager.py`, `styles.py`, `icons.py`, `qt_utils.py` | Theme tokens, the stylesheet, the SVG icon set, guarded timers. |
 
