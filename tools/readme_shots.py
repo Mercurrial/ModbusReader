@@ -10,7 +10,8 @@ heater, a fan, supply voltage …) feeds every screen through the same
 handlers the real Modbus link uses, so the pictures show the real UI in a
 believable state: the map with live values and trends, the dashboard, the
 console, scanner, sniffer, logger, macros, the slave emulator, snapshots,
-the editor, the watch window, the update dialog and four colour themes.
+the editor, the watch window, the update dialog, the connection card (Modbus
+TCP), the first-launch welcome card and four colour themes.
 The live trend is also written as an animated PNG (APNG — GitHub plays it).
 ``--lang en`` renders the same set with the English UI for the English pages
 of the project site; social.png (the link preview, 2:1) is cut from the hero.
@@ -158,7 +159,7 @@ def write_apng(path: str, frames: list, delay_ms: int):
 
 # The words drawn into the pictures, per UI language.
 TEXT = {
-    "ru": {"tagline": "Наладка и мониторинг приборов\nпо Modbus RTU — мастер и эмулятор",
+    "ru": {"tagline": "Наладка и мониторинг приборов\nпо Modbus RTU и TCP — мастер и эмулятор",
            "tools": "Карта регистров · графики · дашборд · сканер · сниффер · макросы",
            "pill": "Бесплатно  ·  открытый код  ·  Windows",
            "log_project": "Проект: Демо-термоконтроллер (13 регистров)",
@@ -170,7 +171,7 @@ TEXT = {
            "notes": "• Чтение блоками: вся карта одним запросом\n"
                     "• Тревоги по порогам прямо в таблице\n"
                     "• Исправлено: Esc в редакторе после Alt+Tab"},
-    "en": {"tagline": "Commissioning and monitoring\nof Modbus RTU devices — master and slave",
+    "en": {"tagline": "Commissioning and monitoring\nof Modbus RTU and TCP devices — master and slave",
            "tools": "Register map · trends · dashboard · scanner · sniffer · macros",
            "pill": "Free  ·  open source  ·  Windows",
            "log_project": "Project: Demo temperature controller (13 registers)",
@@ -569,11 +570,50 @@ def main():
         "26.11.0", text["notes"],
         "https://github.com/", "ModbusReader-Setup.exe",
         "https://github.com/x/ModbusReader-Setup.exe", 43_000_000, "a" * 64)
-    ud = gui_update.UpdateDialog(w.ctx, rel, "installed", w)
+    ud = gui_update.UpdateDialog(w.ctx, rel, "installed", w, mode="ready")
     ud.show()
     pump(0.3)
     save(ud.grab().toImage(), "update.png", rounded=False)
     ud.close()
+
+    # 12b. the connection card: Modbus TCP, a link test that worked, recents
+    from core import linktest
+    w._on_connection_status(False, "")
+    link_keys = ("transport", "host", "tcp_port", "slave_id", "recent_links")
+    saved_link = {k: w.settings.get(k) for k in link_keys}
+    w.settings.update({"transport": "tcp", "host": "192.168.1.20", "tcp_port": 502,
+                       "slave_id": 1})
+    w.settings["recent_links"] = [
+        {"transport": "tcp", "host": "192.168.1.20", "tcp_port": 502, "slave_id": 1},
+        {"transport": "serial", "port": "COM3", "baudrate": "115200",
+         "parity": "None (N)", "stopbits": "1", "slave_id": 1},
+        {"transport": "rtu_tcp", "host": "192.168.1.30", "tcp_port": 4001, "slave_id": 3},
+    ]
+    w._refresh_link_label()
+    conn = w.conn_card
+    conn.open_below(w.main_toolbar.btn_link)
+    pump(0.2)
+    conn._test_seq = 1
+    conn._on_test_done((1, linktest.LinkReport("ok", unit=1, ms=12.4), conn.draft(),
+                        "holding", 0))
+    pump(0.3)
+    save(conn.grab().toImage(), "connection.png", rounded=False)
+    conn.hide()
+    w.settings.update(saved_link)
+    w._refresh_link_label()
+    w._on_connection_status(True, "")
+    w.register_table.set_connected(True)
+    feed(w, regs, 0)
+    pump()
+
+    # 12c. the first-launch welcome card (the card alone, over the window)
+    from gui.welcome import WelcomeSetup
+    welcome = WelcomeSetup(w.centralWidget(), w.settings, w.ctx.theme_tokens(), lang)
+    welcome.show_setup()
+    pump(0.3)
+    save(welcome.card.grab().toImage(), "welcome.png")
+    welcome._finish(False)
+    pump()
 
     # 13. the live trend, animated (one 15 s period → a seamless loop)
     frames = []
