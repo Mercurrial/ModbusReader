@@ -5,9 +5,8 @@ description: Ready-made ModbusReader examples — Python macros for tests and ca
 
 # Examples
 
-Every example can be tried on the **demo project** — no device needed, with
-the emulator on a virtual COM port (see [Testing a SCADA with the
-emulator](test-scada.md)).
+Every example can be tried on the **demo project** — no device needed: it
+has a made-up device of its own ([how to switch it on](../quickstart.md#no-device)).
 
 <div class="grid cards" markdown>
 

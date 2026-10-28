@@ -25,8 +25,9 @@ On the left is the page menu (it can sit on top or on the right instead):
 right are the link settings, **Connect** and the settings gear. At the bottom
 are the transaction log and the raw-frame line.
 
-To get back to the demo project, use **Demo project** on the empty map
-screen: the app puts its own copy into `Documents\ModbusReader`.
+The demo project sits in the **Projects** folder next to the program — where
+your own projects open and save too. You can also get back to it with **Demo
+project** on the empty map screen.
 
 ## 2. Open or create a register map
 
@@ -89,9 +90,21 @@ timeouts, CRC errors and exceptions are covered there.
 Save everything as one file — **Save project** (++ctrl+s++). Next time the
 app opens it by itself.
 
-## No device at hand
+## No device at hand { #no-device }
 
-The demo map comes to life without hardware and without a second computer:
+The demo project has a made-up device of its own — **Demo** in the connection
+card. Press **Connect** and the demo comes to life with no cable: the
+temperature holds the setpoint, the heater power adjusts, now and then the
+door opens. The device reacts to writes:
+
+- raise the **setpoint** — the temperature follows;
+- **Stop** mode or the **heater** switched off — it cools down;
+- the **fan** — the heater needs more power;
+- a door left open longer than the **alarm delay** puts the device into
+  **Fault** with an error code; **Run** mode resets it.
+
+Only the demo project has the simulation. To try your own map without a
+device, use the emulator, no second computer needed:
 
 1. On the [Slave emulator](guide/slave.md) page pick **Modbus TCP** and press
    **Start**.

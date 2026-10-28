@@ -29,7 +29,9 @@ has **Save project as…**, **Recent projects**, and opening or creating a
 standalone map. **New project** closes the current map and dashboards but
 keeps the link settings.
 
-On start-up the app reopens the project or map you worked with last time
+Projects open and save in the **Projects** folder next to the program (next
+to the exe for the portable build); the demo project lives there too. On
+start-up the app reopens the project or map you worked with last time
 (**Settings → General → Startup**). The installer associates `.mbproj` with
 the app, so a project opens on double-click.
 

@@ -27,6 +27,7 @@ There are two builds — pick either:
 | `.mbproj` opens on double-click | ✓ | — |
 | Uninstall | Settings → Apps | delete the file |
 | Settings stored in | `%APPDATA%\ModbusReader` | next to the exe |
+| Projects stored in | the `Projects` folder next to the program | the `Projects` folder next to the exe |
 | Updates | ✓ | ✓ |
 
 The portable build and a build with a console window for diagnostics
@@ -141,6 +142,9 @@ off: **Settings → General → Check for updates automatically**.
 - The installed app keeps each version in its own `app-<version>` folder next
   to `ModbusReader.exe`, which opens the newest one. Old folders are removed at
   the next start.
-- Your copy of the demo project — `Documents\ModbusReader`.
+- Projects — the `Projects` folder in the program folder: projects open and
+  save there, and the demo project lives there. Updates and uninstalling
+  leave it alone. On Linux and macOS, where the program folder cannot be
+  written, it is `Documents/ModbusReader`.
 
 Next: the [quick start](quickstart.md).

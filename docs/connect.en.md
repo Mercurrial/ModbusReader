@@ -25,6 +25,9 @@ the connection card opens. It holds everything needed to reach a device:
 - **Recent** — connections that worked before, one click away;
 - **Connect** — apply and start polling.
 
+The demo project has one more option, **Demo** — its made-up device, no cable
+and nothing to set ([what it does](quickstart.md#no-device)).
+
 The rest — timeouts, byte order, reconnecting — is behind **All connection
 settings** (**Settings → Connection**). If a connection fails, the card opens
 by itself and shows the reason.

@@ -61,8 +61,7 @@ register map.
 
 ### The master is a second copy of ModbusReader
 
-To bring the demo project to life without a device, the master can be
-ModbusReader itself: start a second copy, open the same project, pick port
+To check the emulator without a SCADA, the master can be ModbusReader itself: start a second copy, open the same project, pick port
 `COM10` and press **Connect**. The two copies share one settings file; it is
 easier if the second one is the [portable build](../install.md#windows) from a
 separate folder: it keeps its own settings.

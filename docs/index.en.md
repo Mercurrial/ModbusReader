@@ -215,9 +215,11 @@ bugs to [Issues](https://github.com/Mercurrial/ModbusReader/issues).
     CH340 based. See [Connect a device](connect.md).
 
 ??? question "Can I try it without a device?"
-    Yes. The demo project opens on first launch, and a second copy of the app
-    as the [slave emulator](guide/slave.md) on a pair of virtual COM ports
-    brings it to life. See [Testing a SCADA with the emulator](examples/test-scada.md).
+    Yes. The demo project opens on first launch with a made-up device of its
+    own: press **Connect** — the values come alive, and writing the
+    setpoint, mode, heater or fan acts on it ([more](quickstart.md#no-device)).
+    Your own map can be tried with the [emulator](guide/slave.md) over Modbus
+    TCP on `127.0.0.1` — one computer is enough.
 
 ??? question "Which systems does it run on?"
     Windows 10 (1809+) and 11 — installer and portable build; Linux —
