@@ -8,7 +8,7 @@
 первый выпуск ноября. Предыдущие версии нумеровались 1.x и 2.0–2.2; новые
 номера всегда больше старых, поэтому обновление сравнивает их корректно.
 
-## [Не выпущено]
+## [26.10.4] — 2026-10-28
 
 ### Добавлено
 - Папка **Projects** в папке программы: в ней открываются и сохраняются
@@ -371,7 +371,8 @@
 Технические подробности по версиям — в
 [docs/engineering-notes.md](docs/engineering-notes.md).
 
-[Не выпущено]: https://github.com/Mercurrial/ModbusReader/compare/v26.10.3...HEAD
+[Не выпущено]: https://github.com/Mercurrial/ModbusReader/compare/v26.10.4...HEAD
+[26.10.4]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.4
 [26.10.3]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.3
 [26.10.2]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.2
 [26.10.1]: https://github.com/Mercurrial/ModbusReader/releases/tag/v26.10.1
