@@ -356,6 +356,7 @@ def test_macro_results_get_a_dated_name(win, monkeypatch, tmp_path):
                         lambda *a, **k: (offered.append(a[2]), ("", ""))[1])
     mw._export_csv()
     mw._export_xlsx()
+    mw._records.clear()                 # or closing asks about them (modal)
     import os, re
     for path, ext in zip(offered, ("csv", "xlsx")):
         assert os.path.dirname(path) == str(tmp_path)
