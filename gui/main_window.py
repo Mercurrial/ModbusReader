@@ -1,6 +1,7 @@
 # gui/main_window.py
 
 import os
+import sys
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
@@ -2079,9 +2080,42 @@ class ModernScadaApp(QMainWindow):
             self.modbus_core.wait(3000)
         for viewer in list(self._memory_viewers.values()):
             viewer.close()
-        self._save_window_geometry()
-        save_settings(self.settings)
+        if not getattr(self, "_settings_reset", False):
+            self._save_window_geometry()
+            save_settings(self.settings)
         super().closeEvent(event)
+
+    def factory_reset(self) -> bool:
+        """Settings → «Вернуть к заводским настройкам»: every setting back to
+        what the program shipped with, and a restart into them. Projects,
+        maps and macros in files are not touched; the demo is not copied
+        into the Projects folder again."""
+        import copy
+        from app.settings_manager import DEFAULT_SETTINGS
+        from core import updater
+        if self._overlay_page is not None:
+            self._overlay_page.reject()      # unsaved settings are moot now
+        if not self.macro_view.confirm_close():
+            return False
+        fresh = copy.deepcopy(DEFAULT_SETTINGS)
+        fresh["projects_seeded"] = bool(self.settings.get("projects_seeded"))
+        if getattr(sys, "frozen", False):
+            args = [sys.executable]
+        else:
+            from app.paths import ROOT
+            args = [sys.executable, os.path.join(ROOT, "main.py")]
+        # Written BEFORE the new copy starts (it reads them at once), and
+        # this window must not write the old ones back as it closes.
+        save_settings(fresh)
+        self._settings_reset = True
+        try:
+            updater.start_detached(args)
+        except OSError as e:
+            themed_info(self, self.ctx.theme, "error", self.t("errTitle"), str(e))
+        self._closing_for_update = True
+        self.close()
+        QApplication.quit()
+        return True
 
     def quit_for_update(self, args: list) -> bool:
         """Start the downloaded update (*args*, see updater.handover_args) and

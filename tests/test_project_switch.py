@@ -62,3 +62,24 @@ def test_the_same_link_keeps_polling(win, monkeypatch):
     same = {k: win.settings.get(k) for k in transports.LINK_FIELDS}
     win.apply_project(_project(same), persist=False)
     assert not stopped
+
+
+def test_factory_reset_writes_defaults_and_restarts(win, monkeypatch):
+    """Settings → «Вернуть к заводским настройкам»: the defaults go to the
+    file before the new copy starts, and closing does not write the old
+    settings back over them."""
+    from app import settings_manager
+    from core import updater
+    from gui import main_window as gui_main
+    from app.settings_manager import DEFAULT_SETTINGS
+    written, started = [], []
+    monkeypatch.setattr(gui_main, "save_settings", lambda d: written.append(dict(d)))
+    monkeypatch.setattr(updater, "start_detached", lambda args: started.append(args))
+    monkeypatch.setattr(QApplication, "quit", staticmethod(lambda: None))
+    win.settings.update({"theme": "Light", "accent": "rose", "projects_seeded": True})
+    assert win.factory_reset()
+    assert started and written
+    reset = written[0]
+    assert reset["theme"] == DEFAULT_SETTINGS["theme"] and reset["accent"] == DEFAULT_SETTINGS["accent"]
+    assert reset["projects_seeded"] is True          # the demo is not copied again
+    assert len(written) == 1                          # closeEvent kept its hands off

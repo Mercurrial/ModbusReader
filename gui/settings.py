@@ -318,7 +318,45 @@ class SettingsDialog(QDialog):
                     self._wire_preview(fld, control)
                 self._field(s, tr(fld.label, self.lang), control, tr(fld.hint, self.lang))
         self._wire_conditional(conditional)
+        if page.key == "general":
+            self._factory_reset_section(lo)
         return widget
+
+    def _owner(self):
+        """The main window (this dialog sits inside its page stack)."""
+        owner = self.parent()
+        while owner is not None and not hasattr(owner, "factory_reset"):
+            owner = owner.parent()
+        return owner
+
+    def _factory_reset_section(self, lo: QVBoxLayout):
+        """«Вернуть к заводским настройкам» — the way out when a setting has
+        broken something and nobody knows which one."""
+        s = self._section(lo, tr("resetTitle", self.lang), tr("resetDesc", self.lang))
+        row = QWidget()
+        row.setObjectName("stAboutRow")
+        h = QHBoxLayout(row)
+        h.setContentsMargins(0, 8, 0, 8)
+        btn = QPushButton(tr("resetButton", self.lang))
+        btn.setObjectName("btnSecondary")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.clicked.connect(self._ask_factory_reset)
+        self.btn_factory_reset = btn
+        h.addWidget(btn)
+        h.addStretch(1)
+        s.addWidget(row)
+
+    def _ask_factory_reset(self):
+        choice = themed_message(
+            self, self._theme_name, "warning",
+            tr("resetConfirmTitle", self.lang), tr("resetConfirmBody", self.lang),
+            [(tr("cancel", self.lang), QMessageBox.ButtonRole.RejectRole, True),
+             (tr("resetConfirmOk", self.lang), QMessageBox.ButtonRole.DestructiveRole, False)])
+        if choice != 1:
+            return
+        owner = self._owner()
+        if owner is not None:
+            owner.factory_reset()
 
     def _wire_conditional(self, conditional):
         """Show a section only while its controlling field holds one of its
