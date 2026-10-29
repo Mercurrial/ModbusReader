@@ -322,3 +322,34 @@ def test_title_bars_follow_the_theme(monkeypatch):
     assert (framed, "#f6f4f2") in styled
     framed.close(); frameless.close()
     QApplication.instance().removeEventFilter(styler._filter)
+
+
+def test_a_dragged_chart_lifts_whole_and_neighbours_glide():
+    """The plot stayed dark inside a lifted card and covered its border;
+    cards jumped to their new places instead of moving there."""
+    import time
+    from PyQt6.QtCore import QPoint
+    from gui.trends import TrendsManager
+    ctx = AppContext(dict(DEFAULT_SETTINGS))
+    tm = TrendsManager(ctx)
+    tm.resize(380, 720)
+    tm.show()
+    tm.add_trend("0x0001", "A")
+    tm.add_trend("0x0002", "B")
+    QApplication.processEvents()
+    a, b = tm.active_trends["0x0001"], tm.active_trends["0x0002"]
+    root = a.layout().contentsMargins()
+    assert min(root.left(), root.top(), root.right(), root.bottom()) >= 1
+    tm._on_card_drag_started(a)
+    assert a.plot.backgroundBrush().color().name() == ctx.theme_tokens()["bg_3"].lower()
+    old_b = b.pos()
+    tm._on_card_drag_moved(a, b.mapToGlobal(b.rect().center()) + QPoint(0, 5))
+    assert b.pos() == old_b                     # starts where it was…
+    end = time.monotonic() + 1.0
+    while time.monotonic() < end and b.pos() == old_b:
+        QApplication.processEvents()
+    assert b.pos() != old_b                     # …and arrives at its new place
+    tm._on_card_drag_dropped(a)
+    assert list(tm.active_trends) == ["0x0002", "0x0001"]
+    assert a.plot.backgroundBrush().color().name() == ctx.theme_tokens()["bg_2"].lower()
+    tm.close()
