@@ -352,6 +352,11 @@ class ModernScadaApp(QMainWindow):
         self.macro_view = MacroWindow(self.ctx, lambda: self.profile_data,
                                       embedded=True)
         self.macro_window = self.macro_view          # historical name
+        # The open project's own folders (app/projects.py): its macros, and
+        # the tables they make.
+        from app import projects as _projects
+        self.macro_view.macros_dir = lambda: _projects.subfolder(self.project_path, _projects.MACROS)
+        self.macro_view.results_dir = lambda: _projects.subfolder(self.project_path, _projects.RESULTS)
         self.content_stack.addWidget(self.macro_view)
 
         # The watch window floats above the main window (built hidden, so
@@ -1296,6 +1301,11 @@ class ModernScadaApp(QMainWindow):
         self.settings["last_project_name"] = self.project_name
         self._refresh_project_button()
         self._sync_simulation()
+        if self.project_path:
+            # The project's folder in the root, with its macros and results.
+            from app import projects
+            for which in (projects.MACROS, projects.RESULTS):
+                projects.subfolder(self.project_path, which)
 
     def _sync_simulation(self):
         """The demo project's made-up device (core/simulator.py) exists while
@@ -1415,12 +1425,39 @@ class ModernScadaApp(QMainWindow):
         if not ok:
             return
         name = name.strip() or default
+        offer, made = self._offer_project_path(name)
         path, _ = QFileDialog.getSaveFileName(
-            self, self.t("projectSaveAs"), os.path.join(projects_dir(), f"{name}.mbproj"),
+            self, self.t("projectSaveAs"), offer,
             "ModbusReader project (*.mbproj)")
+        if made:
+            # Saved elsewhere, or not at all: the folder made for the offer
+            # is not left behind empty.
+            self._drop_if_empty(os.path.dirname(offer))
         if not path:
             return
         self._write_project(path, name)
+
+    def _offer_project_path(self, name: str):
+        """A new project goes into a folder of its own in the root (its
+        macros and results will sit beside it). The folder is made so the
+        dialog can open in it. Returns (path, whether the folder was made)."""
+        from app import projects
+        path = projects.new_project_path(name)
+        folder = os.path.dirname(path)
+        made = not os.path.isdir(folder)
+        try:
+            os.makedirs(folder, exist_ok=True)
+        except OSError:
+            return os.path.join(projects_dir(), f"{name}.mbproj"), False
+        return path, made
+
+    @staticmethod
+    def _drop_if_empty(folder: str):
+        try:
+            if os.path.isdir(folder) and not os.listdir(folder):
+                os.rmdir(folder)
+        except OSError:
+            pass
 
     def _write_project(self, path: str, name: str):
         from core import transports

@@ -16,6 +16,13 @@ demo project's own copy goes:
 
 The folder is created on first use; the answer is cached for the session
 (``reset()`` forgets it — tests).
+
+Each project has a folder of its own in the root — ``Projects/<project>/``
+with ``macros/`` and ``results/`` — so its macros and the tables they make
+are found next to it, not wherever the last dialog happened to point. A
+project saved anew lives inside that folder (``<project>/<project>.mbproj``);
+one that already sits elsewhere stays where it is and gets the folder in the
+root by its name.
 """
 import os
 import shutil
@@ -70,6 +77,38 @@ def projects_dir() -> str:
 
 def reset():
     _cache.clear()
+
+
+MACROS, RESULTS = "macros", "results"
+
+
+def project_home(project_path: str) -> str:
+    """The folder of the project in *project_path*: the one it sits in when
+    that folder bears its name, else ``<root>/<project name>``. No project
+    — the root itself."""
+    if not project_path:
+        return projects_dir()
+    folder, name = os.path.split(os.path.abspath(project_path))
+    stem = os.path.splitext(name)[0]
+    if os.path.basename(folder) == stem:
+        return folder
+    return os.path.join(projects_dir(), stem)
+
+
+def subfolder(project_path: str, which: str) -> str:
+    """``macros`` or ``results`` of the project (made if it can be)."""
+    d = os.path.join(project_home(project_path), which)
+    try:
+        os.makedirs(d, exist_ok=True)
+    except OSError:
+        pass
+    return d
+
+
+def new_project_path(name: str) -> str:
+    """Where «Сохранить проект как» offers a project: in its own folder."""
+    safe = "".join(ch for ch in str(name).strip() if ch not in '<>:"/\\|?*') or "project"
+    return os.path.join(projects_dir(), safe, safe + ".mbproj")
 
 
 def demo_copy(src: str, name: str) -> str:

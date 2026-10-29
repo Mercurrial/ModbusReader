@@ -451,7 +451,13 @@ class MacroWindow(QWidget):
 
     def results_dir(self) -> str:
         """Where result tables are offered to go (the window points this at
-        the open project's folder)."""
+        the open project's ``results`` folder)."""
+        from app import projects
+        return projects.projects_dir()
+
+    def macros_dir(self) -> str:
+        """Where scripts open from and save to (the window points this at
+        the open project's ``macros`` folder)."""
         from app import projects
         return projects.projects_dir()
 
@@ -526,7 +532,8 @@ class MacroWindow(QWidget):
     # ── script load / save / persist ──────────────────────────────
     def _open_script(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, self.L("Открыть скрипт", "Open script"), "", "Python (*.py);;All files (*)")
+            self, self.L("Открыть скрипт", "Open script"), self.macros_dir(),
+            "Python (*.py);;All files (*)")
         if not path:
             return
         try:
@@ -544,7 +551,8 @@ class MacroWindow(QWidget):
 
     def _save_script(self):
         path, _ = QFileDialog.getSaveFileName(
-            self, self.L("Сохранить скрипт", "Save script"), "macro.py", "Python (*.py)")
+            self, self.L("Сохранить скрипт", "Save script"),
+            os.path.join(self.macros_dir(), "macro.py"), "Python (*.py)")
         if not path:
             return
         try:
