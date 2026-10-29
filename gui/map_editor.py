@@ -705,12 +705,17 @@ class ProfileEditorDialog(QDialog):
         fl.addWidget(self.btn_apply)
 
         # Undo / redo: no buttons (removed by request), shortcuts still active.
-        sc_undo = QShortcut(QKeySequence("Ctrl+Z"), self)
-        sc_undo.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        sc_undo.activated.connect(self._undo)
-        sc_redo = QShortcut(QKeySequence("Ctrl+Shift+Z"), self)
-        sc_redo.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        sc_redo.activated.connect(self._redo)
+        # The row keys work the same way; the row menu shows them.
+        for keys, slot in (("Ctrl+Z", self._undo),
+                           ("Ctrl+Shift+Z", self._redo),
+                           ("Ctrl+Y", self._redo),
+                           ("Ctrl+D", lambda: self._duplicate_row(self.table.currentRow())),
+                           ("Alt+Up", lambda: self._move_row(-1)),
+                           ("Alt+Down", lambda: self._move_row(1)),
+                           ("Insert", self._add_row)):
+            sc = QShortcut(QKeySequence(keys), self)
+            sc.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(slot)
 
         # ── Body (Stacked: Empty vs Editor) ────────────────────────
         self.stacked = QStackedWidget()
@@ -1202,6 +1207,23 @@ class ProfileEditorDialog(QDialog):
         self.table.reset_visual_order()
         if order == list(range(len(order))):
             return                           # no-op drag — nothing changed
+        self._apply_order(order)
+
+    def _move_row(self, delta: int):
+        """Alt+Up / Alt+Down: the current row swaps with its neighbour — the
+        same rule as a drag (a packed map is re-packed, gaps are kept)."""
+        row = self.table.currentRow()
+        to = row + delta
+        n = len(self.profile_data)
+        if not (0 <= row < n and 0 <= to < n):
+            return
+        order = list(range(n))
+        order[row], order[to] = order[to], order[row]
+        col = max(0, self.table.currentColumn())
+        self._apply_order(order)
+        self.table.setCurrentCell(to, col)
+
+    def _apply_order(self, order: list):
         packed = is_contiguous(self.profile_data)
         start = int(self.profile_data[0].get("addr", 0)) if self.profile_data else 0
         self.profile_data = [self.profile_data[i] for i in order]
@@ -1494,14 +1516,22 @@ class ProfileEditorDialog(QDialog):
 
         act_scale = menu.addAction(self.t("engUnits"))
         menu.addSeparator()
-        act_dup = menu.addAction(self.t("duplicate"))
-        act_del = menu.addAction(self.t("deleteRow"))
+        act_dup = menu.addAction(self.t("duplicate") + "\tCtrl+D")
+        act_up = menu.addAction(self.t("rowUp") + "\tAlt+↑")
+        act_up.setEnabled(row > 0)
+        act_down = menu.addAction(self.t("rowDown") + "\tAlt+↓")
+        act_down.setEnabled(row < len(self.profile_data) - 1)
+        menu.addSeparator()
+        act_del = menu.addAction(self.t("deleteRow") + "\tDel")
 
         action = menu.exec(self.table.viewport().mapToGlobal(pos))
         if action == act_scale:
             self._edit_scaling(row)
         elif action == act_dup:
             self._duplicate_row(row)
+        elif action in (act_up, act_down):
+            self.table.setCurrentCell(row, max(0, self.table.currentColumn()))
+            self._move_row(-1 if action == act_up else 1)
         elif action == act_del:
             self._delete_selected(row)
 

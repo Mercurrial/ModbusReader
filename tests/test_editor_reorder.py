@@ -177,3 +177,42 @@ def test_a_fast_drag_leaves_no_row_snapshots_behind(editor):
         editor.is_modified = False           # no "save changes?" on close
     assert left == []
     assert names == ["R1", "R2", "R0", "R3"]
+
+
+# ═══════════════ keyboard ═══════════════
+def _shortcut(ed, keys):
+    """Fire the editor's shortcut for *keys* (a real key press needs an
+    active window, which a headless test does not have)."""
+    from PyQt6.QtGui import QShortcut, QKeySequence
+    hits = [sc for sc in ed.findChildren(QShortcut)
+            if sc.key() == QKeySequence(keys)]
+    assert len(hits) == 1, keys                  # two would make Qt fire neither
+    hits[0].activated.emit()
+
+
+def test_alt_arrows_move_the_current_row_and_ctrl_z_puts_it_back(editor):
+    editor.table.setCurrentCell(1, COL_RU)
+    _shortcut(editor, "Alt+Down")
+    assert _names(editor) == ["R0", "R2", "R1", "R3"]
+    assert editor.table.currentRow() == 2       # the row is followed
+    _shortcut(editor, "Alt+Up")
+    _shortcut(editor, "Alt+Up")
+    assert _names(editor) == ["R1", "R0", "R2", "R3"]
+    assert [r["addr"] for r in editor.profile_data] == [0, 1, 2, 3]   # re-packed
+    _shortcut(editor, "Alt+Up")                 # the top: nothing to swap with
+    assert _names(editor) == ["R1", "R0", "R2", "R3"]
+    _shortcut(editor, "Ctrl+Z")
+    _shortcut(editor, "Ctrl+Z")
+    assert _names(editor) == ["R0", "R2", "R1", "R3"]
+    _shortcut(editor, "Ctrl+Y")
+    assert _names(editor) == ["R0", "R1", "R2", "R3"]
+
+
+def test_ctrl_d_duplicates_and_insert_adds_a_row(editor):
+    editor.table.setCurrentCell(0, COL_RU)
+    _shortcut(editor, "Ctrl+D")
+    assert _names(editor)[:2] == ["R0", "R0"] and len(editor.profile_data) == 5
+    _shortcut(editor, "Insert")
+    assert len(editor.profile_data) == 6
+    _shortcut(editor, "Ctrl+Shift+Z")           # the old redo key still works
+    assert len(editor.profile_data) == 6
