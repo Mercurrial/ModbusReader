@@ -1367,6 +1367,10 @@ QFrame#watchRow[selected="true"] {{
     background: {c["bg_2"]};
     border-color: {c["line"]};
 }}
+QFrame#watchRow[dragging="true"] {{
+    background: {c["bg_3"]};
+    border-color: {c["accent"]};
+}}
 QLabel#wName {{
     color: {c["text_1"]};
 }}

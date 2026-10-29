@@ -1058,25 +1058,9 @@ class TrendsManager(QWidget):
     REFLOW_MS = 170
 
     def _slide(self, before: dict):
-        """The cards that changed places glide to them (they used to jump):
-        the layout is settled first, then each card animates from where it
-        was to where the layout put it."""
-        from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QAbstractAnimation
-        self.content_layout.activate()
-        for w, old in before.items():
-            new = w.pos()
-            if old == new:
-                continue
-            prev = getattr(w, "_slide_anim", None)
-            if prev is not None:
-                prev.stop()
-            anim = QPropertyAnimation(w, b"pos", self)
-            anim.setDuration(self.REFLOW_MS)
-            anim.setStartValue(old)
-            anim.setEndValue(new)
-            anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-            w._slide_anim = anim
-            anim.start(QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)
+        """The cards that changed places glide to them (they used to jump)."""
+        from gui.qt_utils import slide_from
+        slide_from(before, self.content_layout, self, self.REFLOW_MS)
 
     def _on_card_drag_dropped(self, card):
         card.set_lifted(False)

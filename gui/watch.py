@@ -16,7 +16,7 @@ title bar was a white strip across a dark app), one row per register —
 
 — the value large, everything else one quiet line, the write field only on
 registers that can be written. Drag the title to move it, the corner to size
-it; right-click a row to reorder / reset min-max / remove.
+it; drag a row to reorder; right-click a row to reset min-max / remove.
 
 Registers are added from the register table's context menu or from a
 dashboard widget's menu. The value is the SAME text as the table (scaling,
@@ -90,6 +90,9 @@ class WatchRowWidget(QFrame):
     write_requested = pyqtSignal(int, str)
     menu_requested = pyqtSignal(int, object)      # addr, global pos
     clicked = pyqtSignal(int)
+    drag_started = pyqtSignal(int)                 # addr
+    drag_moved = pyqtSignal(int, object)           # addr, global QPoint
+    drag_dropped = pyqtSignal(int)                 # addr
 
     def __init__(self, addr: int, ctx):
         super().__init__()
@@ -150,7 +153,36 @@ class WatchRowWidget(QFrame):
     def mousePressEvent(self, e):
         if e.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.addr)
+            self._press = e.globalPosition().toPoint()
+            self._dragging = False
         super().mousePressEvent(e)
+
+    def mouseMoveEvent(self, e):
+        # Drag to reorder (the write field takes its own mouse; it never
+        # starts a drag).
+        press = getattr(self, "_press", None)
+        if press is not None and e.buttons() & Qt.MouseButton.LeftButton:
+            from PyQt6.QtWidgets import QApplication
+            gpos = e.globalPosition().toPoint()
+            if not self._dragging and (gpos - press).manhattanLength() \
+                    >= QApplication.startDragDistance():
+                self._dragging = True
+                self.drag_started.emit(self.addr)
+            if self._dragging:
+                self.drag_moved.emit(self.addr, gpos)
+        super().mouseMoveEvent(e)
+
+    def mouseReleaseEvent(self, e):
+        if getattr(self, "_dragging", False):
+            self._dragging = False
+            self.drag_dropped.emit(self.addr)
+        self._press = None
+        super().mouseReleaseEvent(e)
+
+    def set_lifted(self, on: bool):
+        self.setProperty("dragging", "true" if on else "false")
+        self.style().unpolish(self)
+        self.style().polish(self)
 
     def set_selected(self, on: bool):
         self.setProperty("selected", "true" if on else "false")
@@ -361,6 +393,44 @@ class WatchWindow(QWidget):
         self._rows[i], self._rows[j] = self._rows[j], self._rows[i]
         self._list_changed()
 
+    # ── drag to reorder ───────────────────────────────────────────────
+    def _drag_started(self, addr: int):
+        i = self._row_index(addr)
+        if i is not None:
+            self._widgets[i].raise_()
+            self._widgets[i].set_lifted(True)
+
+    def _drag_moved(self, addr: int, gpos):
+        """Past a neighbour's middle the row takes its place; the rows that
+        move glide there."""
+        from gui.qt_utils import slide_from
+        i = self._row_index(addr)
+        if i is None:
+            return
+        ws = self._widgets
+        j = i
+        if i > 0 and gpos.y() < ws[i - 1].mapToGlobal(ws[i - 1].rect().center()).y():
+            j = i - 1
+        elif i < len(ws) - 1 and gpos.y() > ws[i + 1].mapToGlobal(ws[i + 1].rect().center()).y():
+            j = i + 1
+        if j == i:
+            return
+        before = {w: w.pos() for w in ws}
+        self._rows.insert(j, self._rows.pop(i))
+        wdg = ws.pop(i)
+        ws.insert(j, wdg)
+        self.list_lo.removeWidget(wdg)
+        self.list_lo.insertWidget(j, wdg)
+        slide_from(before, self.list_lo, self)
+
+    def _drag_dropped(self, addr: int):
+        i = self._row_index(addr)
+        if i is not None:
+            self._widgets[i].set_lifted(False)
+        # The order is kept; no rebuild (it would recreate the rows mid-way).
+        self.ctx.settings["watch_list"] = [r.addr for r in self._rows]
+        self.watch_changed.emit(self.watched())
+
     def _list_changed(self):
         self.ctx.settings["watch_list"] = [r.addr for r in self._rows]
         self._rebuild()
@@ -397,6 +467,9 @@ class WatchWindow(QWidget):
             wdg.write_requested.connect(self.write_requested.emit)
             wdg.menu_requested.connect(self._menu)
             wdg.clicked.connect(self._select)
+            wdg.drag_started.connect(self._drag_started)
+            wdg.drag_moved.connect(self._drag_moved)
+            wdg.drag_dropped.connect(self._drag_dropped)
             if reg is None:
                 wdg.lbl_name.setText(t("watchNotInMap"))
                 wdg.lbl_name.setProperty("missing", "true")

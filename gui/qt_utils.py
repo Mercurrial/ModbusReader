@@ -191,3 +191,28 @@ class TitleBarStyler:
         for w in QApplication.topLevelWidgets():
             if w.isVisible() and _framed_window(w):
                 style_title_bar(w, tokens)
+
+
+def slide_from(before: dict, layout, owner, ms: int = 170):
+    """Widgets that a layout change moved glide to their new places instead
+    of jumping there. *before*: {widget: its pos() before the change}. The
+    layout is settled first; each moved widget then animates from where it
+    was to where the layout put it."""
+    from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QAbstractAnimation
+    layout.activate()
+    for w, old in before.items():
+        if not alive(w):
+            continue
+        new = w.pos()
+        if old == new:
+            continue
+        prev = getattr(w, "_slide_anim", None)
+        if prev is not None and alive(prev):
+            prev.stop()
+        anim = QPropertyAnimation(w, b"pos", owner)
+        anim.setDuration(ms)
+        anim.setStartValue(old)
+        anim.setEndValue(new)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        w._slide_anim = anim
+        anim.start(QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)
