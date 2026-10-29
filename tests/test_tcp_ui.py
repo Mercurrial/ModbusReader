@@ -530,3 +530,33 @@ def test_the_card_on_the_scanner_page_has_no_id(win):
     win.conn_card.open_below(win.main_toolbar.btn_link)
     assert win.conn_card.sp_id.isVisibleTo(win.conn_card)
     assert not win.status_bar._slave_ed.isVisibleTo(win.status_bar)
+
+
+def test_the_register_scan_marks_what_the_map_lacks(win):
+    """What a register scan is for: addresses the device answers that its
+    documentation does not list (0x0010… on the AirHeat plate)."""
+    map_regs = [{"addr": 0, "name": "Уставка", "type": "FLOAT", "rw": "RW"}]
+    device = map_regs + [{"addr": 0x10, "name": "скрытый", "type": "SHORT", "rw": "R"}]
+    srv = sc.SlaveTcpServer(HOST, 0, sc.SlaveStore.from_registers(device), 1)
+    srv.start()
+    assert srv.listening.wait(5)
+    try:
+        win._set_profile(map_regs, "")
+        win.settings.update({"transport": "tcp", "host": HOST, "tcp_port": srv.port,
+                             "slave_id": 1, "timeout": 200})
+        sv = win.scanner_view
+        sv.seg_mode.setValue("registers")
+        sv.spin_from.setValue(0)
+        sv.spin_to.setValue(0x10)
+        sv._toggle_scan()
+        assert _wait(lambda: sv._worker is not None and sv._worker.isFinished(), 30)
+        _wait(lambda: False, 0.2)
+        rows = {sv.table.item(r, 0).text(): sv.table.item(r, 3).text()
+                for r in range(sv.table.rowCount())}
+        assert rows["0x0000"] == "Уставка"
+        assert rows["0x0001"] == "Уставка " + win.t("scanWordN").format(n=2)
+        assert rows["0x0010"] == win.t("scanNotInMap")
+        assert win.t("scanNotInMapCount").format(n=1) in sv.lbl_status.text()
+    finally:
+        srv.request_stop()
+        srv.wait(5000)

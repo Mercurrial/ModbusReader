@@ -319,6 +319,7 @@ class ModernScadaApp(QMainWindow):
         self.scanner_view.connect_requested.connect(
             lambda link: self.conn_card.open_below(self.main_toolbar.btn_link, link=link))
         self.scanner_view.claim_link = self._claim_scan_link
+        self.scanner_view.get_registers = lambda: self.profile_data
         self.scanner_view.release_link = self._release_scan_link
         self.content_stack.addWidget(self.scanner_view)
         self.sniffer_view = SnifferView(self.ctx)
