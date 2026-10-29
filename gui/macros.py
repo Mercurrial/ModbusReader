@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QAbstractItemView, QDialog, QTextBrowser, QHeaderView,
 )
 from PyQt6.QtCore import Qt, QSize, QRect, pyqtSignal
-from PyQt6.QtGui import QFont, QColor, QPainter, QTextOption
+from PyQt6.QtGui import QFont, QColor, QPainter, QTextOption, QTextCursor, QKeySequence, QShortcut
 
 from core.macro_engine import MacroRunner
 from gui.dialogs import themed_message, themed_info
@@ -86,8 +86,17 @@ class _LineGutter(QWidget):
         self._editor.paint_gutter(event)
 
 
+INDENT = "    "
+
+
 class CodeEditor(QPlainTextEdit):
-    """Minimal Python editor: monospace, line numbers, soft-tab insertion."""
+    """Minimal Python editor: monospace, line numbers, and the keys of a code
+    editor (the ones PyCharm uses): Tab / Shift+Tab indent and dedent the
+    selected lines, Enter keeps the indent (one more after a colon), Ctrl+/
+    comments the lines out and back, Ctrl+D duplicates the line or the
+    selection, Ctrl+S saves the script (here, not the project)."""
+
+    save_requested = pyqtSignal()
 
     def __init__(self, colors: dict, parent=None):
         super().__init__(parent)
@@ -140,11 +149,141 @@ class CodeEditor(QPlainTextEdit):
             bottom = top + round(self.blockBoundingRect(block).height())
             num += 1
 
+    def event(self, e):
+        # Ctrl+S is the window's «save project»; while the script has the
+        # focus it saves the script — claimed before the window's shortcut.
+        if e.type() == e.Type.ShortcutOverride and e.matches(QKeySequence.StandardKey.Save):
+            e.accept()
+            return True
+        return super().event(e)
+
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Tab:
-            self.insertPlainText("    ")
+        key, mods = event.key(), event.modifiers()
+        ctrl = bool(mods & Qt.KeyboardModifier.ControlModifier)
+        if event.matches(QKeySequence.StandardKey.Save):
+            self.save_requested.emit()
             return
+        if self.isReadOnly():
+            return super().keyPressEvent(event)
+        if key == Qt.Key.Key_Backtab:
+            return self._shift_lines(-1)
+        if key == Qt.Key.Key_Tab and not ctrl:
+            if self.textCursor().hasSelection():
+                return self._shift_lines(1)
+            self.insertPlainText(INDENT)
+            return
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and not ctrl \
+                and not mods & Qt.KeyboardModifier.ShiftModifier:
+            return self._newline()
+        if ctrl and key == Qt.Key.Key_Slash:
+            return self._toggle_comment()
+        if ctrl and key == Qt.Key.Key_D:
+            return self._duplicate()
         super().keyPressEvent(event)
+
+    # ── editing helpers ───────────────────────────────────────────
+    def _line_range(self):
+        """First and last block of the selection (or the caret's line)."""
+        c = self.textCursor()
+        doc = self.document()
+        first = doc.findBlock(c.selectionStart())
+        last = doc.findBlock(c.selectionEnd())
+        # A selection that ends at the start of a line does not take it.
+        if c.hasSelection() and last.position() == c.selectionEnd() \
+                and last.blockNumber() > first.blockNumber():
+            last = last.previous()
+        return first, last
+
+    def _edit_lines(self, fn):
+        """Apply *fn* to every selected line as one undo step and keep the
+        same lines selected."""
+        first, last = self._line_range()
+        c = self.textCursor()
+        c.beginEditBlock()
+        block = first
+        while True:
+            fn(block)
+            if block == last:
+                break
+            block = block.next()
+        c.endEditBlock()
+        sel = QTextCursor(first)
+        sel.setPosition(last.position() + last.length() - 1,
+                        QTextCursor.MoveMode.KeepAnchor)
+        if first != last or self.textCursor().hasSelection():
+            self.setTextCursor(sel)
+
+    def _shift_lines(self, step: int):
+        def shift(block):
+            c = QTextCursor(block)
+            text = block.text()
+            if step > 0:
+                c.insertText(INDENT)
+            else:
+                n = len(text) - len(text.lstrip(" "))
+                if n:
+                    c.movePosition(QTextCursor.MoveOperation.Right,
+                                   QTextCursor.MoveMode.KeepAnchor, min(n, len(INDENT)))
+                    c.removeSelectedText()
+        self._edit_lines(shift)
+
+    def _toggle_comment(self):
+        first, last = self._line_range()
+        lines, block = [], first
+        while True:
+            lines.append(block.text())
+            if block == last:
+                break
+            block = block.next()
+        code = [ln for ln in lines if ln.strip()]
+        uncomment = bool(code) and all(ln.lstrip().startswith("#") for ln in code)
+        # The # goes at the shallowest indent, so the block stays aligned.
+        col = min((len(ln) - len(ln.lstrip()) for ln in code), default=0)
+
+        def toggle(block):
+            text = block.text()
+            if not text.strip():
+                return
+            c = QTextCursor(block)
+            if uncomment:
+                i = text.index("#")
+                n = 2 if text[i + 1:i + 2] == " " else 1
+                c.setPosition(block.position() + i)
+                c.setPosition(block.position() + i + n, QTextCursor.MoveMode.KeepAnchor)
+                c.removeSelectedText()
+            else:
+                c.setPosition(block.position() + col)
+                c.insertText("# ")
+        self._edit_lines(toggle)
+
+    def _duplicate(self):
+        c = self.textCursor()
+        if c.hasSelection():
+            text = c.selectedText().replace("\u2029", "\n")
+            end = c.selectionEnd()
+            c.setPosition(end)
+            c.insertText(text)
+            c.setPosition(end)
+            c.setPosition(end + len(text), QTextCursor.MoveMode.KeepAnchor)
+            self.setTextCursor(c)
+            return
+        block = c.block()
+        col = c.positionInBlock()
+        c.beginEditBlock()
+        c.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+        c.insertText("\n" + block.text())
+        c.endEditBlock()
+        c.setPosition(block.next().position() + col)
+        self.setTextCursor(c)
+
+    def _newline(self):
+        c = self.textCursor()
+        before = c.block().text()[:c.positionInBlock()]
+        indent = before[:len(before) - len(before.lstrip())]
+        if before.rstrip().endswith(":"):
+            indent += INDENT
+        c.insertText("\n" + indent)
+        self.setTextCursor(c)
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -217,6 +356,14 @@ class MacroWindow(QWidget):
         self.btn_run  = self._tb_button("play", self.L("Запустить", "Run"), self._run, primary=True)
         self.btn_stop = self._tb_button("stop", self.L("Стоп", "Stop"), self._stop)
         self.btn_stop.setEnabled(False)
+        self.btn_run.setToolTip(self.L("Запустить — Ctrl+Enter, Shift+F10",
+                                       "Run — Ctrl+Enter, Shift+F10"))
+        self.btn_stop.setToolTip(self.L("Остановить — Ctrl+F2", "Stop — Ctrl+F2"))
+        for keys, slot in (("Ctrl+Return", self._run), ("Ctrl+Enter", self._run),
+                           ("Shift+F10", self._run), ("Ctrl+F2", self._stop)):
+            sc = QShortcut(QKeySequence(keys), self)
+            sc.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            sc.activated.connect(slot)
         sep1 = QFrame(); sep1.setObjectName("mSep"); sep1.setFrameShape(QFrame.Shape.VLine); sep1.setFixedSize(1, 20)
         self.btn_clear = self._tb_button("trash", self.L("Очистить", "Clear"), self._clear_results)
         self.btn_csv   = self._tb_button("download", "CSV", self._export_csv)
@@ -224,6 +371,8 @@ class MacroWindow(QWidget):
         sep2 = QFrame(); sep2.setObjectName("mSep"); sep2.setFrameShape(QFrame.Shape.VLine); sep2.setFixedSize(1, 20)
         self.btn_open  = self._tb_button("folder", self.L("Открыть", "Open"), self._open_script)
         self.btn_save  = self._tb_button("save", self.L("Сохранить", "Save"), self._save_script)
+        self.btn_save.setToolTip(self.L("Сохранить скрипт — Ctrl+S (в редакторе)",
+                                        "Save the script — Ctrl+S (in the editor)"))
         sep3 = QFrame(); sep3.setObjectName("mSep"); sep3.setFrameShape(QFrame.Shape.VLine); sep3.setFixedSize(1, 20)
         self.btn_help  = self._tb_button("help", self.L("Справка", "Help"), self._show_help)
 
@@ -243,6 +392,7 @@ class MacroWindow(QWidget):
         outer.setHandleWidth(1)
 
         self.editor = CodeEditor(self.c)
+        self.editor.save_requested.connect(self._save_script_here)
         ed_wrap = self._titled(self.L("Скрипт", "Script"), self.editor)
         outer.addWidget(ed_wrap)
 
@@ -545,9 +695,18 @@ class MacroWindow(QWidget):
             # runs. Code the operator typed here does not.
             self._foreign_source = path
             self._foreign_code = self.editor.toPlainText()
+            self._script_path = path
         except OSError as e:
             themed_info(self, self.settings.get("theme", "Dark"), "error",
                         self.L("Ошибка", "Error"), str(e))
+
+    def _save_script_here(self):
+        """Ctrl+S in the editor: into the file the script came from (or was
+        last saved to); asks only the first time."""
+        path = getattr(self, "_script_path", "")
+        if path and os.path.isdir(os.path.dirname(path)):
+            return self._write_script(path)
+        self._save_script()
 
     def _save_script(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -555,6 +714,10 @@ class MacroWindow(QWidget):
             os.path.join(self.macros_dir(), "macro.py"), "Python (*.py)")
         if not path:
             return
+        self._write_script(path)
+
+    def _write_script(self, path: str):
+        self._script_path = path
         try:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(self.editor.toPlainText())
