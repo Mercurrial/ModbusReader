@@ -56,6 +56,23 @@ def _license_path() -> str:
 from gui import icons
 
 
+class _FontFaceCombo(QComboBox):
+    """The font picker: each family shown in its own face — but only while
+    the list is open. With the faces set on the closed list, every restyle
+    re-measured all of them: about 0.9 s for each accent or scheme click in
+    the live preview."""
+
+    def showPopup(self):
+        for i in range(self.count()):
+            self.setItemData(i, QFont(self.itemText(i)), Qt.ItemDataRole.FontRole)
+        super().showPopup()
+
+    def hidePopup(self):
+        super().hidePopup()
+        for i in range(self.count()):
+            self.setItemData(i, None, Qt.ItemDataRole.FontRole)
+
+
 class SettingsDialog(QDialog):
     # Emitted while the user is still deciding, so the whole window shows
     # the appearance instead of a swatch in a settings row. The receiver
@@ -418,7 +435,7 @@ class SettingsDialog(QDialog):
             v.setSpacing(8)
             row = QHBoxLayout()
             row.setSpacing(8)
-            cb = QComboBox()
+            cb = _FontFaceCombo()
             cb.setObjectName("stInput")
             cb.setFixedWidth(fld.width)
             # Symbol families (Wingdings, the Segoe icon fonts…) are excluded:
@@ -436,18 +453,6 @@ class SettingsDialog(QDialog):
             comp.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
             comp.setFilterMode(Qt.MatchFlag.MatchContains)
             comp.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-
-            def _assign_fonts(start=0, _cb=cb):
-                # The dialog may be closed (and the combo deleted) between
-                # chunks — the deferred timer outlives the widget, so every
-                # hop goes through the guarded qt_utils.later.
-                end = min(start + 60, _cb.count())
-                for i in range(start, end):
-                    _cb.setItemData(i, QFont(_cb.itemText(i)),
-                                    Qt.ItemDataRole.FontRole)
-                if end < _cb.count():
-                    later(0, _cb, _assign_fonts, end)
-            later(0, cb, _assign_fonts)
 
             # One click back to a known-good face, from a control that is still
             # readable whatever the current font does.

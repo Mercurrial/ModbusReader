@@ -316,13 +316,14 @@ def test_title_bars_follow_the_theme(monkeypatch):
     frameless.setWindowFlags(Qt.WindowType.FramelessWindowHint)
     framed.show(); frameless.show()
     QApplication.processEvents()
+    styler._on_focus_window(framed.windowHandle())      # it became active
+    styler._on_focus_window(frameless.windowHandle())
     assert framed in [w for w, _ in styled] and frameless not in [w for w, _ in styled]
     styled.clear()
     styler.restyle_all({"bg_1": "#f6f4f2", "text_1": "#000000"})
-    assert (framed, "#f6f4f2") in styled
+    assert (framed, "#f6f4f2") in styled and frameless not in [w for w, _ in styled]
     framed.close(); frameless.close()
-    QApplication.instance().removeEventFilter(styler._filter)
-
+    QApplication.instance().focusWindowChanged.disconnect(styler._on_focus_window)
 
 def test_a_dragged_chart_lifts_whole_and_neighbours_glide():
     """The plot stayed dark inside a lifted card and covered its border;

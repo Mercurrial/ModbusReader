@@ -169,24 +169,21 @@ def _framed_window(w) -> bool:
 class TitleBarStyler:
     """Every window with a Windows frame — the main window, the map editor,
     a popped-out chart — gets its title bar in the theme's colours when it
-    is shown, and again on a theme change (``restyle_all``)."""
+    becomes the active window, and again on a theme change
+    (``restyle_all``). (An app-wide event filter caught each Show too, but
+    ran Python for every event — ~40 000 calls a restyle.)"""
 
     def __init__(self, app, tokens_fn):
-        from PyQt6.QtCore import QObject, QEvent
-        from PyQt6.QtWidgets import QWidget
-
-        styler = self
-
-        class _Filter(QObject):
-            def eventFilter(self, obj, e):
-                if (e.type() == QEvent.Type.Show and isinstance(obj, QWidget)
-                        and _framed_window(obj)):
-                    style_title_bar(obj, styler.tokens_fn())
-                return False
-
         self.tokens_fn = tokens_fn
-        self._filter = _Filter(app)
-        app.installEventFilter(self._filter)
+        app.focusWindowChanged.connect(self._on_focus_window)
+
+    def _on_focus_window(self, window):
+        from PyQt6.QtWidgets import QApplication
+        if window is None:
+            return
+        for w in QApplication.topLevelWidgets():
+            if w.windowHandle() is window and _framed_window(w):
+                style_title_bar(w, self.tokens_fn())
 
     def restyle_all(self, tokens: dict | None = None):
         from PyQt6.QtWidgets import QApplication
