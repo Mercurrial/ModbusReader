@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QStatusBar, QLabel, QFrame, QWidget, QGridLayout, QVBoxLayout,
     QHBoxLayout, QLineEdit, QSizePolicy, QPushButton,
 )
-from PyQt6.QtCore import Qt, QEvent, QSize, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QEvent, QSize, QPoint, QRect, pyqtSignal
 from PyQt6.QtGui import QPainter, QColor
 
 from gui import icons
@@ -140,6 +140,51 @@ class LineStatsPopup(QFrame):
         self.show()
 
 
+class UpdateChip(QPushButton):
+    """Bottom right, left of TX: what the updater is doing, the way PyCharm
+    shows it — a line of text and a thin progress bar while a new version
+    downloads and installs, then «Обновить до …». Hidden when there is
+    nothing to say; it never takes the screen (gui/update.py).
+
+    States (the ``state`` property, for the QSS): "busy" — progress, "ready"
+    — installed, waiting for a restart, "offer" — found, one click to see it.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("sbUpdate")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setIconSize(QSize(12, 12))
+        self._frac = None
+        self._bar, self._track = QColor("#4c8dff"), QColor("#30343a")
+        self.state = ""
+        self.hide()
+
+    def set_colors(self, bar: str, track: str):
+        self._bar, self._track = QColor(bar), QColor(track)
+        self.update()
+
+    def show_state(self, state: str, text: str = "", tip: str = "", frac=None):
+        self.state = state
+        self._frac = None if frac is None else max(0.0, min(1.0, float(frac)))
+        self.setText(f"  {text}" if text else "")
+        self.setToolTip(tip)
+        set_state(self, state)
+        self.setVisible(bool(state))
+        self.update()
+
+    def paintEvent(self, e):
+        super().paintEvent(e)
+        if self._frac is None:
+            return
+        p = QPainter(self)
+        r = self.rect().adjusted(10, 0, -10, 0)
+        y = r.bottom() - 2
+        p.fillRect(QRect(r.left(), y, r.width(), 2), self._track)
+        p.fillRect(QRect(r.left(), y, int(r.width() * self._frac), 2), self._bar)
+
+
 class _ConnectionDot(QWidget):
     """6 px circle: theme "ok" green while connected, a muted grey otherwise.
 
@@ -270,6 +315,7 @@ class MainStatusBar(QStatusBar):
 
     slave_id_changed  = pyqtSignal(int)
     log_toggle_clicked = pyqtSignal()   # the "Журнал ▴/▾" chip
+    update_clicked = pyqtSignal()       # the update chip (gui/update.py)
 
     _connected = False
     _conn_label = ""
@@ -322,7 +368,13 @@ class MainStatusBar(QStatusBar):
         self.lbl_params = self._lbl("")
         self.lbl_params.setVisible(False)
 
-        # Right side (permanent): what the line is doing — requests sent,
+        # Right side (permanent). First — left of TX — the updater, when it
+        # has something to say.
+        self.update_chip = UpdateChip()
+        self.update_chip.clicked.connect(self.update_clicked.emit)
+        self.addPermanentWidget(self.update_chip)
+
+        # What the line is doing — requests sent,
         # answers received, failed exchanges, average response time. Click
         # for the breakdown (timeouts / CRC / exceptions, min/max time).
         self.stats_chip = LineStatsChip()
@@ -399,6 +451,23 @@ class MainStatusBar(QStatusBar):
     def apply_theme(self, tokens: dict):
         self._conn_dot.set_colors(tokens.get("ok", "#42c070"),
                                   tokens.get("text_4", "#868d97"))
+        self.update_chip.set_colors(tokens.get("accent", "#4c8dff"),
+                                    tokens.get("line", "#30343a"))
+        self._update_icon_color = tokens.get("accent", "#4c8dff")
+        self._render_update_icon()
+
+    # ── updates ────────────────────────────────────────────────────
+    def set_update(self, state: str, text: str = "", tip: str = "", frac=None):
+        """What the updater shows; state "" hides the chip."""
+        self.update_chip.show_state(state, text, tip, frac)
+        self._render_update_icon()
+
+    def _render_update_icon(self):
+        chip = self.update_chip
+        col = getattr(self, "_update_icon_color", "#4c8dff")
+        chip.setIcon(icons.icon("download", col, 12) if chip.state in ("ready", "offer")
+                     else icons.icon("refresh", col, 12) if chip.state == "busy"
+                     else icons.icon("download", col, 12))
 
     def set_slave_id(self, value: int):
         self._slave_ed.set_value(value)

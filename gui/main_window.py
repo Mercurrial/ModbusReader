@@ -126,7 +126,7 @@ class ModernScadaApp(QMainWindow):
             later(500, self, self._maybe_show_onboarding)
 
         # Updates: a quiet check right after start-up, then every few
-        # hours; one question when there is something new (gui/update.py).
+        # hours; what it finds shows in the status bar (gui/update.py).
         self._closing_for_update = False
         self.update_ctl = UpdateController(self)
         self.update_ctl.start()

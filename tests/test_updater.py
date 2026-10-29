@@ -420,13 +420,14 @@ def test_the_first_check_comes_right_after_start_up():
     assert gui_update.FIRST_CHECK_MS <= 2000
 
 
-def test_an_automatic_offer_waits_for_the_first_launch_guide(win, monkeypatch):
-    """A fresh install checks at once — while the first-launch guide is
-    still up. The offer waits for it instead of stacking on top of it."""
+def test_an_automatic_check_never_opens_a_card(win, monkeypatch):
+    """What an automatic check finds goes to the status bar, left of TX —
+    the card opens on a click there, never by itself (a fresh install
+    checks at once, over the first-launch guide; the user, 2026-10-29:
+    «не на экране, а внизу справа, рядом с TX»)."""
     from gui import update as gui_update
     rel = _rel()
     monkeypatch.setattr(updater, "fetch_latest", lambda **kw: rel)
-    monkeypatch.setattr(gui_update, "OFFER_RETRY_MS", 20)
     shown = []
 
     def fake_exec(dlg):
@@ -435,16 +436,13 @@ def test_an_automatic_offer_waits_for_the_first_launch_guide(win, monkeypatch):
         return 0
     monkeypatch.setattr(gui_update.UpdateDialog, "exec", fake_exec)
     win.settings["update_auto"] = True
-    win._guide = object()                      # the guide is open
     win.update_ctl.check(manual=False)
-    assert _wait(lambda: win.update_ctl._pending is not None)
-    for _ in range(10):                        # several retries: still waiting
-        QApplication.processEvents()
-        time.sleep(0.03)
-    assert shown == [] and win.update_ctl.busy
-    win._guide = None                          # closed
-    assert _wait(lambda: shown)
-    assert win.update_ctl._pending is None and not win.update_ctl.busy
+    chip = win.status_bar.update_chip
+    assert _wait(lambda: chip.state == "offer")
+    assert shown == [] and not win.update_ctl.busy
+    assert rel.version in chip.text()
+    chip.click()
+    assert len(shown) == 1
 
 
 def test_manual_check_answers_when_there_is_nothing_new(win, monkeypatch):

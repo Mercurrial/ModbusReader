@@ -365,13 +365,27 @@ QLabel#statsVal[state="error"] {{
 QLabel#statsVal[state="warn"] {{
     color: {c["warn"]};
 }}
-/* The rail's «Обновить до …»: the one rail entry in the "ok" colour. */
-QPushButton#railBtn[attention="true"] {{
-    color: {c["ok"]};
+/* The updater, left of TX (gui/statusbar.py UpdateChip): quiet while it
+   works, in the accent once there is something to click. */
+QPushButton#sbUpdate {{
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 1px 10px 3px 10px;
+    color: {c["text_2"]};
+    font-size: {fs_small};
+    min-height: 18px;
+}}
+QPushButton#sbUpdate:hover {{
+    background: {c["bg_3"]};
+    color: {c["text_1"]};
+}}
+QPushButton#sbUpdate[state="ready"], QPushButton#sbUpdate[state="offer"] {{
+    color: {c["accent"]};
     font-weight: 600;
 }}
-QPushButton#railBtn[attention="true"]:hover {{
-    background: {c["ok_tint"]};
+QPushButton#sbUpdate[state="ready"]:hover, QPushButton#sbUpdate[state="offer"]:hover {{
+    background: {c["accent_soft"]};
 }}
 /* ─── CONNECTION CARD (gui/connection.py) ────────────────────────── */
 /* The popover under the header's link chip. bg_1, not bg_2: its inputs

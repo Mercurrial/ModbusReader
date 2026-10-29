@@ -162,8 +162,6 @@ def win(tmp_path, monkeypatch):
     from gui import main_window as gui_main
     monkeypatch.setattr(settings_manager, "SETTINGS_FILE", str(tmp_path / "settings.json"),
                         raising=False)
-    # Not a first launch: the welcome guide would hold the «ready» offer
-    # back until it closes (_user_occupied) — right for a user, not here.
     base = dict(settings_manager.DEFAULT_SETTINGS, guide_seen_main=True)
     monkeypatch.setattr(gui_main, "load_settings", lambda: dict(base))
     w = gui_main.ModernScadaApp()
@@ -188,18 +186,30 @@ def _side(ctl, tmp_path, monkeypatch, exit_code=0, all_users=False):
     return root
 
 
-def test_a_background_update_ends_with_the_rail_button(win, tmp_path, monkeypatch):
+def _chip_states(win, monkeypatch):
+    """Every state the status bar's update chip is put in."""
+    seen = []
+    sb = win.status_bar
+    real = sb.set_update
+    monkeypatch.setattr(sb, "set_update", lambda state, text="", tip="", frac=None: (
+        seen.append((state, text, frac)), real(state, text, tip, frac)))
+    return seen
+
+
+def test_a_background_update_ends_in_the_status_bar_not_a_card(win, tmp_path, monkeypatch):
     ctl = win.update_ctl
     _side(ctl, tmp_path, monkeypatch)
-    offered = []
-    monkeypatch.setattr(ctl, "offer", lambda rel, mode="offer", path="": offered.append(mode))
+    monkeypatch.setattr(ctl, "offer", lambda *a, **k: pytest.fail("no card"))
+    seen = _chip_states(win, monkeypatch)
     rel = updater.Release("26.99.1", "notes", "https://github.com/x")
     ctl._background(rel)
     assert _wait(lambda: ctl._ready is not None, 15)
-    assert offered == ["ready"]
-    rail = win.nav_rail
-    assert rail.btn_update.isVisibleTo(rail)
-    assert "26.99.1" in rail.btn_update.text()
+    busy = [s for s in seen if s[0] == "busy"]
+    assert busy and all(s[2] is not None and "26.99.1" in s[1] for s in busy)
+    assert any(win.t("updChipInstalling").format(ver="26.99.1") in s[1] for s in busy)
+    chip = win.status_bar.update_chip
+    assert chip.isVisibleTo(win.status_bar) and chip.state == "ready"
+    assert "26.99.1" in chip.text()
     assert not ctl.busy
 
 
@@ -211,7 +221,7 @@ def test_a_failed_background_install_says_so(win, tmp_path, monkeypatch):
     assert _wait(lambda: ctl._runner is None and ctl._bg is None, 15)
     _pump(0.3)
     assert ctl._ready is None and "5" in ctl.status_text
-    assert not win.nav_rail.btn_update.isVisibleTo(win.nav_rail)
+    assert not win.status_bar.update_chip.isVisibleTo(win.status_bar)
 
 
 def test_all_users_asks_once_before_installing(win, tmp_path, monkeypatch):
@@ -221,9 +231,12 @@ def test_all_users_asks_once_before_installing(win, tmp_path, monkeypatch):
     monkeypatch.setattr(ctl, "offer",
                         lambda rel, mode="offer", path="": offered.append((mode, path)))
     ctl._background(updater.Release("26.99.1", "", ""))
-    assert _wait(lambda: offered, 10)
+    chip = win.status_bar.update_chip
+    assert _wait(lambda: chip.state == "offer", 10)
+    assert offered == [] and ctl._runner is None      # nothing ran without asking
+    assert win.t("updChipInstall").format(ver="26.99.1") in chip.text()
+    chip.click()                                      # the question comes on a click
     assert offered[0][0] == "install" and offered[0][1].endswith("Setup.exe")
-    assert ctl._runner is None                        # nothing ran without asking
 
 
 def test_an_already_installed_version_is_not_installed_again(win, tmp_path, monkeypatch):
@@ -268,11 +281,19 @@ def test_the_card_installs_and_turns_into_restart(win, tmp_path, monkeypatch):
     assert dlg.outcome == "restart"
 
 
-def test_the_ready_card_from_the_rail(win, tmp_path, monkeypatch):
+def test_the_ready_chip_offers_restart_or_whats_new(win, tmp_path, monkeypatch):
+    from PyQt6.QtWidgets import QMenu
     ctl = win.update_ctl
     _side(ctl, tmp_path, monkeypatch)
     ctl._set_ready(updater.Release("26.99.1", "", ""))
-    shown = []
+    shown, restarted, pick = [], [], []
     monkeypatch.setattr(ctl, "offer", lambda rel, mode="offer", path="": shown.append(mode))
-    win.nav_rail.btn_update.click()
-    assert shown == ["ready"]
+    monkeypatch.setattr(ctl, "restart", lambda: restarted.append(1))
+    monkeypatch.setattr(QMenu, "exec", lambda m, *a: m.actions()[pick[-1]])
+    chip = win.status_bar.update_chip
+    pick.append(1)
+    chip.click()                                      # «Что нового…»
+    assert shown == ["ready"] and restarted == []
+    pick.append(0)
+    chip.click()                                      # «Перезапустить сейчас»
+    assert restarted == [1]

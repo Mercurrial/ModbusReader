@@ -19,11 +19,15 @@ UpdateDialog
     Перезапустить»: the restart takes as long as a start. A portable copy
     (or one installed the old way) hands over to quit_for_update() as before.
 
-Automatic updates of an installed copy work like Telegram's: the check finds
-a version, it is downloaded and installed in the background (for all users
-only after one question, since Windows will ask for permission), and the
-rail shows «Обновить до …». Nothing changes until the restart — or the next
-start, when the launcher picks the newest folder.
+Automatic updates never take the screen: like PyCharm's, they live in the
+status bar, left of TX (gui/statusbar.py UpdateChip). An installed copy
+downloads and installs the version in the background — the chip shows the
+progress — and then reads «Обновить до …»; a click offers the restart.
+Where a step needs the user (Windows will ask for permission for an
+all-users copy; a portable copy is replaced by hand-over) the chip says
+what was found and the card opens only on its click. Nothing changes until
+the restart — or the next start, when the launcher picks the newest folder.
+A check asked for in Settings answers at once, in a card, as before.
 """
 import os
 import sys
@@ -50,7 +54,6 @@ CHECK_EVERY_MS = 6 * 3600 * 1000      # a window left open for days still hears
 # months, so the first thing a fresh install does is bring itself up to date.
 # The short pause lets the window paint and the demo open first.
 FIRST_CHECK_MS = 1500
-OFFER_RETRY_MS = 2000                 # an automatic offer waits for a free moment
 
 
 def error_text(t, err: updater.UpdateError) -> str:
@@ -91,11 +94,17 @@ def _check_worker(kind: str, exe_name: str, result: _CheckResult):
 
 class _BackgroundResult(QObject):
     done = pyqtSignal(object, str, object)     # Release, path | "", UpdateError | None
+    progress = pyqtSignal(int, int)            # bytes done, total
 
 
 def _download_worker(rel, result: _BackgroundResult):
+    def progress(done, total):
+        try:
+            result.progress.emit(int(done), int(total))
+        except RuntimeError:
+            pass
     try:
-        path, err = updater.download(rel), None
+        path, err = updater.download(rel, progress=progress), None
     except updater.UpdateError as e:
         path, err = "", e
     except Exception as e:                     # never let it kill the app
@@ -569,7 +578,7 @@ class UpdateController(QObject):
         self.kind = updater.install_kind()
         self._checker = None
         self._offering = False
-        self._pending = None          # (rel, mode, path) waiting for a free moment
+        self._found = None            # (rel, mode, path) the chip offers
         self._status = ""
         # An installed copy with a folder per version (since 26.10.3):
         # updates go in beside it while it works.
@@ -579,9 +588,10 @@ class UpdateController(QObject):
         self._bg = None               # the background download in flight
         self._runner = None           # the background installer in flight
         self._ready = None            # Release installed and waiting for a restart
-        rail = getattr(win, "nav_rail", None)
-        if rail is not None and hasattr(rail, "update_clicked"):
-            rail.update_clicked.connect(self.show_ready)
+        self._chip_pct = -1
+        sb = getattr(win, "status_bar", None)
+        if sb is not None and hasattr(sb, "update_clicked"):
+            sb.update_clicked.connect(self._chip_clicked)
         self._timer = QTimer(self)
         self._timer.setInterval(CHECK_EVERY_MS)
         self._timer.timeout.connect(lambda: self.check(manual=False))
@@ -611,14 +621,53 @@ class UpdateController(QObject):
     @property
     def busy(self) -> bool:
         return (self._checker is not None or self._offering
-                or self._pending is not None or self._bg is not None
+                or self._bg is not None
                 or (self._runner is not None and self._runner.running))
 
-    def _user_occupied(self) -> bool:
-        """The first-launch guide or another modal dialog is up: an automatic
-        offer does not pile a second window on top — it waits."""
-        return (getattr(self.win, "_guide", None) is not None
-                or QApplication.activeModalWidget() is not None)
+    # ── the chip in the status bar ────────────────────────────────
+    def _chip(self, state: str = "", text: str = "", tip: str = "", frac=None):
+        sb = getattr(self.win, "status_bar", None)
+        if sb is not None and hasattr(sb, "set_update"):
+            sb.set_update(state, text, tip, frac)
+
+    def _chip_progress(self, key: str, rel, frac: float):
+        pct = int(frac * 100)
+        if pct == self._chip_pct:
+            return                      # one repaint per percent, not per chunk
+        self._chip_pct = pct
+        self._chip("busy", f"{self.t(key).format(ver=rel.version)} · {pct}%",
+                   self.t("updChipBusyTip"), frac)
+
+    def _chip_found(self, rel, mode: str, path: str = ""):
+        """Found, and the next step needs the user: say so, quietly."""
+        self._found = (rel, mode, path)
+        key = "updChipInstall" if mode == "install" else "updChipAvailable"
+        self._chip("offer", self.t(key).format(ver=rel.version),
+                   self.t("updChipOfferTip"))
+
+    def _chip_clicked(self):
+        if self._ready is not None:
+            return self._ready_menu()
+        if self._found is not None:
+            rel, mode, path = self._found
+            self.offer(rel, mode=mode, path=path)
+
+    def _ready_menu(self):
+        """«Обновить до …» clicked: restart now, or read what is new first."""
+        from PyQt6.QtWidgets import QMenu
+        from PyQt6.QtCore import QPoint
+        chip = self.win.status_bar.update_chip
+        m = QMenu(chip)
+        act_now = m.addAction(self.t("updRestartNow"))
+        act_new = m.addAction(self.t("updWhatsNewMenu"))
+        m.adjustSize()
+        at = chip.mapToGlobal(QPoint(chip.width() - m.sizeHint().width(),
+                                     -m.sizeHint().height() - 4))
+        chosen = m.exec(at)
+        if chosen is act_now:
+            self.restart()
+        elif chosen is act_new:
+            self.show_ready()
 
     # ── lifecycle ─────────────────────────────────────────────────
     def start(self):
@@ -648,7 +697,6 @@ class UpdateController(QObject):
 
     def shutdown(self):
         self._timer.stop()
-        self._pending = None
         bg, self._bg = self._bg, None
         if bg is not None:
             try:
@@ -703,25 +751,10 @@ class UpdateController(QObject):
         if not manual and self.side is not None:
             self._background(rel)
             return
-        self._offer_when_free(rel, "offer", "", manual)
-
-    def _offer_when_free(self, rel, mode: str, path: str, now: bool = False):
-        if not now and self._user_occupied():
-            self._pending = (rel, mode, path)
-            later(OFFER_RETRY_MS, self.win, self._offer_pending)
-            return
-        self.offer(rel, mode=mode, path=path)
-
-    def _offer_pending(self):
-        pending = self._pending
-        if pending is None:
-            return
-        if self._user_occupied():
-            later(OFFER_RETRY_MS, self.win, self._offer_pending)
-            return
-        self._pending = None
-        rel, mode, path = pending
-        self.offer(rel, mode=mode, path=path)
+        if manual:
+            self.offer(rel, mode="offer")
+        else:
+            self._chip_found(rel, "offer")
 
     # ── background: download → install beside → «restart» ────────
     def _background(self, rel):
@@ -731,46 +764,55 @@ class UpdateController(QObject):
             return
         result = _BackgroundResult()          # parentless: see _download_worker
         result.done.connect(self._background_downloaded)
+        result.progress.connect(lambda done, total, r=rel: self._chip_progress(
+            "updChipDownloading", r, done / total if total > 0 else 0.0))
         self._bg = result
+        self._chip_pct = -1
+        self._chip_progress("updChipDownloading", rel, 0.0)
         threading.Thread(target=_download_worker, args=(rel, result),
                          name="update-download", daemon=True).start()
 
     def _background_downloaded(self, rel, path: str, err):
         self._bg = None
         if err is not None:
+            self._chip()
             self._set_status(self.t("updStatusError"))
             return
         if self.side["all_users"]:
-            # Windows will ask for permission: one question first, not a
-            # prompt out of nowhere in the middle of work.
-            self._offer_when_free(rel, "install", path)
+            # Windows will ask for permission: not a prompt out of nowhere in
+            # the middle of work — the chip says it is ready to install.
+            self._chip_found(rel, "install", path)
             return
         runner = _InstallRunner(path, False, self)
         runner.done.connect(lambda code, r=rel: self._background_installed(r, code))
+        runner.progress.connect(lambda frac, r=rel: self._chip_progress(
+            "updChipInstalling", r, frac))
         self._runner = runner
+        self._chip_pct = -1
+        self._chip_progress("updChipInstalling", rel, 0.0)
         err_text = runner.start()
         if err_text:
             self._runner = None
+            self._chip()
             self._set_status(self.t("updStatusError"))
 
     def _background_installed(self, rel, code: int):
         self._runner = None
         if code != 0:
+            self._chip()
             self._set_status(self.t("updInstallFailed").format(code=code))
             return
         self._set_ready(rel)
-        self._offer_when_free(rel, "ready", "")
 
     def _set_ready(self, rel):
         self._ready = rel
+        self._found = None
         self._set_status(self.t("updReadyTitle").format(ver=rel.version))
-        rail = getattr(self.win, "nav_rail", None)
-        if rail is not None and hasattr(rail, "set_update"):
-            rail.set_update(self.t("updRailReady").format(ver=rel.version),
-                            self.t("updRailTip"))
+        self._chip("ready", self.t("updRailReady").format(ver=rel.version),
+                   self.t("updRailTip"))
 
     def show_ready(self):
-        """The rail's «Обновить до …»."""
+        """The ready card: what is new, «Перезапустить» / «Позже»."""
         if self._ready is not None and not self._offering:
             self.offer(self._ready, mode="ready")
 
@@ -791,6 +833,9 @@ class UpdateController(QObject):
             self._offering = False
         if dlg.installed:
             self._set_ready(rel)
+        elif dlg.outcome == "skip" and self._found is not None:
+            self._found = None
+            self._chip()
         if dlg.outcome == "restart":
             self.restart()
         elif dlg.outcome == "skip":
