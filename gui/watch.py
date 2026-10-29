@@ -172,6 +172,7 @@ class WatchWindow(QWidget):
 
     write_requested = pyqtSignal(int, str)
     watch_changed = pyqtSignal(object)
+    visibility_changed = pyqtSignal(bool)      # the rail lights its entry
 
     def __init__(self, ctx, get_registers, parent=None):
         super().__init__(parent, Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
@@ -565,3 +566,8 @@ class WatchWindow(QWidget):
     def hideEvent(self, e):
         self.save_geometry()
         super().hideEvent(e)
+        self.visibility_changed.emit(False)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self.visibility_changed.emit(True)

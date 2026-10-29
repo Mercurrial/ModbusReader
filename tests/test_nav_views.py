@@ -362,3 +362,23 @@ def test_macro_results_get_a_dated_name(win, monkeypatch, tmp_path):
         assert os.path.dirname(path) == str(tmp_path)
         assert re.fullmatch(r"result_\d{4}-\d\d-\d\d_\d\d-\d\d-\d\d\." + ext,
                             os.path.basename(path))
+
+
+def test_the_watch_window_is_in_the_rail_among_the_tools(win):
+    """It was a small icon in the header nobody found; now it sits between
+    the console and the scanner and is lit while its window is open."""
+    from app import commands
+    rail = win.nav_rail
+    order = [c.cmd_id for c in commands.VIEWS]
+    assert order.index("watch") == order.index("view_console") + 1
+    assert order.index("view_scanner") == order.index("watch") + 1
+    assert not hasattr(win.main_toolbar, "btn_watch")
+    win._dispatch_command("watch")
+    _pump()
+    assert win.watch_window.isVisible()
+    assert rail._view_btns["watch"].property("active") == "true"
+    assert rail._view_btns["view_table"].property("active") == "true"   # the page stays
+    win._dispatch_command("watch")
+    _pump()
+    assert not win.watch_window.isVisible()
+    assert rail._view_btns["watch"].property("active") == "false"

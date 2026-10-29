@@ -357,6 +357,8 @@ class ModernScadaApp(QMainWindow):
         # The watch window floats above the main window (built hidden, so
         # the picked registers keep their min/max even while it is closed).
         self.watch_window = WatchWindow(self.ctx, lambda: self.profile_data, self)
+        self.watch_window.visibility_changed.connect(
+            lambda on: self.nav_rail.set_window_open("watch", on))
         self.watch_window.write_requested.connect(self.register_table.request_write)
         self.watch_window.watch_changed.connect(self.register_table.set_watched)
         self.register_table.set_watched(self.watch_window.watched())

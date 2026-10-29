@@ -281,12 +281,24 @@ class NavRail(QWidget):
         """Highlight the page on screen (the map editor belongs to the map
         page)."""
         self._active = HOME if cmd_id == "view_map" else cmd_id
+        windows = getattr(self, "_window_open", {})
         for cid, btn in self._cmd_btns.items():
-            on = cid == self._active
+            on = cid == self._active or windows.get(cid, False)
             btn.setProperty("active", "true" if on else "false")
             self._repolish(btn)
         if self.horizontal and self._compact:
             self._apply_labels()          # the label follows the page on screen
+        self._paint_icons()
+
+    def set_window_open(self, cmd_id: str, is_open: bool):
+        """A rail entry that opens a window (the watch window) is lit while
+        that window is on screen — it is never "the page"."""
+        btn = self._view_btns.get(cmd_id)
+        if btn is None:
+            return
+        btn.setProperty("active", "true" if is_open else "false")
+        self._repolish(btn)
+        self._window_open = dict(getattr(self, "_window_open", {}), **{cmd_id: is_open})
         self._paint_icons()
 
     def set_busy(self, busy: dict):
@@ -516,8 +528,10 @@ class NavRail(QWidget):
 
     def _paint_icons(self):
         c = self._c
+        windows = getattr(self, "_window_open", {})
         for cid, btn in self._cmd_btns.items():
-            col = c["accent"] if cid == self._active else c["text_3"]
+            lit = cid == self._active or windows.get(cid, False)
+            col = c["accent"] if lit else c["text_3"]
             btn.setIcon(icons.icon(commands.BY_ID[cid].icon, col, 16))
         self.btn_collapse.setIcon(icons.icon("sidebar", c["text_4"], 16))
 

@@ -43,6 +43,9 @@ class Command:
     place     where it appears:
                 "view"   — a page in the left navigation rail (gui/rail.py);
                            gets the [active="true"] highlight while shown.
+                           ``window=True``: the entry opens a floating
+                           window instead (the watch window), lit while it
+                           is open.
                 "rail"   — a rail entry pinned to the rail's bottom (help) —
                            the app's own housekeeping, not a page.
                 "button" — action button in the header bar (connect, watch);
@@ -67,6 +70,7 @@ class Command:
     place: str = "button"
     register: bool = True
     group: str = ""
+    window: bool = False
 
 
 # ── the registry (top-bar order == declaration order for place=="button") ──
@@ -99,6 +103,10 @@ COMMANDS: tuple = (
             place="view", group="monitor"),
     Command("view_console", "viewConsole", icon="terminal", shortcut="Ctrl+3",
             place="view", group="tools"),
+    # Not a page: the floating watch window. It sat as a small icon in the
+    # header, where nobody found it; it is used as much as any tool.
+    Command("watch",        "watchTitle",  icon="watch",    shortcut="F6",
+            place="view", group="tools", window=True),
     Command("view_scanner", "viewScanner", icon="radar",    shortcut="Ctrl+4",
             place="view", group="tools"),
     Command("view_sniffer", "viewSniffer", icon="eye",      shortcut="Ctrl+5",
@@ -119,7 +127,6 @@ COMMANDS: tuple = (
             place="rail"),
 
     # Header-bar actions — rendered right-to-left of the connection chip.
-    Command("watch",    "watchTitle", icon="watch",  shortcut="F6"),
     Command("connect",  "connect",  icon="plug",     shortcut="F5"),
 
     # Right cluster — icon-only, behavior handled inside the toolbar.
