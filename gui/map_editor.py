@@ -96,6 +96,11 @@ COL_GRIP, COL_ADDR, COL_AREA, COL_RU, COL_EN, COL_TYPE, COL_LEN, COL_ACC, \
     COL_UNIT, COL_DEF, COL_COMMENT = range(11)
 
 
+
+def _with_keys(text: str, keys: str) -> str:
+    """A menu item's text with its shortcut in the menu's right-hand column."""
+    return f"{text}\t{keys}"
+
 class ReorderableTable(QTableWidget):
     """Live WYSIWYG row reordering — grab a row anywhere and drag it.
 
@@ -1516,13 +1521,13 @@ class ProfileEditorDialog(QDialog):
 
         act_scale = menu.addAction(self.t("engUnits"))
         menu.addSeparator()
-        act_dup = menu.addAction(self.t("duplicate") + "\tCtrl+D")
-        act_up = menu.addAction(self.t("rowUp") + "\tAlt+↑")
+        act_dup = menu.addAction(_with_keys(self.t("duplicate"), "Ctrl+D"))
+        act_up = menu.addAction(_with_keys(self.t("rowUp"), "Alt+↑"))
         act_up.setEnabled(row > 0)
-        act_down = menu.addAction(self.t("rowDown") + "\tAlt+↓")
+        act_down = menu.addAction(_with_keys(self.t("rowDown"), "Alt+↓"))
         act_down.setEnabled(row < len(self.profile_data) - 1)
         menu.addSeparator()
-        act_del = menu.addAction(self.t("deleteRow") + "\tDel")
+        act_del = menu.addAction(_with_keys(self.t("deleteRow"), "Del"))
 
         action = menu.exec(self.table.viewport().mapToGlobal(pos))
         if action == act_scale:
