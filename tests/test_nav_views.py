@@ -342,3 +342,22 @@ def test_session_state_restored(win):
     assert set(win.trends_manager.active_trends) == {"0x0001"}   # dead one skipped
     assert win.trends_manager.active_trends["0x0001"].window_seconds == 120
     assert win.content_stack.currentWidget() is win.console_view
+
+
+def test_macro_results_get_a_dated_name(win, monkeypatch, tmp_path):
+    """«results.xlsx» every time asked to overwrite the last export."""
+    from PyQt6.QtWidgets import QFileDialog
+    mw = win.macro_window
+    monkeypatch.setattr(mw, "results_dir", lambda: str(tmp_path))
+    mw._records = [{"t": 1}]
+    mw._columns = ["t"]
+    offered = []
+    monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                        lambda *a, **k: (offered.append(a[2]), ("", ""))[1])
+    mw._export_csv()
+    mw._export_xlsx()
+    import os, re
+    for path, ext in zip(offered, ("csv", "xlsx")):
+        assert os.path.dirname(path) == str(tmp_path)
+        assert re.fullmatch(r"result_\d{4}-\d\d-\d\d_\d\d-\d\d-\d\d\." + ext,
+                            os.path.basename(path))

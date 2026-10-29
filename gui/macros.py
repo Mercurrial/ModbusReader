@@ -9,6 +9,7 @@ arrive here via signals and accumulate in the table for CSV / XLSX export.
 """
 
 import csv
+import os
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QPlainTextEdit,
@@ -448,12 +449,26 @@ class MacroWindow(QWidget):
         self._records.clear()
         self.lbl_rows.setText("0")
 
+    def results_dir(self) -> str:
+        """Where result tables are offered to go (the window points this at
+        the open project's folder)."""
+        from app import projects
+        return projects.projects_dir()
+
+    def _result_path(self, ext: str) -> str:
+        """result_2026-10-29_14-05-31.xlsx — a new name every time, so two
+        exports never ask to overwrite each other."""
+        import datetime
+        stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        return os.path.join(self.results_dir(), f"result_{stamp}.{ext}")
+
     def _export_csv(self):
         if not self._records:
             self._no_data()
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, self.L("Экспорт в CSV", "Export CSV"), "results.csv", "CSV (*.csv)")
+            self, self.L("Экспорт в CSV", "Export CSV"), self._result_path("csv"),
+            "CSV (*.csv)")
         if not path:
             return
         try:
@@ -482,7 +497,8 @@ class MacroWindow(QWidget):
                                "  pip install openpyxl"))
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, self.L("Экспорт в Excel", "Export Excel"), "results.xlsx", "Excel (*.xlsx)")
+            self, self.L("Экспорт в Excel", "Export Excel"), self._result_path("xlsx"),
+            "Excel (*.xlsx)")
         if not path:
             return
         def cell(v):
