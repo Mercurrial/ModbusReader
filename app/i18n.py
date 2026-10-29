@@ -354,7 +354,8 @@ STRINGS = {
         'dashBadgeRun': 'Работа',
         'dashBadgeEdit': 'Редактирование',
         'dashHintEdit': 'Рамкой по пустому месту — выделить несколько · Ctrl+клик — добавить '
-                        'к выделению · Ctrl+C/V — копировать/вставить · стрелки — сдвиг · Del — удалить',
+                        'к выделению · Ctrl+C/V — копировать/вставить · Ctrl+Z/Y — отменить/повторить · '
+                        'стрелки — сдвиг · Enter — изменить · Del — удалить',
         'dashHintRun': 'Рабочий режим: кнопки нажимаются, таймеры идут. Колесо — масштаб, ПКМ — панорама.',
         'dashDeleteWire': 'Удалить связь',
         'dashCopy': 'Копировать',
@@ -1357,7 +1358,8 @@ STRINGS = {
         'dashBadgeRun': 'Running',
         'dashBadgeEdit': 'Editing',
         'dashHintEdit': 'Drag a box on empty canvas to select several · Ctrl+click adds to '
-                        'the selection · Ctrl+C/V copy and paste · arrows nudge · Del deletes',
+                        'the selection · Ctrl+C/V copy and paste · Ctrl+Z/Y undo and redo · '
+                        'arrows nudge · Enter edits · Del deletes',
         'dashHintRun': 'Run mode: buttons work, timers tick. Wheel zooms, right-drag pans.',
         'dashDeleteWire': 'Delete wire',
         'dashCopy': 'Copy',

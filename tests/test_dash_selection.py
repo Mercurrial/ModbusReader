@@ -376,3 +376,94 @@ def test_sel_uid_still_reads_and_writes_like_a_single_selection(view):
     assert view.sel_uid == "a" and view.sel_uids == ("a",)
     view.sel_uid = None
     assert view.sel_uid is None and view.sel_uids == ()
+
+
+# ═══════════════ undo / redo ═══════════════
+def _placed(view, *cards):
+    """Cards on the board as if they had been saved there (the baseline the
+    first undo step goes back to)."""
+    for uid, x in cards:
+        _card(view, uid, x, 100)
+    view._persist()
+    view._forget_history()
+
+
+def test_ctrl_z_brings_back_what_was_deleted_and_ctrl_y_deletes_it_again(view):
+    _placed(view, ("a", 100), ("b", 300))
+    view._select(["a"])
+    _key(view, Qt.Key.Key_Delete)
+    assert set(view.cards) == {"b"}
+    _key(view, Qt.Key.Key_Z, CTRL)
+    assert set(view.cards) == {"a", "b"}
+    assert view.sel_uids == ("a",)             # what the step changed is shown
+    _key(view, Qt.Key.Key_Y, CTRL)
+    assert set(view.cards) == {"b"}
+    _key(view, Qt.Key.Key_Z, CTRL)
+    _key(view, Qt.Key.Key_Z, CTRL | Qt.KeyboardModifier.ShiftModifier)   # redo too
+    assert set(view.cards) == {"b"}
+
+
+def test_held_arrows_are_one_undo_step(view):
+    _placed(view, ("a", 100))
+    view._select(["a"])
+    for _ in range(5):
+        _key(view, Qt.Key.Key_Right)
+    assert view.cards["a"].cfg["x"] > 100
+    _key(view, Qt.Key.Key_Z, CTRL)
+    assert view.cards["a"].cfg["x"] == 100
+    assert view.cards["a"].x() == 100          # on screen, not only in the cfg
+
+
+def test_undo_of_a_paste_takes_the_copies_away_with_their_wires(view):
+    _placed(view, ("a", 100), ("b", 300))
+    view.graph.add("a", "b")
+    view._persist()
+    view._forget_history()
+    view._select(["a", "b"])
+    view.copy_selection()
+    view.paste_clipboard()
+    assert len(view.cards) == 4 and len(view.graph.links) == 2
+    assert view.undo()
+    assert set(view.cards) == {"a", "b"}
+    assert len(view.graph.links) == 1
+    assert view.boards[view.index]["widgets"] == [dict(c.cfg) for c in view.cards.values()]
+
+
+def test_a_new_edit_after_undo_drops_the_redo(view):
+    _placed(view, ("a", 100), ("b", 300))
+    view._select(["a"])
+    _key(view, Qt.Key.Key_Delete)
+    view.undo()
+    view._select(["b"])
+    _key(view, Qt.Key.Key_Delete)
+    assert not view.redo()
+    assert set(view.cards) == {"a"}
+
+
+def test_history_belongs_to_the_board_on_screen(view):
+    _placed(view, ("a", 100))
+    view._select(["a"])
+    _key(view, Qt.Key.Key_Delete)
+    view.add_board("second")
+    assert not view.undo()                      # nothing of «second» to undo
+    view.switch_board(0)
+    assert not view.undo() and view.cards == {}  # nor of the first, any more
+
+
+def test_run_mode_has_no_undo(view):
+    _placed(view, ("a", 100))
+    view._select(["a"])
+    _key(view, Qt.Key.Key_Delete)
+    view.set_edit(False)
+    _key(view, Qt.Key.Key_Z, CTRL)
+    assert view.cards == {}
+
+
+def test_enter_opens_the_selected_widget(view, monkeypatch):
+    _placed(view, ("a", 100))
+    opened = []
+    monkeypatch.setattr(view, "_edit_widget", opened.append)
+    view._select(["a"])
+    _key(view, Qt.Key.Key_Return)
+    _key(view, Qt.Key.Key_F2)
+    assert opened == ["a", "a"]
