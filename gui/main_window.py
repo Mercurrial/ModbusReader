@@ -53,7 +53,7 @@ def projects_dir() -> str:
     from app import projects
     return projects.projects_dir()
 from gui.dialogs import themed_info, themed_message, themed_input
-from gui.qt_utils import later, fit_on_screens
+from gui.qt_utils import later, fit_on_screens, TitleBarStyler
 from core import datatypes
 from core import formats
 from app import commands
@@ -75,6 +75,8 @@ class ModernScadaApp(QMainWindow):
         # translator, theme). self.settings / modbus_core / lang / t below are
         # read-through properties onto it — see the "SHARED SERVICES" block.
         self.ctx = AppContext(load_settings())
+        # Windows draws the title bars: keep them in the theme's colours.
+        self._title_bars = TitleBarStyler(QApplication.instance(), self.ctx.theme_tokens)
         self._restore_window_geometry()
         self.profile_data: list[dict] = []
         self.profile_path: str        = ""
@@ -851,10 +853,12 @@ class ModernScadaApp(QMainWindow):
         self.main_toolbar.apply_theme(theme, accent)
         self.nav_rail.apply_theme(theme, accent)
         from gui import theme_manager
-        self.status_bar.apply_theme(theme_manager.get_theme(theme, accent))
+        tokens = theme_manager.get_theme(theme, accent)
+        self.status_bar.apply_theme(tokens)
         self.trends_manager.set_theme(theme)
         self.dash_view.apply_settings()
         self.register_table.apply_settings()
+        self._title_bars.restyle_all(tokens)
         self.update()
 
     def _on_settings_accepted(self, dlg):
@@ -1123,6 +1127,7 @@ class ModernScadaApp(QMainWindow):
                     app.setStyleSheet(qss)
                 self.trends_manager.set_theme(theme)
                 tok = self.ctx.theme_tokens()
+                self._title_bars.restyle_all(tok)
                 self._search_icon_lbl.setPixmap(icons.pixmap("search", tok["text_4"], 14))
                 self.btn_profile.setIcon(icons.icon("project", tok["text_2"], 15))
                 self.btn_profile.set_chevron_color(tok["text_3"])

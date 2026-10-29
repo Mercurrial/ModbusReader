@@ -300,3 +300,25 @@ def test_removing_a_trend_frees_its_card(ctx):
     assert "0x0001" not in m.active_trends
     m.update_trend_data("0x0001", 5.0)      # late sample after removal
     m.deleteLater()
+
+
+def test_title_bars_follow_the_theme(monkeypatch):
+    """Windows draws the title bar; it stayed white over a dark theme."""
+    from PyQt6.QtWidgets import QWidget
+    from PyQt6.QtCore import Qt
+    from gui import qt_utils
+    styled = []
+    monkeypatch.setattr(qt_utils, "style_title_bar",
+                        lambda w, tokens: styled.append((w, tokens["bg_1"])))
+    tokens = {"bg_1": "#101214", "text_1": "#ffffff"}
+    styler = qt_utils.TitleBarStyler(QApplication.instance(), lambda: tokens)
+    framed, frameless = QWidget(), QWidget()
+    frameless.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+    framed.show(); frameless.show()
+    QApplication.processEvents()
+    assert framed in [w for w, _ in styled] and frameless not in [w for w, _ in styled]
+    styled.clear()
+    styler.restyle_all({"bg_1": "#f6f4f2", "text_1": "#000000"})
+    assert (framed, "#f6f4f2") in styled
+    framed.close(); frameless.close()
+    QApplication.instance().removeEventFilter(styler._filter)

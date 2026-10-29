@@ -117,3 +117,80 @@ def fit_on_screens(x, y, w: int, h: int, areas: list) -> tuple:
     a = areas[0]
     w, h = min(w, a.width()), min(h, a.height())
     return (a.x() + (a.width() - w) // 2, a.y() + (a.height() - h) // 2, w, h)
+
+
+def style_title_bar(widget, tokens: dict) -> bool:
+    """The window's title bar in the app's colours (Windows only).
+
+    The title bar is drawn by Windows, not Qt, so it stayed white over a
+    dark app. Dark mode for it is a DWM attribute (Windows 10 20H1+); on
+    Windows 11 the caption and its text can take the theme's own colours
+    too. Returns True when Windows took the dark/light setting."""
+    import sys
+    if sys.platform != "win32" or widget is None:
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+        from PyQt6.QtGui import QColor
+        hwnd = wintypes.HWND(int(widget.winId()))
+        dwm = ctypes.windll.dwmapi
+
+        def attr(key, value) -> bool:
+            v = ctypes.c_int(value)
+            return dwm.DwmSetWindowAttribute(hwnd, key, ctypes.byref(v),
+                                             ctypes.sizeof(v)) == 0
+
+        bg = QColor(tokens.get("bg_1", "#ffffff"))
+        dark = bg.lightness() < 128
+        # 20 = DWMWA_USE_IMMERSIVE_DARK_MODE; 19 on Windows 10 before 20H1.
+        ok = attr(20, int(dark)) or attr(19, int(dark))
+
+        def colorref(hex_color):
+            c = QColor(hex_color)
+            return c.red() | (c.green() << 8) | (c.blue() << 16)
+
+        attr(35, colorref(tokens.get("bg_1", "#ffffff")))     # DWMWA_CAPTION_COLOR (Win 11)
+        attr(36, colorref(tokens.get("text_1", "#000000")))   # DWMWA_TEXT_COLOR (Win 11)
+        # Repaint the frame now, not at the next resize.
+        SWP = 0x0001 | 0x0002 | 0x0004 | 0x0020    # NOSIZE|NOMOVE|NOZORDER|FRAMECHANGED
+        ctypes.windll.user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP)
+        return ok
+    except Exception:
+        return False
+
+
+def _framed_window(w) -> bool:
+    from PyQt6.QtCore import Qt
+    return (w.isWindow()
+            and not (w.windowFlags() & Qt.WindowType.FramelessWindowHint))
+
+
+class TitleBarStyler:
+    """Every window with a Windows frame — the main window, the map editor,
+    a popped-out chart — gets its title bar in the theme's colours when it
+    is shown, and again on a theme change (``restyle_all``)."""
+
+    def __init__(self, app, tokens_fn):
+        from PyQt6.QtCore import QObject, QEvent
+        from PyQt6.QtWidgets import QWidget
+
+        styler = self
+
+        class _Filter(QObject):
+            def eventFilter(self, obj, e):
+                if (e.type() == QEvent.Type.Show and isinstance(obj, QWidget)
+                        and _framed_window(obj)):
+                    style_title_bar(obj, styler.tokens_fn())
+                return False
+
+        self.tokens_fn = tokens_fn
+        self._filter = _Filter(app)
+        app.installEventFilter(self._filter)
+
+    def restyle_all(self, tokens: dict | None = None):
+        from PyQt6.QtWidgets import QApplication
+        tokens = tokens or self.tokens_fn()
+        for w in QApplication.topLevelWidgets():
+            if w.isVisible() and _framed_window(w):
+                style_title_bar(w, tokens)
