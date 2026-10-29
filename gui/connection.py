@@ -40,7 +40,7 @@ from PyQt6.QtWidgets import (
 from core import datatypes, linktest, transports
 from gui import icons
 from gui.qt_utils import set_state
-from gui.widgets import Segmented
+from gui.widgets import Segmented, PortCombo
 
 _BAUDS = ("1200", "2400", "4800", "9600", "19200", "38400", "57600",
           "115200", "230400")
@@ -49,14 +49,6 @@ _RECENT_SHOWN = 4
 _CARD_WIDTH = 404
 _LABEL_W = 86                       # the left column (field names)
 _FIELD_W = _CARD_WIDTH - 2 * 18 - _LABEL_W - 12 - 4  # the right column (−4: air)
-
-
-def _com_ports() -> list:
-    try:
-        from serial.tools import list_ports
-        return sorted(p.device for p in list_ports.comports())
-    except Exception:
-        return []
 
 
 def _invalidate_tree(layout):
@@ -149,19 +141,11 @@ class ConnectionCard(QFrame):
         self.lbl_port = self._label()
         port_row = QHBoxLayout()
         port_row.setSpacing(6)
-        self.cb_port = QComboBox()
-        self.cb_port.setObjectName("stInput")
-        self.cb_port.setEditable(True)
+        # The ports plugged in now, read again each time the list opens.
+        self.cb_port = PortCombo()
         self.cb_port.setMinimumWidth(150)
         self.cb_port.currentTextChanged.connect(self._on_edited)
-        self.btn_refresh = QPushButton()
-        self.btn_refresh.setObjectName("iconBtn")
-        self.btn_refresh.setFixedSize(28, 28)
-        self.btn_refresh.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_refresh.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.btn_refresh.clicked.connect(lambda: self._fill_ports(self.cb_port.currentText()))
         port_row.addWidget(self.cb_port, 1)
-        port_row.addWidget(self.btn_refresh)
         self.lbl_baud = self._label()
         self.cb_baud = QComboBox()
         self.cb_baud.setObjectName("stInput")
@@ -382,7 +366,7 @@ class ConnectionCard(QFrame):
         try:
             tid = transports.active(settings).transport_id
             self.seg.setValue(tid)
-            self._fill_ports(str(settings.get("port", "") or ""))
+            self.cb_port.set_port(settings.get("port", ""))
             self.cb_baud.setCurrentText(str(transports.baudrate_value(
                 settings.get("baudrate", 115200))))
             parity = transports.parity_code(settings.get("parity", "N"))
@@ -409,7 +393,7 @@ class ConnectionCard(QFrame):
         out = {"transport": tid, "slave_id": int(self.sp_id.value()),
                "host": self.ed_host.text().strip(),
                "tcp_port": int(self.sp_tcp_port.value()),
-               "port": self.cb_port.currentText().strip(),
+               "port": self.cb_port.port(),
                "baudrate": str(transports.baudrate_value(self.cb_baud.currentText())),
                "parity": self.seg_parity.value(),
                "stopbits": self.seg_stop.value()}
@@ -493,17 +477,6 @@ class ConnectionCard(QFrame):
         self.btn_primary.setIcon(icons.icon(icon, c["accent_fg"], 14))
         self.btn_test.setEnabled(not self._testing)
         self.btn_test.setText(t("connTesting") if self._testing else t("connTest"))
-
-    def _fill_ports(self, current: str = ""):
-        ports = _com_ports()
-        current = current.strip()
-        if current and current not in ports:
-            ports.insert(0, current)
-        was = self.cb_port.blockSignals(True)
-        self.cb_port.clear()
-        self.cb_port.addItems(ports)
-        self.cb_port.setCurrentText(current or (ports[0] if ports else ""))
-        self.cb_port.blockSignals(was)
 
     def _fill_recent(self):
         current = transports.link_of(self.ctx.settings)
@@ -766,7 +739,6 @@ class ConnectionCard(QFrame):
         c = self.ctx.theme_tokens()
         self.btn_settings.setIcon(icons.icon("sliders", c["text_2"], 15))
         self.btn_find.setIcon(icons.icon("radar", c["text_3"], 13))
-        self.btn_refresh.setIcon(icons.icon("refresh", c["text_2"], 14))
         self._sync_state()
         self._fill_recent()
 
@@ -784,6 +756,5 @@ class ConnectionCard(QFrame):
         self.btn_find.setText(" " + t("connFindNet"))
         self.lbl_recent.setText(t("connRecent").upper())
         self.btn_settings.setToolTip(t("connAllSettings"))
-        self.btn_refresh.setToolTip(t("connRefreshPorts"))
         self._show_blocks()
         self.apply_theme()

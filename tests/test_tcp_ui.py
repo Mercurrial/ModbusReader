@@ -431,3 +431,38 @@ def test_a_busy_tcp_port_is_shown_in_the_emulator(win, server):
                  and sv.lbl_status.property("state") == "error", 5)
     assert str(server.port) in sv.lbl_status.text()
     assert sv.seg_mode.isEnabled()                  # the controls are back
+
+
+def test_the_port_list_is_the_ports_plugged_in_now(monkeypatch):
+    """It kept every port ever saved at its top, like a history; now the
+    list is read from the system each time it opens, with the adapter's
+    name, and picking one leaves just the port in the field."""
+    from core import transports
+    from gui.widgets import PortCombo
+    plugged = [("COM3", "USB-SERIAL CH340"), ("COM10", "")]
+    monkeypatch.setattr(transports, "serial_ports", lambda: list(plugged))
+    combo = PortCombo()
+    combo.set_port("COM7")                       # saved, not plugged in
+    combo.refresh()
+    assert [combo.itemData(i) for i in range(combo.count())] == ["COM3", "COM10"]
+    assert combo.itemText(0) == "COM3 — USB-SERIAL CH340"
+    assert combo.port() == "COM7"                # the field keeps it
+    combo.activated.emit(0)
+    assert combo.currentText() == "COM3" and combo.port() == "COM3"
+    plugged.append(("COM4", "Arduino"))
+    combo.refresh()                              # what showPopup does
+    assert combo.count() == 3 and combo.port() == "COM3"
+
+
+def test_serial_ports_sort_by_number(monkeypatch):
+    from core import transports
+    import types, sys
+    fake = types.SimpleNamespace(comports=lambda: [
+        types.SimpleNamespace(device="COM10", description="USB Serial Port (COM10)"),
+        types.SimpleNamespace(device="COM9", description="n/a"),
+        types.SimpleNamespace(device="COM2", description="Prolific (COM2)")])
+    tools = types.SimpleNamespace(list_ports=fake)
+    monkeypatch.setitem(sys.modules, "serial.tools", tools)
+    monkeypatch.setitem(sys.modules, "serial.tools.list_ports", fake)
+    assert transports.serial_ports() == [("COM2", "Prolific"), ("COM9", ""),
+                                         ("COM10", "USB Serial Port")]
