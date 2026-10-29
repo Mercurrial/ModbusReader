@@ -1068,3 +1068,9 @@ class TrendsManager(QWidget):
     def clear_all(self):
         for reg_id in list(self.active_trends.keys()):
             self.remove_trend(reg_id)
+
+    def reset_values(self):
+        """Another project: the charts start empty (their history was the
+        old device's)."""
+        for card in self.active_trends.values():
+            card.clear()

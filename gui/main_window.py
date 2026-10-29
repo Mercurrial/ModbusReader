@@ -1328,6 +1328,7 @@ class ModernScadaApp(QMainWindow):
                  (self.t("cancel"), QMessageBox.ButtonRole.RejectRole, True)])
             if choice != 0:
                 return
+        self._reset_live_values()
         self._set_profile([], "")
         self.dash_view.load_boards([])
         self._set_project("", self.t("projectUntitled"))
@@ -1443,20 +1444,47 @@ class ModernScadaApp(QMainWindow):
         save_settings(self.settings)
         self._log("SYS", self.t("projectLoaded").format(path=path))
 
+    def _reset_live_values(self):
+        """Another project or map: nothing from the old one stays on screen
+        — the watch window's values and min/max, the charts' history."""
+        self.watch_window.reset_values()
+        self.trends_manager.reset_values()
+
+    def _drop_foreign_trends(self):
+        """Charts of registers the new map does not have are closed."""
+        from core import datatypes
+        ids = {datatypes.reg_id(datatypes.reg_key(r)) for r in self.profile_data
+               if isinstance(r, dict)}
+        for reg_id in list(self.trends_manager.active_trends):
+            if reg_id not in ids:
+                self.trends_manager.remove_trend(reg_id)
+
     def apply_project(self, proj: dict, persist: bool = True):
         """Restore a whole workspace: connection settings, the register map and
         every dashboard. The port is NOT reopened automatically — the operator
         decides when to connect."""
+        from core import transports
+        old_link = transports.link_of(self.settings)
         conn = proj.get("connection") or {}
         if conn:
             self.ctx.settings.update({k: v for k, v in conn.items() if v is not None})
             self.ctx.update({})          # codecs + appearance re-derived, saved
+        core = self.modbus_core
+        if (transports.link_of(self.settings) != old_link
+                and (core.is_running or core.isRunning())):
+            # Polling on with the old link under the new map showed the old
+            # device's values in the new project's rows.
+            core.stop()
+            core.wait(3000)
+            self._log("SYS", self.t("logProjectLinkChanged"))
+        self._reset_live_values()
         try:
             self.status_bar.set_slave_id(int(self.settings.get("slave_id", 10)))
         except (TypeError, ValueError):
             pass
         regs = (proj.get("profile") or {}).get("registers") or []
         self._set_profile(regs, "")
+        self._drop_foreign_trends()
         self.dash_view.load_boards(proj.get("dashboards") or [])
         layout = proj.get("layout") or {}
         if layout.get("pinned_views"):
@@ -1669,7 +1697,9 @@ class ModernScadaApp(QMainWindow):
                     reg["addr"] = 0
 
         try:
+            self._reset_live_values()
             self._set_profile(data, path)
+            self._drop_foreign_trends()
         except Exception as e:
             import traceback
             traceback.print_exc()

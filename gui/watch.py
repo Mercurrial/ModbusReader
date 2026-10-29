@@ -482,6 +482,13 @@ class WatchWindow(QWidget):
             self._fill(wdg, row)
             wdg.set_dot("ok", self.ctx.theme_tokens())
 
+    def reset_values(self):
+        """Another project: the rows stay, their old values do not."""
+        for r in self._rows:
+            r.text = r.num = r.vmin = r.vmax = None
+            r.changed_at = r.seen_at = None
+        self._tick(force=True)
+
     def set_stale_all(self):
         for r in self._rows:
             r.seen_at = None
