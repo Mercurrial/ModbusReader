@@ -110,10 +110,6 @@ class ScannerView(QWidget):
         bar.addWidget(self.lbl_net_port)
         bar.addWidget(self.spin_net_port)
 
-        self.lbl_sid = self._crumb(self.ctx.t("slaveIdLbl"))
-        self.spin_sid = self._spin(1, 247, int(self.ctx.settings.get("slave_id", 10)))
-        bar.addWidget(self.lbl_sid)
-        bar.addWidget(self.spin_sid)
 
         bar.addStretch()
 
@@ -201,8 +197,6 @@ class ScannerView(QWidget):
     def _on_mode_changed(self, mode, clear: bool = True):
         t = self.ctx.t
         devices, net = mode == "devices", mode == "network"
-        self.lbl_sid.setVisible(mode == "registers")
-        self.spin_sid.setVisible(mode == "registers")
         custom = net and self._custom_range()
         for w in (self.spin_from, self.spin_to):
             w.setVisible(not net)
@@ -257,17 +251,19 @@ class ScannerView(QWidget):
                 return
         else:
             core = self.ctx.core
-            if not core.is_running:
-                themed_info(self, self.ctx.theme, "warning",
-                            self.ctx.t("scanNotConnectedTitle"),
-                            self.ctx.t("scanNotConnectedText"))
+            # No «connect first»: the window opens the link for the scan if
+            # it is closed (the device's id is what we are looking for), and
+            # pauses the map poll if it is open.
+            if not self.claim_link():
                 return
             start, end = self.spin_from.value(), self.spin_to.value()
             if end < start:
                 start, end = end, start
+            # Registers: the device in the connection — no second id field.
             worker = ScannerWorker(core, mode, start, end,
-                                   slave_id=self.spin_sid.value())
+                                   slave_id=int(self.ctx.settings.get("slave_id", 1)))
             worker.error.connect(self._on_error)
+            worker.finished_scan.connect(lambda *_: self.release_link())
         self.table.setRowCount(0)
         self.progress.setValue(0)
         self.progress.setVisible(True)
@@ -294,7 +290,16 @@ class ScannerView(QWidget):
             return None
         return netscan.NetScanWorker(hosts, self.spin_net_port.value())
 
+    # The window replaces these (main_window._claim_scan_link): open or
+    # pause the link for a scan, and give it back afterwards.
+    def claim_link(self) -> bool:
+        return bool(self.ctx.core.is_running)
+
+    def release_link(self):
+        pass
+
     def _on_error(self, msg: str):
+        msg = msg or self.ctx.t("scanLinkFailed")
         self._status_is_result = False
         self.lbl_status.setText(msg)
         set_state(self.lbl_status, "error")
@@ -344,6 +349,10 @@ class ScannerView(QWidget):
     def _on_row_activated(self, row: int, _col: int):
         it = self.table.item(row, 0)
         hit = it.data(Qt.ItemDataRole.UserRole) if it is not None else None
+        if hit and hit.get("mode") == "devices":
+            # A device found on the line: connect to it by its id.
+            self.connect_requested.emit({"slave_id": int(hit["id"])})
+            return
         if not hit or "ip" not in hit:
             return
         link = {"transport": "tcp", "host": hit["ip"], "tcp_port": hit["port"]}
@@ -399,7 +408,6 @@ class ScannerView(QWidget):
         self.lbl_net_port.setText(t("connTcpPort"))
         self.cb_subnet.setItemText(self.cb_subnet.count() - 1, t("scanNetCustom"))
         self.empty.buttons[0].setText(t("scanStart"))
-        self.lbl_sid.setText(t("slaveIdLbl"))
         # Never overwrite a live/finished status line with "ready".
         running = bool(self._worker and self._worker.isRunning())
         if self.lbl_status.property("state") == "error":

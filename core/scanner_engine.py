@@ -38,10 +38,20 @@ class ScannerWorker(QThread):
     def request_stop(self):
         self._stop = True
 
+    LINK_WAIT_S = 8.0
+
     def run(self):
         t0 = time.monotonic()
         total = self.end_n - self.start_n + 1
         hits = 0
+        # The window may have just started opening the link for this scan.
+        deadline = time.monotonic() + self.LINK_WAIT_S
+        while not self.core.is_running and not self._stop:
+            if time.monotonic() > deadline or not self.core.isRunning():
+                self.error.emit("")
+                self.finished_scan.emit(0, total, time.monotonic() - t0)
+                return
+            time.sleep(0.05)
         try:
             for i, n in enumerate(range(self.start_n, self.end_n + 1), 1):
                 if self._stop:

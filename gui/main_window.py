@@ -318,6 +318,8 @@ class ModernScadaApp(QMainWindow):
         self.scanner_view = ScannerView(self.ctx)
         self.scanner_view.connect_requested.connect(
             lambda link: self.conn_card.open_below(self.main_toolbar.btn_link, link=link))
+        self.scanner_view.claim_link = self._claim_scan_link
+        self.scanner_view.release_link = self._release_scan_link
         self.content_stack.addWidget(self.scanner_view)
         self.sniffer_view = SnifferView(self.ctx)
         self.content_stack.addWidget(self.sniffer_view)
@@ -378,6 +380,8 @@ class ModernScadaApp(QMainWindow):
         # The connection card: the link chip in the header opens it.
         from gui.connection import ConnectionCard
         self.conn_card = ConnectionCard(self.ctx, lambda: self.profile_data, self)
+        # On the scanner's page the device's id is what is being looked for.
+        self.conn_card.hide_id = lambda: self._current_view == "view_scanner"
         self.conn_card.connect_requested.connect(self._connect_with)
         self.conn_card.disconnect_requested.connect(self._disconnect)
         self.conn_card.committed.connect(self._on_link_committed)
@@ -604,7 +608,42 @@ class ModernScadaApp(QMainWindow):
                 return
         core.setup_connection(self.settings, self.settings.get("slave_id", 10))
         core.update_profile(self.profile_data)
+        core.poll_paused = False
         core.start()
+
+    # ── the scanner borrows the line ──────────────────────────────────
+    def _claim_scan_link(self) -> bool:
+        """A device or register scan needs the line. An open link: the map
+        poll pauses (a missing device there cost a timeout per request,
+        and the probes waited behind each). A closed one: it opens for the
+        scan alone — the device's id is what the scan is looking for, so it
+        cannot be asked for first."""
+        from core import transports
+        core = self.modbus_core
+        if core.is_running:
+            core.poll_paused = True
+            self._scan_opened_link = False
+            return True
+        if core.isRunning():                 # still opening or closing
+            return False
+        if transports.is_network(self.settings) and not transports.host_value(self.settings):
+            self.conn_card.open_below(self.main_toolbar.btn_link)
+            return False
+        core.setup_connection(self.settings, self.settings.get("slave_id", 10))
+        core.update_profile(self.profile_data)
+        core.poll_paused = True
+        self._scan_opened_link = True
+        core.start()
+        return True
+
+    def _release_scan_link(self):
+        core = self.modbus_core
+        core.poll_paused = False
+        if getattr(self, "_scan_opened_link", False):
+            self._scan_opened_link = False
+            if core.is_running or core.isRunning():
+                core.stop()
+                core.wait(3000)
 
     # ── the connection card ───────────────────────────────────────────
     def _toggle_conn_card(self):

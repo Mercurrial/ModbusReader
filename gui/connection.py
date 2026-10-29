@@ -329,6 +329,9 @@ class ConnectionCard(QFrame):
         chip's; load the saved link unless the card is already open.
         *link* (a device the scanner found) is loaded as the draft and
         tested at once."""
+        # The device address is hidden on the scanner's page (the scan finds
+        # it) — unless the card opens for a device the scanner found.
+        self._id_hidden = bool(self.hide_id()) and not (link and "slave_id" in link)
         if link:
             merged = dict(self.ctx.settings)
             merged.update(link)
@@ -337,6 +340,7 @@ class ConnectionCard(QFrame):
         elif not self.isVisible():
             self.load(self.ctx.settings)
             self._clear_result()
+        self._show_blocks()
         if failure:
             self.show_failure(*failure)
         self._sync_state()
@@ -407,6 +411,11 @@ class ConnectionCard(QFrame):
                 out[k] = self.ctx.settings.get(k, out[k])
         return out
 
+    @staticmethod
+    def hide_id() -> bool:
+        """The window replaces this: True on the scanner's page."""
+        return False
+
     def set_sim_available(self, on: bool):
         """The demo project is open: offer its simulated device."""
         self.seg._buttons[transports.SIM_ID].setVisible(bool(on))
@@ -452,7 +461,10 @@ class ConnectionCard(QFrame):
         self.lbl_id.setText(t("connUnitId") if tid == "tcp" else t("connSlaveId"))
         self.lbl_id_hint.setText(t("connUnitHint") if tid == "tcp"
                                  else t("connSimIdHint") if sim else "")
-        self.lbl_id_hint.setVisible(tid == "tcp" or sim)
+        hidden = getattr(self, "_id_hidden", False)
+        for w in (self.lbl_id, self.sp_id):
+            w.setVisible(not hidden)
+        self.lbl_id_hint.setVisible((tid == "tcp" or sim) and not hidden)
         self.lbl_sim.setText(t("connSimHint"))
         self.lbl_net_hint.setText(t("connTcpHint") if tid == "tcp" else t("connRtuTcpHint"))
 

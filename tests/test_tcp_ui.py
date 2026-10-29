@@ -373,7 +373,7 @@ def test_the_scanner_network_mode(win):
     sv.show_network_mode()
     _pump()
     assert sv.cb_subnet.isVisibleTo(sv) and sv.spin_net_port.isVisibleTo(sv)
-    assert not sv.spin_from.isVisibleTo(sv) and not sv.spin_sid.isVisibleTo(sv)
+    assert not sv.spin_from.isVisibleTo(sv)
     custom = sv.cb_subnet.count() - 1
     sv.cb_subnet.setCurrentIndex(custom)
     sv._on_subnet(custom)
@@ -466,3 +466,67 @@ def test_serial_ports_sort_by_number(monkeypatch):
     monkeypatch.setitem(sys.modules, "serial.tools.list_ports", fake)
     assert transports.serial_ports() == [("COM2", "Prolific"), ("COM9", ""),
                                          ("COM10", "USB Serial Port")]
+
+
+@pytest.fixture
+def device3():
+    """A device with id 3 on Modbus TCP (the emulator) — the id to find."""
+    srv = sc.SlaveTcpServer(HOST, 0, sc.SlaveStore.from_registers(REGS), 3)
+    srv.start()
+    assert srv.listening.wait(5)
+    yield srv
+    srv.request_stop()
+    assert srv.wait(5000)
+
+
+def _scan(win, lo, hi):
+    sv = win.scanner_view
+    sv.seg_mode.setValue("devices")
+    sv.spin_from.setValue(lo)
+    sv.spin_to.setValue(hi)
+    sv._toggle_scan()
+    assert _wait(lambda: sv._worker is not None and sv._worker.isFinished(), 15)
+    _wait(lambda: False, 0.2)
+    return [sv.table.item(r, 0).text() for r in range(sv.table.rowCount())]
+
+
+def test_a_device_scan_needs_no_connection_and_no_id(win, device3):
+    """«To connect I must type the id — which is what I scan for»: the scan
+    opens the link itself, finds id 3, and closes the link again."""
+    win.settings.update({"transport": "tcp", "host": HOST, "tcp_port": device3.port,
+                         "slave_id": 10, "timeout": 200})
+    assert not win.modbus_core.is_running
+    found = _scan(win, 1, 4)
+    assert found == ["3"]
+    assert _wait(lambda: not win.modbus_core.isRunning(), 5)    # given back
+
+
+def test_a_wrong_id_in_the_connection_does_not_slow_the_scan(win, device3):
+    """Polling a missing id 10 cost a timeout per request and the probes
+    waited behind each: 7 s for one id. The poll pauses for the scan."""
+    win.settings["timeout"] = 300
+    win._connect_with({"transport": "tcp", "host": HOST, "tcp_port": device3.port,
+                       "slave_id": 10})
+    core = win.modbus_core
+    assert _wait(lambda: core.is_running, 8)
+    _wait(lambda: False, 1.0)                    # polls of id 10 time out meanwhile
+    t0 = time.monotonic()
+    found = _scan(win, 3, 3)
+    # at most the one poll already on the wire (300 ms + its repeat)
+    assert found == ["3"] and time.monotonic() - t0 < 1.5
+    assert core.is_running and not core.poll_paused             # polling again
+
+
+def test_the_card_on_the_scanner_page_has_no_id(win):
+    win._switch_view("view_scanner")
+    win.show()
+    win.conn_card.open_below(win.main_toolbar.btn_link)
+    assert not win.conn_card.sp_id.isVisibleTo(win.conn_card)
+    win.conn_card.hide()
+    win.conn_card.open_below(win.main_toolbar.btn_link, link={"slave_id": 3})
+    assert win.conn_card.sp_id.isVisibleTo(win.conn_card)      # a found device
+    win.conn_card.hide()
+    win._switch_view("view_table")
+    win.conn_card.open_below(win.main_toolbar.btn_link)
+    assert win.conn_card.sp_id.isVisibleTo(win.conn_card)
+    assert not win.status_bar._slave_ed.isVisibleTo(win.status_bar)

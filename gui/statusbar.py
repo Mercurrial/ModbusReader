@@ -310,11 +310,12 @@ class MainStatusBar(QStatusBar):
         self.lbl_config = self._lbl("")
         self.addWidget(self.lbl_config)
 
-        self.addWidget(self._sep())
-
+        # The device address lives in the connection card; a second copy
+        # here was one address in two places. The editor stays (it keeps
+        # the address in step) but is not shown.
         self._slave_ed = _SlaveIdEditor(slave_id)
         self._slave_ed.value_changed.connect(self.slave_id_changed.emit)
-        self.addWidget(self._slave_ed)
+        self._slave_ed.setVisible(False)
 
         # The link summary moved to the header bar (2.2); the label stays for
         # the callers that still feed it, but is not shown twice.
