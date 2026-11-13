@@ -141,3 +141,5 @@ A map is plain JSON, easy to keep in git and edit by hand:
 
 Files saved by older versions always open: the format is versioned and
 upgraded on load.
+
+**In builds from `main` after 26.10.4.** Ctrl+D duplicates a row, Insert adds one, and Alt+Up or Alt+Down moves the selected row. Ctrl+Y redoes an edit.

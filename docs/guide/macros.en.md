@@ -138,3 +138,5 @@ Closing the app with a running macro or with unexported results asks first.
 A setpoint sweep that waits for stabilisation, checking every register
 against a reference, step calibration, waiting for an event with a timeout,
 an acceptance report — in [Macro examples](../examples/macros.md).
+
+**In builds from `main` after 26.10.4.** Use Tab and Shift+Tab to indent or unindent selected lines, Ctrl+/ to toggle comments, and Ctrl+D to duplicate a line. Ctrl+S saves the script, Ctrl+Enter or Shift+F10 runs it, and Ctrl+F2 stops it. Exports receive a timestamped default name such as `results/result_2026-10-29_14-05-31.xlsx`.

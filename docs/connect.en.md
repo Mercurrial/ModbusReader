@@ -116,9 +116,7 @@ In the connection card (or in **Settings → Connection**):
 Data bits are always 8. The status bar shows the framing in short: `8N1` —
 8 bits, no parity, 1 stop bit; `8E1` — even parity.
 
-**The device address (Slave ID, 1–247)** is the **Address (ID)** field in the
-card. You can also change it in the status bar at the bottom of the window:
-click `ID: 1`, type a number and press ++enter++.
+Set the **device address (Slave ID, 1–247)** in the connection card. In builds after 26.10.4, opening the port list refreshes the available adapters.
 
 !!! note "Changes apply when you connect"
     Port settings apply to a new connection. If you change them while

@@ -71,7 +71,7 @@ Settings live in `~/.config/ModbusReader`.
 ## macOS
 
 `ModbusReader-macOS-arm64.zip` is for Apple Silicon Macs (M1 and later),
-macOS 12+. Unzip it and move `ModbusReader.app` to Applications.
+macOS 14+ for release 26.10.4 or macOS 14.4+ for builds using Qt 6.12. Unzip it and move `ModbusReader.app` to Applications.
 
 The build is not notarized by Apple, so macOS blocks the first launch. Open
 **System Settings → Privacy & Security** and click **Open Anyway**. If macOS
@@ -109,6 +109,8 @@ You need Python 3.10 or newer.
     ```
 
 ## Updates { #updates }
+
+The status-bar controls below are available in builds from `main` after 26.10.4. In 26.10.4, updates appear in a separate card.
 
 The app checks for a new version at start-up and every few hours.
 

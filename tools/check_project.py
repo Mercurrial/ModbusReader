@@ -144,10 +144,7 @@ def check(path: str) -> list:
             if n:
                 names.add(str(n).strip().lower())
     from app import projects
-    folder = os.path.dirname(os.path.abspath(path))
-    stem = os.path.splitext(os.path.basename(path))[0]
-    macros = os.path.join(folder, projects.MACROS) if os.path.basename(folder) == stem \
-        else os.path.join(folder, stem, projects.MACROS)
+    macros = os.path.join(projects.project_home(path), projects.MACROS)
     if os.path.isdir(macros):
         for fn in sorted(os.listdir(macros)):
             if fn.endswith(".py"):

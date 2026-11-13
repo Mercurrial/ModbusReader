@@ -43,7 +43,9 @@ def _errors(found):
     return [m for level, m in found if level == "ERROR"]
 
 
-def test_the_demo_projects_pass():
+def test_the_demo_projects_pass(tmp_path, monkeypatch):
+    from app import projects
+    monkeypatch.setattr(projects, "projects_dir", lambda: str(tmp_path))
     for name in ("demo.mbproj", "demo_en.mbproj"):
         assert check_project.check(os.path.join(ROOT, "examples", name)) == []
 
@@ -58,6 +60,18 @@ def test_a_good_project_with_wires_and_a_macro_passes(tmp_path):
         macros={"log.py": "record(t=read('Температура'), q=read('IR 1'))\n"
                           "write('Уставка', 5)\nwrite(0x0100, 1, 'UINT16')\n"})
     assert check_project.check(path) == []
+
+
+def test_external_project_checks_the_same_macros_as_the_app(tmp_path, monkeypatch):
+    from app import projects
+    root = tmp_path / "Projects"
+    monkeypatch.setattr(projects, "projects_dir", lambda: str(root))
+    path = tmp_path / "plant.mbproj"
+    os.rename(_project(tmp_path, []), path)
+    macros = root / "plant" / "macros"
+    macros.mkdir(parents=True)
+    (macros / "invalid.py").write_text("import os\n", encoding="utf-8")
+    assert any("invalid.py" in e for e in _errors(check_project.check(str(path))))
 
 
 def test_what_the_app_would_refuse_is_named(tmp_path):

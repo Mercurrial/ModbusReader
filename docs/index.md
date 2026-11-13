@@ -222,7 +222,7 @@ hide:
 
 ??? question "На каких системах работает?"
     Windows 10 (1809+) и 11 — установщик и портативная версия; Linux —
-    AppImage (Ubuntu 22.04+ и аналоги); macOS 12+ на Apple Silicon.
+    AppImage (Ubuntu 22.04+ и аналоги); macOS 14+ (26.10.4) на Apple Silicon.
     См. [Установка](install.md).
 
 ??? question "Почему FLOAT показывает огромное или отрицательное число?"

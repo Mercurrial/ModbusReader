@@ -223,7 +223,7 @@ bugs to [Issues](https://github.com/Mercurrial/ModbusReader/issues).
 
 ??? question "Which systems does it run on?"
     Windows 10 (1809+) and 11 — installer and portable build; Linux —
-    AppImage (Ubuntu 22.04+ and the like); macOS 12+ on Apple Silicon.
+    AppImage (Ubuntu 22.04+ and the like); macOS 14+ (26.10.4) on Apple Silicon.
     See [Install](install.md).
 
 ??? question "Why does a FLOAT show a huge or negative number?"
