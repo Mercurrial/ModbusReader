@@ -76,6 +76,6 @@ if sys.platform == 'darwin':
             'CFBundleVersion': APP_VERSION,
             'NSHumanReadableCopyright': '© 2026 Mercurrial · GPL-3.0-or-later',
             'NSHighResolutionCapable': True,
-            'LSMinimumSystemVersion': '12.0',
+            'LSMinimumSystemVersion': '14.4',
         },
     )

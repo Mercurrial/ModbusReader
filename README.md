@@ -230,7 +230,7 @@ sudo usermod -aG dialout $USER
 Настройки хранятся в `~/.config/ModbusReader`.
 
 **macOS** — `ModbusReader-macOS-arm64.zip`, компьютеры на Apple Silicon (M1 и
-новее), macOS 12+. Распакуйте и перенесите `ModbusReader.app` в «Программы».
+новее), macOS 14+ для выпуска 26.10.4, macOS 14.4+ для сборок на Qt 6.12. Распакуйте и перенесите `ModbusReader.app` в «Программы».
 Сборка не заверена Apple (это платно), поэтому первый запуск macOS
 заблокирует: откройте **«Системные настройки» → «Конфиденциальность и
 безопасность»** и нажмите **«Всё равно открыть»**. Если macOS пишет, что
@@ -376,6 +376,10 @@ examples/      демо-проект
 [ARCHITECTURE.md](ARCHITECTURE.md) — карта модулей, стиль Descriptor+Registry,
 потоковая модель (COM-портом владеет один поток `ModbusCore`). История
 изменений — [CHANGELOG.md](CHANGELOG.md).
+
+[AI_GUIDE.md](AI_GUIDE.md) — для ИИ-ассистента: как по описанию прибора
+собрать карту регистров, дашборд и макрос; `tools/check_project.py`
+проверяет готовый проект.
 </details>
 
 ## Поддержать проект

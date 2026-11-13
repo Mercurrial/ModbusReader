@@ -7,9 +7,10 @@ description: How to find Modbus RTU devices on a line when the address is unknow
 
 The **Scanner** (++ctrl+4++) answers three questions: *who is on the line*,
 *which addresses a device answers* and *where the Modbus TCP devices are on
-the network*. The Devices and Registers modes work through the open
-connection — press **Connect** (++f5++) first; map polling carries on during
-the scan. The Network (TCP) mode needs no connection.
+the network*. In 26.10.4, connect first (++f5++) to scan devices or registers.
+In builds from `main` after 26.10.4, the scanner opens the configured link itself
+and closes it when finished. If already connected, it pauses map polling during the scan.
+Double-click a device in the results to connect to it. The Network (TCP) mode needs no connection.
 
 ![Scanner: found devices with their response times](../images/en/scanner.png)
 
@@ -25,7 +26,8 @@ as found if it answered:
   register 0. Read it at the addresses from its documentation.
 
 **Registers** — sweeps holding register addresses on **one** device (its
-address is set alongside). Every address that answered is listed with its
+address is set alongside in 26.10.4 or in the connection card in builds from `main`).
+In the latter, the **In the map** column names mapped registers and flags unknown addresses. Every address that answered is listed with its
 raw value — a way to find a device's live registers with no documentation.
 
 Over a Modbus TCP connection the Devices mode sweeps the **unit ID** — the way

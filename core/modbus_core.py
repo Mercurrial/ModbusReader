@@ -34,6 +34,10 @@ class ModbusCore(QThread):
         super().__init__()
         self.client = None
         self.is_running = False
+        # A scan in progress: the map is not polled. Polling a device that is
+        # not there cost a timeout per request, and the scan's probes waited
+        # behind each one (7 s for one id instead of 85 ms).
+        self.poll_paused = False
         # Set by stop(); checked right after connect() so a click on
         # «Отключить» while the port is still opening is not lost.
         self._abort = False
@@ -299,7 +303,7 @@ class ModbusCore(QThread):
             # shorter one between iterations, so clamp the index against THIS
             # snapshot to avoid an IndexError.
             pl = self.poll_list
-            if pl and time.monotonic() >= next_cycle:
+            if pl and not self.poll_paused and time.monotonic() >= next_cycle:
                 poll_idx %= len(pl)
                 reg = pl[poll_idx]
                 ok = self._execute_read(datatypes.reg_key(reg), reg["type"],

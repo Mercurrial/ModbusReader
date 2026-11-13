@@ -11,8 +11,7 @@ dates from 1979 and is still the most widespread protocol in industrial
 automation: simple, open and supported by almost every vendor.
 
 **Modbus RTU** is the variant for serial lines (usually RS-485): data travels
-in binary, and every frame is protected by a CRC16 checksum. This is what
-ModbusReader works with.
+in binary, and every frame is protected by a CRC16 checksum. ModbusReader supports RTU, [Modbus TCP](tcp.md) and [RTU over TCP](rtu-over-tcp.md).
 
 ## Master and slaves
 

@@ -16,7 +16,7 @@ The ModbusReader window is laid out like this:
   opens the [connection card](../connect.md#card)), **Connect** (++f5++) and
   the [settings](settings.md) gear in the corner.
 - **Bottom** — the transaction log, the raw-frame line and the status bar:
-  device address, counters, line statistics.
+  counters, line statistics.
 
 ++f1++ (the **Help** button) on any page starts a short tour of that very
 page.

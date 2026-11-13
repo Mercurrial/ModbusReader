@@ -54,3 +54,5 @@ say.
   from watch**.
 
 Values in the window update while polling runs.
+
+**In builds from `main` after 26.10.4.** Open Watch in the sidebar between Console and Scanner, or press F6. Drag a row outside its write field to reorder registers.

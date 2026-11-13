@@ -113,3 +113,5 @@ panel to another project. Every dashboard is saved in the `.mbproj` project.
 
 Right-click a widget → **Add to watch** puts its register into the
 [watch window](trends.md#watch).
+
+**In builds from `main` after 26.10.4.** In edit mode, Ctrl+Z undoes a change and Ctrl+Y redoes it. Enter edits the selected widget.

@@ -31,6 +31,7 @@ Notes
   TCP it travels as the MBAP unit id, where 0 and 255 are legal too (a
   device addressed by its IP often expects one of them) — ``id_range``.
 """
+import re
 from dataclasses import dataclass
 from typing import Callable
 
@@ -116,6 +117,26 @@ def _make_serial(settings, timeout):
         parity=parity_code(settings.get("parity", "N")),
         timeout=timeout, retries=1,
     )
+
+
+def serial_ports() -> list:
+    """The serial ports the system has NOW, as (device, adapter name):
+    ("COM7", "USB-SERIAL CH340"), in number order (COM10 after COM9)."""
+    try:
+        from serial.tools import list_ports
+        found = list_ports.comports()
+    except Exception:
+        return []
+    out = []
+    for p in found:
+        desc = str(getattr(p, "description", "") or "").strip()
+        desc = re.sub(r"\s*\(%s\)$" % re.escape(p.device), "", desc)
+        if desc.lower() in ("n/a", p.device.lower()):
+            desc = ""
+        out.append((p.device, desc))
+    key = lambda d: [int(x) if x.isdigit() else x.lower()
+                     for x in re.split(r"(\d+)", d[0])]
+    return sorted(out, key=key)
 
 
 def _describe_serial(settings):

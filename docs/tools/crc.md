@@ -11,14 +11,14 @@ description: Онлайн-калькулятор CRC16 Modbus RTU и разбо�
 Кадр [Modbus TCP](../modbus/tcp.md) с заголовком MBAP инструмент тоже
 узнает и разберёт — CRC в нём нет.
 
-<div class="mbt" markdown>
+<div class="mbt ym-hide-content" markdown>
 <label for="mbt-crc-in">Кадр (hex)</label>
 <input id="mbt-crc-in" class="mbt-input" type="text" value="01 03 00 00 00 02" spellcheck="false" autocomplete="off">
 <div id="mbt-crc-out" class="mbt-out"></div>
 </div>
 
 Пробелы, запятые и `0x` можно ставить как угодно; каждый байт — две цифры.
-Всё считается в браузере, на сервер ничего не отправляется.
+Кадр и контрольная сумма обрабатываются локально в вашем браузере.
 
 ## Как считается CRC Modbus
 

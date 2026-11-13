@@ -71,7 +71,7 @@ Settings live in `~/.config/ModbusReader`.
 ## macOS
 
 `ModbusReader-macOS-arm64.zip` is for Apple Silicon Macs (M1 and later),
-macOS 12+. Unzip it and move `ModbusReader.app` to Applications.
+macOS 14+ for release 26.10.4 or macOS 14.4+ for builds using Qt 6.12. Unzip it and move `ModbusReader.app` to Applications.
 
 The build is not notarized by Apple, so macOS blocks the first launch. Open
 **System Settings → Privacy & Security** and click **Open Anyway**. If macOS
@@ -110,20 +110,24 @@ You need Python 3.10 or newer.
 
 ## Updates { #updates }
 
+The status-bar controls below are available in builds from `main` after 26.10.4. In 26.10.4, updates appear in a separate card.
+
 The app checks for a new version at start-up and every few hours.
 
 **The installed app** downloads the update, verifies its SHA-256 checksum and
 installs the new version in the background, next to the current one — your
-work and the polling go on. When it is ready, an **Update to …** button
-appears in the page menu: click it and the app restarts as the new version in
-a couple of seconds (polling and logger recording stop meanwhile). If you do
-not restart, the new version opens at the next start, and the old one removes
-itself. When the app is installed for all users, Windows asks for permission,
-so the app asks you once before installing.
+work and the polling go on. The download and install progress shows in the
+status bar, bottom right, left of the TX/RX counters. When it is ready,
+**Update to …** appears there: click it for **Restart now** — the app opens
+as the new version in a couple of seconds (polling and logger recording stop
+meanwhile) — or **What's new…**. If you do not restart, the new version opens
+at the next start, and the old one removes itself. When the app is installed
+for all users, Windows asks for permission, so the status bar shows
+**Install …** and installing starts on a click.
 
-**The portable version** shows what is new and updates after you press
-**Update**: it downloads the new file, closes and opens again as the new
-version. A version you do not want can be skipped with **Skip this version**.
+**The portable version** shows **… available** in the status bar; a click
+shows what is new, and **Update** downloads the new file, closes the app and
+opens the new version. A version you do not want can be skipped with **Skip this version**.
 
 On Linux and macOS the app tells you about a new version and opens the
 release page — download the file by hand. Automatic checks can be turned

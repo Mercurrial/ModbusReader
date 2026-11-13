@@ -177,7 +177,10 @@ Source: "..\assets\app.png"; Flags: dontcopy
 ; app to the taskbar pins this shortcut (the launcher), not a version folder
 ; that the next update removes.
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AppUserModelID}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AppUserModelID}"; Tasks: desktopicon
+; A shortcut that is already there is left alone: the launcher it points to
+; keeps its path across versions, and re-creating the file made Explorer
+; put the icon at a new place on the desktop after every update.
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AppUserModelID}"; Tasks: desktopicon; Check: not DesktopShortcutExists
 
 [Registry]
 Root: HKA; Subkey: "Software\Classes\.mbproj"; ValueType: string; ValueName: ""; ValueData: "ModbusReader.Project"; Flags: uninsdeletevalue
@@ -194,6 +197,11 @@ Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags
 [Code]
 const
   SYNCHRONIZE = $00100000;
+
+function DesktopShortcutExists: Boolean;
+begin
+  Result := FileExists(ExpandConstant('{autodesktop}\{#AppName}.lnk'));
+end;
 
 function OpenProcess(dwDesiredAccess: Cardinal; bInheritHandle: Cardinal;
   dwProcessId: Cardinal): THandle;

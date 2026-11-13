@@ -10,7 +10,7 @@ description: Онлайн-конвертер значений Modbus — FLOAT, 
 значение **во всех четырёх порядках сразу** — так легко понять, как
 раскладывает байты ваш прибор.
 
-<div class="mbt" markdown>
+<div class="mbt ym-hide-content" markdown>
 <label for="mbt-val-type">Тип</label>
 <select id="mbt-val-type" class="mbt-input">
 <option value="FLOAT" selected>FLOAT (32 бита, IEEE-754)</option>

@@ -31,7 +31,7 @@ Check in order — simplest first:
 
 1. **Port.** Is it the right COM port? The adapter may have a new number in
    another USB socket.
-2. **Device address** in the status bar (`ID: 1`).
+2. **Device address** in the connection card.
 3. **Baud rate, parity, stop bits** — as in the device. Unknown — the
    [scanner](../guide/scanner.md#unknown-baud).
 4. **A/B polarity.** Swap the wires — harmless, and it helps more often than

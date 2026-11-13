@@ -62,3 +62,9 @@ If you open a map file as a project, the app notices and opens it as a map.
 
 Every ModbusReader format is text (JSON or CSV): readable, diffable and fine
 to keep in version control.
+
+## Working with projects after 26.10.4
+
+Builds from `main` offer to save a new project as `Projects/Name/Name.mbproj`. Scripts go in `macros/` and result tables in `results/`. Opening another project with different connection settings stops polling. Watch values and chart history are cleared on a project change.
+
+To check a hand-built map, dashboard and scripts, run `python tools/check_project.py "path/to/project.mbproj"` from the source tree. [Format guide and examples](https://github.com/Mercurrial/ModbusReader/blob/main/AI_GUIDE.md).

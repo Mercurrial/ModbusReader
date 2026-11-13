@@ -141,7 +141,7 @@ class LogView(QWidget):
         self.ed_search.setClearButtonEnabled(True)
         self.ed_search.textChanged.connect(self._on_search)
         self.tab_bar_layout.addWidget(self.ed_search)
-        self.tab_bar_layout.addSpacing(4)
+        self.tab_bar_layout.addSpacing(8)
         self.btn_save = self._tool("download", self.save_to_file)
         self.btn_clear = self._tool("trash", self.store.clear)
         lo.addWidget(tab_bar)
@@ -157,14 +157,18 @@ class LogView(QWidget):
         self.set_filter("all")
 
     def _tool(self, icon_name: str, slot) -> QPushButton:
+        # An icon button, not a tab: the tab style (padding + underline)
+        # sat the icons ~5 px below the search field's centre line.
         b = QPushButton()
-        b.setObjectName("logTab")
+        b.setObjectName("iconBtn")
+        b.setFixedSize(28, 28)
         b.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         b.setCursor(Qt.CursorShape.PointingHandCursor)
         b.setIconSize(QSize(14, 14))
         b.setProperty("icon_name", icon_name)
         b.clicked.connect(slot)
         self.tab_bar_layout.addWidget(b)
+        self.tab_bar_layout.addSpacing(2)
         self.paint_tool(b)
         return b
 
@@ -277,7 +281,8 @@ class LogPanel(QWidget):
         self._tabs = self.log_view._tabs
         # Console visibility toggle (terminal icon, right side of the tab bar).
         self.btn_console = QPushButton()
-        self.btn_console.setObjectName("logTab")
+        self.btn_console.setObjectName("iconBtn")
+        self.btn_console.setFixedSize(28, 28)
         self.btn_console.setCheckable(True)
         self.btn_console.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_console.setCursor(Qt.CursorShape.PointingHandCursor)

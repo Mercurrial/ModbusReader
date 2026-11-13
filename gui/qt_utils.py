@@ -117,3 +117,102 @@ def fit_on_screens(x, y, w: int, h: int, areas: list) -> tuple:
     a = areas[0]
     w, h = min(w, a.width()), min(h, a.height())
     return (a.x() + (a.width() - w) // 2, a.y() + (a.height() - h) // 2, w, h)
+
+
+def style_title_bar(widget, tokens: dict) -> bool:
+    """The window's title bar in the app's colours (Windows only).
+
+    The title bar is drawn by Windows, not Qt, so it stayed white over a
+    dark app. Dark mode for it is a DWM attribute (Windows 10 20H1+); on
+    Windows 11 the caption and its text can take the theme's own colours
+    too. Returns True when Windows took the dark/light setting."""
+    import sys
+    if sys.platform != "win32" or widget is None:
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+        from PyQt6.QtGui import QColor
+        hwnd = wintypes.HWND(int(widget.winId()))
+        dwm = ctypes.windll.dwmapi
+
+        def attr(key, value) -> bool:
+            v = ctypes.c_int(value)
+            return dwm.DwmSetWindowAttribute(hwnd, key, ctypes.byref(v),
+                                             ctypes.sizeof(v)) == 0
+
+        bg = QColor(tokens.get("bg_1", "#ffffff"))
+        dark = bg.lightness() < 128
+        # 20 = DWMWA_USE_IMMERSIVE_DARK_MODE; 19 on Windows 10 before 20H1.
+        ok = attr(20, int(dark)) or attr(19, int(dark))
+
+        def colorref(hex_color):
+            c = QColor(hex_color)
+            return c.red() | (c.green() << 8) | (c.blue() << 16)
+
+        attr(35, colorref(tokens.get("bg_1", "#ffffff")))     # DWMWA_CAPTION_COLOR (Win 11)
+        attr(36, colorref(tokens.get("text_1", "#000000")))   # DWMWA_TEXT_COLOR (Win 11)
+        # Repaint the frame now, not at the next resize.
+        SWP = 0x0001 | 0x0002 | 0x0004 | 0x0020    # NOSIZE|NOMOVE|NOZORDER|FRAMECHANGED
+        ctypes.windll.user32.SetWindowPos(hwnd, None, 0, 0, 0, 0, SWP)
+        return ok
+    except Exception:
+        return False
+
+
+def _framed_window(w) -> bool:
+    from PyQt6.QtCore import Qt
+    return (w.isWindow()
+            and not (w.windowFlags() & Qt.WindowType.FramelessWindowHint))
+
+
+class TitleBarStyler:
+    """Every window with a Windows frame — the main window, the map editor,
+    a popped-out chart — gets its title bar in the theme's colours when it
+    becomes the active window, and again on a theme change
+    (``restyle_all``). (An app-wide event filter caught each Show too, but
+    ran Python for every event — ~40 000 calls a restyle.)"""
+
+    def __init__(self, app, tokens_fn):
+        self.tokens_fn = tokens_fn
+        app.focusWindowChanged.connect(self._on_focus_window)
+
+    def _on_focus_window(self, window):
+        from PyQt6.QtWidgets import QApplication
+        if window is None:
+            return
+        for w in QApplication.topLevelWidgets():
+            if w.windowHandle() is window and _framed_window(w):
+                style_title_bar(w, self.tokens_fn())
+
+    def restyle_all(self, tokens: dict | None = None):
+        from PyQt6.QtWidgets import QApplication
+        tokens = tokens or self.tokens_fn()
+        for w in QApplication.topLevelWidgets():
+            if w.isVisible() and _framed_window(w):
+                style_title_bar(w, tokens)
+
+
+def slide_from(before: dict, layout, owner, ms: int = 170):
+    """Widgets that a layout change moved glide to their new places instead
+    of jumping there. *before*: {widget: its pos() before the change}. The
+    layout is settled first; each moved widget then animates from where it
+    was to where the layout put it."""
+    from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QAbstractAnimation
+    layout.activate()
+    for w, old in before.items():
+        if not alive(w):
+            continue
+        new = w.pos()
+        if old == new:
+            continue
+        prev = getattr(w, "_slide_anim", None)
+        if prev is not None and alive(prev):
+            prev.stop()
+        anim = QPropertyAnimation(w, b"pos", owner)
+        anim.setDuration(ms)
+        anim.setStartValue(old)
+        anim.setEndValue(new)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        w._slide_anim = anim
+        anim.start(QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)

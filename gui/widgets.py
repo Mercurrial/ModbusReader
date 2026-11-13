@@ -6,7 +6,7 @@ settings dialog (and anywhere else) can be built declaratively.
 """
 
 from PyQt6.QtWidgets import (
-    QWidget, QHBoxLayout, QPushButton, QSlider, QLabel, QHeaderView,
+    QWidget, QHBoxLayout, QPushButton, QSlider, QLabel, QHeaderView, QComboBox,
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QPainter, QColor, QPen, QPalette
@@ -61,6 +61,54 @@ class Segmented(QWidget):
 
     def value(self):
         return self._value
+
+
+class PortCombo(QComboBox):
+    """A COM-port field. The list is the ports the system has NOW — read
+    again every time it opens — each with its adapter's name; picking one
+    leaves just the port in the field. A port that is not plugged in can
+    still be typed, or stay from the settings, but is not offered as if it
+    were there (the old list kept every port ever saved at its top)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("stInput")
+        self.setEditable(True)
+        self.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.activated.connect(self._picked)
+        self.refresh()
+
+    def refresh(self):
+        from core import transports
+        current = self.port()
+        was = self.blockSignals(True)
+        self.clear()
+        for dev, desc in transports.serial_ports():
+            self.addItem(f"{dev} — {desc}" if desc else dev, dev)
+        self.setEditText(current)
+        self.blockSignals(was)
+
+    def showPopup(self):
+        self.refresh()
+        view = self.view()
+        view.setMinimumWidth(max(self.width(), view.sizeHintForColumn(0) + 28))
+        super().showPopup()
+
+    def _picked(self, index: int):
+        dev = self.itemData(index)
+        if dev:
+            self.setEditText(dev)
+
+    def port(self) -> str:
+        """The port in the field: "COM7" (never the adapter's name)."""
+        text = self.currentText().strip()
+        index = self.findText(text)
+        if index >= 0 and self.itemData(index):
+            return self.itemData(index)
+        return text.split(" — ")[0].strip()
+
+    def set_port(self, name):
+        self.setEditText(str(name or "").strip())
 
 
 class ToggleSwitch(QPushButton):

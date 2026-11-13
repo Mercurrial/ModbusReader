@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QProgressBar, QAbstractItemView,
     QLineEdit, QComboBox, QAbstractSpinBox,
 )
+from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
 
 from core import netscan, transports
@@ -36,6 +37,7 @@ class ScannerView(QWidget):
         super().__init__(parent)
         self.ctx = ctx
         self._worker = None                 # ScannerWorker | NetScanWorker
+        self._not_in_map = 0                 # register scan: hits the map lacks
         # Last finished scan, so a language switch can re-render the summary
         # instead of replacing it with "ready".
         self._last_result: tuple | None = None
@@ -110,10 +112,6 @@ class ScannerView(QWidget):
         bar.addWidget(self.lbl_net_port)
         bar.addWidget(self.spin_net_port)
 
-        self.lbl_sid = self._crumb(self.ctx.t("slaveIdLbl"))
-        self.spin_sid = self._spin(1, 247, int(self.ctx.settings.get("slave_id", 10)))
-        bar.addWidget(self.lbl_sid)
-        bar.addWidget(self.spin_sid)
 
         bar.addStretch()
 
@@ -201,8 +199,6 @@ class ScannerView(QWidget):
     def _on_mode_changed(self, mode, clear: bool = True):
         t = self.ctx.t
         devices, net = mode == "devices", mode == "network"
-        self.lbl_sid.setVisible(mode == "registers")
-        self.spin_sid.setVisible(mode == "registers")
         custom = net and self._custom_range()
         for w in (self.spin_from, self.spin_to):
             w.setVisible(not net)
@@ -225,7 +221,10 @@ class ScannerView(QWidget):
         else:
             self.spin_from.setRange(0, 65535)
             self.spin_to.setRange(0, 65535)
-            headers = [t("address"), t("current"), t("scanTime")]
+            # «В карте»: what the scan is for — registers the device answers
+            # that its documentation (the map) does not list.
+            headers = [t("address"), t("current"), t("scanTime"), t("scanInMap")]
+        self.table.setColumnCount(len(headers))
         if net:
             self.empty.set_content(t("scanNetEmptyTitle"), t("scanNetEmptyBody"))
         else:
@@ -257,18 +256,21 @@ class ScannerView(QWidget):
                 return
         else:
             core = self.ctx.core
-            if not core.is_running:
-                themed_info(self, self.ctx.theme, "warning",
-                            self.ctx.t("scanNotConnectedTitle"),
-                            self.ctx.t("scanNotConnectedText"))
+            # No «connect first»: the window opens the link for the scan if
+            # it is closed (the device's id is what we are looking for), and
+            # pauses the map poll if it is open.
+            if not self.claim_link():
                 return
             start, end = self.spin_from.value(), self.spin_to.value()
             if end < start:
                 start, end = end, start
+            # Registers: the device in the connection — no second id field.
             worker = ScannerWorker(core, mode, start, end,
-                                   slave_id=self.spin_sid.value())
+                                   slave_id=int(self.ctx.settings.get("slave_id", 1)))
             worker.error.connect(self._on_error)
+            worker.finished_scan.connect(lambda *_: self.release_link())
         self.table.setRowCount(0)
+        self._not_in_map = 0
         self.progress.setValue(0)
         self.progress.setVisible(True)
         later(0, self, self._empty_ov.refresh)   # once the worker is running
@@ -294,7 +296,40 @@ class ScannerView(QWidget):
             return None
         return netscan.NetScanWorker(hosts, self.spin_net_port.value())
 
+    # The window replaces this: the register map on screen.
+    @staticmethod
+    def get_registers() -> list:
+        return []
+
+    def map_name(self, addr: int) -> str:
+        """The map's name for holding register *addr* — "Уставка (слово 2)"
+        for the second word of a 32-bit one; "" when the map lacks it."""
+        from core import datatypes
+        for reg in self.get_registers() or []:
+            if not isinstance(reg, dict) or datatypes.area_of(reg).key != "holding":
+                continue
+            try:
+                start = int(reg.get("addr", -1))
+            except (TypeError, ValueError):
+                continue
+            span = datatypes.addr_span(reg)
+            if start <= addr < start + span:
+                name = str(reg.get("name") or reg.get("name_en") or "")
+                if addr > start:
+                    name += " " + self.ctx.t("scanWordN").format(n=addr - start + 1)
+                return name
+        return ""
+
+    # The window replaces these (main_window._claim_scan_link): open or
+    # pause the link for a scan, and give it back afterwards.
+    def claim_link(self) -> bool:
+        return bool(self.ctx.core.is_running)
+
+    def release_link(self):
+        pass
+
     def _on_error(self, msg: str):
+        msg = msg or self.ctx.t("scanLinkFailed")
         self._status_is_result = False
         self.lbl_status.setText(msg)
         set_state(self.lbl_status, "error")
@@ -320,6 +355,9 @@ class ScannerView(QWidget):
             c0 = f"0x{hit['addr']:04X}"
             c1 = "—" if hit.get("value") is None else str(hit["value"])
         cells = [c0, c1, f"{hit['ms']:.0f}{t('unitMsSuffix')}"]
+        if mode == "registers":
+            name = self.map_name(hit["addr"])
+            cells.append(name if name else t("scanNotInMap"))
         row = self._row_for(hit)
         self.table.insertRow(row)
         for col, text in enumerate(cells):
@@ -327,6 +365,9 @@ class ScannerView(QWidget):
             it.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             if col == 0:
                 it.setData(Qt.ItemDataRole.UserRole, hit)
+            if col == 3 and text == t("scanNotInMap"):
+                it.setForeground(QColor(self.ctx.theme_tokens()["warn"]))
+                self._not_in_map += 1
             self.table.setItem(row, col, it)
 
     def _row_for(self, hit: dict) -> int:
@@ -344,6 +385,10 @@ class ScannerView(QWidget):
     def _on_row_activated(self, row: int, _col: int):
         it = self.table.item(row, 0)
         hit = it.data(Qt.ItemDataRole.UserRole) if it is not None else None
+        if hit and hit.get("mode") == "devices":
+            # A device found on the line: connect to it by its id.
+            self.connect_requested.emit({"slave_id": int(hit["id"])})
+            return
         if not hit or "ip" not in hit:
             return
         link = {"transport": "tcp", "host": hit["ip"], "tcp_port": hit["port"]}
@@ -368,6 +413,8 @@ class ScannerView(QWidget):
         hits, total, seconds = self._last_result
         t = self.ctx.t
         text = t("scanDone").format(hits=hits, total=total, sec=f"{seconds:.1f}")
+        if self.seg_mode.value() == "registers" and getattr(self, "_not_in_map", 0):
+            text += "  ·  " + t("scanNotInMapCount").format(n=self._not_in_map)
         if hits and self.seg_mode.value() == "network":
             text += "  ·  " + t("scanNetHint")
         self.lbl_status.setText(text)
@@ -399,7 +446,6 @@ class ScannerView(QWidget):
         self.lbl_net_port.setText(t("connTcpPort"))
         self.cb_subnet.setItemText(self.cb_subnet.count() - 1, t("scanNetCustom"))
         self.empty.buttons[0].setText(t("scanStart"))
-        self.lbl_sid.setText(t("slaveIdLbl"))
         # Never overwrite a live/finished status line with "ready".
         running = bool(self._worker and self._worker.isRunning())
         if self.lbl_status.property("state") == "error":

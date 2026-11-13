@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from gui import icons
-from gui.widgets import EmptyState, EmptyOverlay
+from gui.widgets import EmptyState, EmptyOverlay, PortCombo
 from core import transports
 from gui.dialogs import themed_info
 from gui.qt_utils import set_state
@@ -43,9 +43,7 @@ class SnifferView(QWidget):
 
         self.lbl_port = QLabel(t("port"))
         self.lbl_port.setObjectName("mhCrumb")
-        self.combo_port = QComboBox()
-        self.combo_port.setObjectName("stInput")
-        self.combo_port.setEditable(True)
+        self.combo_port = PortCombo()
         self.combo_port.setFixedWidth(130)
         self._fill_ports()
         bar.addWidget(self.lbl_port)
@@ -119,25 +117,19 @@ class SnifferView(QWidget):
             [t("time"), "ID", t("snifFunc"), t("snifKind"), t("snifData"), "CRC"])
 
     def _fill_ports(self):
-        current = self.combo_port.currentText()
-        self.combo_port.clear()
-        try:
-            from serial.tools import list_ports
-            ports = [p.device for p in list_ports.comports()]
-        except Exception:
-            ports = []
-        if not ports:
-            ports = [self.ctx.settings.get("port", "COM1")]
-        self.combo_port.addItems(ports)
-        if current:
-            self.combo_port.setCurrentText(current)
+        """The field keeps its port; the list reads the system each time it
+        opens (gui.widgets.PortCombo)."""
+        current = self.combo_port.port()
+        self.combo_port.refresh()
+        self.combo_port.set_port(current or self.combo_port.itemData(0)
+                                 or self.ctx.settings.get("port", "COM1"))
 
     # ── start/stop ────────────────────────────────────────────────────
     def _toggle(self):
         if self._worker is not None and self._worker.isRunning():
             self._worker.request_stop()
             return
-        port = self.combo_port.currentText().strip()
+        port = self.combo_port.port()
         try:
             baud = int(self.combo_baud.currentText())
         except ValueError:

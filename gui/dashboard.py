@@ -17,6 +17,7 @@ Safety: **no device writes happen in edit mode** — timers are stopped and the
 controls are inert while the canvas is being arranged.
 """
 
+import copy
 import math
 import time
 import uuid
@@ -31,7 +32,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea,
-    QMenu, QLineEdit, QComboBox, QFileDialog,
+    QMenu, QLineEdit, QComboBox, QFileDialog, QApplication,
 )
 from PyQt6 import sip
 
@@ -56,6 +57,19 @@ SHEET_W, SHEET_H = 1600, 1000   # logical work-sheet size (like a slide)
 PAN_MARGIN = 240           # px of slack past the viewport, so panning always
                            # has somewhere to go
 HANDLE = 14                # resize handle size
+
+
+def _content(board: dict):
+    """What an undo step is about: the widgets and the wires (not the name)."""
+    return board.get("widgets"), board.get("links")
+
+
+def _menu_action(menu, text: str, keys: str, enabled: bool = True):
+    """A menu item that shows its shortcut (the keys themselves are handled
+    by the view's keyPressEvent, not by the action)."""
+    act = menu.addAction(f"{text}	{keys}")
+    act.setEnabled(enabled)
+    return act
 
 
 def _f(text, default=0.0) -> float:
@@ -1238,6 +1252,13 @@ class DashboardView(QWidget):
         self.ctx = ctx
         self.get_registers = get_registers
         self.cards: dict[str, DashCard] = {}
+        # Undo / redo of the board on screen: every edit ends in _persist(),
+        # which keeps the state it replaces (see _remember).
+        self._undo: list[dict] = []
+        self._redo: list[dict] = []
+        self._undo_tag = None           # set by an edit that comes in bursts
+        self._last_tag, self._last_push = None, 0.0
+        self._restoring = False
         # A project can hold several dashboards; boards[index] is on screen.
         self.boards = self._load_boards(ctx.settings)
         self.index = max(0, min(int(ctx.settings.get("dash_index", 0) or 0),
@@ -1658,13 +1679,76 @@ class DashboardView(QWidget):
 
     def _persist(self):
         # cfg already holds LOGICAL geometry (card.x() would be zoom-scaled).
-        self.boards[self.index] = self._capture_board()
+        board = self._capture_board()
+        prev = self.boards[self.index]
+        if self.edit and not self._restoring and _content(prev) != _content(board):
+            self._remember(prev)
+        self.boards[self.index] = board
         self.ctx.settings["dashboards"] = [dict(b) for b in self.boards]
         self.ctx.settings["dash_index"] = self.index
         # Keep the legacy keys in sync with the ACTIVE board so an older build
         # (or anything still reading them) still sees a valid dashboard.
         self.ctx.settings["dash_widgets"] = self.boards[self.index]["widgets"]
         self.ctx.settings["dash_links"] = self.boards[self.index]["links"]
+
+    # ── undo / redo ──────────────────────────────────────────────────
+    UNDO_LIMIT = 100
+    BURST_S = 1.0
+
+    def _remember(self, prev: dict):
+        """Keep *prev* — the board before this edit — for Ctrl+Z. Edits that
+        come in bursts (arrow-key nudges) make one step: the first state of
+        the burst is the one Ctrl+Z goes back to."""
+        tag, self._undo_tag = self._undo_tag, None
+        now = time.monotonic()
+        burst = (tag is not None and tag == self._last_tag
+                 and now - self._last_push < self.BURST_S and self._undo)
+        if not burst:
+            self._undo.append(copy.deepcopy(prev))
+            del self._undo[:-self.UNDO_LIMIT]
+        self._last_tag, self._last_push = tag, now
+        self._redo.clear()
+
+    def _forget_history(self):
+        """Another board is on screen: its edits have no history here."""
+        self._undo.clear()
+        self._redo.clear()
+        self._last_tag = None
+
+    def undo(self) -> bool:
+        if not (self.edit and self._undo):
+            return False
+        self._redo.append(copy.deepcopy(self._capture_board()))
+        self._restore(self._undo.pop())
+        return True
+
+    def redo(self) -> bool:
+        if not (self.edit and self._redo):
+            return False
+        self._undo.append(copy.deepcopy(self._capture_board()))
+        self._restore(self._redo.pop())
+        return True
+
+    def _restore(self, board: dict):
+        """Put *board* on screen; what the step changed comes out selected,
+        so it is clear what was undone."""
+        now = {c.cfg.get("uid"): dict(c.cfg) for c in self.cards.values()}
+        for uid in list(self.cards):
+            self._destroy_card(uid)
+        self.graph = dm.Graph(board.get("links", []))
+        self.sel_wire = None
+        self._sel = []
+        self._load_widgets(copy.deepcopy(board.get("widgets", [])))
+        self._grow_canvas()
+        self._refresh_empty()
+        self._restoring = True
+        try:
+            self._persist()
+        finally:
+            self._restoring = False
+        self._last_tag = None
+        self._select([u for u, c in self.cards.items() if now.get(u) != c.cfg])
+        self.canvas.update()
 
     def _refresh_board_combo(self):
         self.combo_board.blockSignals(True)
@@ -1687,6 +1771,7 @@ class DashboardView(QWidget):
         self._stop_all_timers()
         for uid in list(self.cards):
             self._destroy_card(uid)
+        self._forget_history()
         self.index = index
         self.graph = dm.Graph(self.boards[index].get("links", []))
         self.sel_uid = self.sel_wire = None
@@ -1754,6 +1839,7 @@ class DashboardView(QWidget):
             return
         self.boards.pop(self.index)
         self.index = max(0, self.index - 1)
+        self._forget_history()
         for uid in list(self.cards):
             self._destroy_card(uid)
         self.graph = dm.Graph(self.boards[self.index].get("links", []))
@@ -1805,6 +1891,7 @@ class DashboardView(QWidget):
         self._stop_all_timers()
         for uid in list(self.cards):
             self._destroy_card(uid)
+        self._forget_history()
         self.boards = [formats.normalize_dashboard(b) for b in (boards or [])] \
             or [formats.normalize_dashboard({})]
         for i, b in enumerate(self.boards):
@@ -1999,15 +2086,21 @@ class DashboardView(QWidget):
                 self._persist()
                 self.canvas.update()
             return
-        act_add = m.addAction(t("dashAddWidget"))
-        act_paste = m.addAction(t("dashPaste"))
-        act_paste.setEnabled(bool(getattr(self, "_clipboard", None)
-                                  and self._clipboard.get("widgets")))
+        act_undo = _menu_action(m, t("undo"), "Ctrl+Z", bool(self._undo))
+        act_redo = _menu_action(m, t("redo"), "Ctrl+Y", bool(self._redo))
         m.addSeparator()
-        act_all = m.addAction(t("dashSelectAll"))
-        act_all.setEnabled(bool(self.cards))
+        act_add = m.addAction(t("dashAddWidget"))
+        act_paste = _menu_action(m, t("dashPaste"), "Ctrl+V",
+                                 bool(getattr(self, "_clipboard", None)
+                                      and self._clipboard.get("widgets")))
+        m.addSeparator()
+        act_all = _menu_action(m, t("dashSelectAll"), "Ctrl+A", bool(self.cards))
         chosen = m.exec(self.canvas.mapToGlobal(pos))
-        if chosen is act_add:
+        if chosen is act_undo:
+            self.undo()
+        elif chosen is act_redo:
+            self.redo()
+        elif chosen is act_add:
             self._add_widget()
         elif chosen is act_paste:
             self._toast_pasted(self.paste_clipboard())
@@ -2030,6 +2123,11 @@ class DashboardView(QWidget):
             return self.set_edit(not self.edit)
 
         if self.edit:
+            shift = bool(mods & Qt.KeyboardModifier.ShiftModifier)
+            if ctrl and key == Qt.Key.Key_Z:
+                return self._toast_undo(self.redo() if shift else self.undo())
+            if ctrl and key == Qt.Key.Key_Y:
+                return self._toast_undo(self.redo())
             if ctrl and key == Qt.Key.Key_A:
                 return self.select_all()
             if ctrl and key == Qt.Key.Key_C:
@@ -2049,6 +2147,9 @@ class DashboardView(QWidget):
                     return self._remove_selection()
             if ctrl and key == Qt.Key.Key_D and self.sel_uid:
                 return self._duplicate_widget(self.sel_uid)
+            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_F2) \
+                    and self.sel_uid:
+                return self._edit_widget(self.sel_uid)
             if key == Qt.Key.Key_Escape:
                 return self.clear_selection()
             step = dm.NUDGE_BIG if (mods & Qt.KeyboardModifier.ShiftModifier) \
@@ -2058,6 +2159,10 @@ class DashboardView(QWidget):
             if key in deltas and self._sel:
                 return self._nudge_selection(*deltas[key])
         super().keyPressEvent(e)
+
+    def _toast_undo(self, done: bool):
+        if not done:
+            QApplication.beep()
 
     def _toast_copied(self, n: int):
         if n:
@@ -2075,6 +2180,7 @@ class DashboardView(QWidget):
         for uid in self._sel:
             self._nudge(uid, dx, dy, commit=False)   # one save for the group
         self._grow_canvas()
+        self._undo_tag = "nudge"                     # held arrows: one undo step
         self._persist()
         self.canvas.update()
 

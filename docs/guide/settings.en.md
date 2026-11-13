@@ -141,3 +141,5 @@ The full list is in **Settings → Hotkeys**.
 
 Version, the GPL-3.0 licence, links to the source code and to the project
 support page.
+
+**In builds from `main` after 26.10.4.** The General tab offers a factory reset with confirmation and restart. It restores connection settings, appearance and window layout, and clears the recent files list. Saved projects, maps and scripts stay on disk.
