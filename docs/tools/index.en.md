@@ -5,8 +5,7 @@ description: Free online tools for Modbus RTU — CRC16 calculator with a frame 
 
 # Online tools
 
-Three helpers for commissioning engineers — they run right in your
-browser, with nothing to install and no data sent anywhere.
+These three tools process frames, register values and addresses locally in your browser.
 
 <div class="grid cards" markdown>
 

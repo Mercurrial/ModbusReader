@@ -10,7 +10,7 @@ description: Онлайн-перевод адресов регистров Modbu
 программа поймёт как нотацию Modicon сама. Остальное — `16`, `0x10`, `10h` —
 считается адресом протокола с нуля; для него выберите таблицу.
 
-<div class="mbt" markdown>
+<div class="mbt ym-hide-content" markdown>
 <label for="mbt-addr-in">Адрес</label>
 <div class="mbt-row">
 <input id="mbt-addr-in" class="mbt-input" type="text" value="40001" spellcheck="false" autocomplete="off">

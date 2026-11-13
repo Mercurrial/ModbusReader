@@ -9,7 +9,7 @@ Devices send 32- and 64-bit values as several 16-bit registers, and vendors
 order the bytes differently. The converter shows a value **in all four
 orders at once** — an easy way to see how your device lays out its bytes.
 
-<div class="mbt" markdown>
+<div class="mbt ym-hide-content" markdown>
 <label for="mbt-val-type">Type</label>
 <select id="mbt-val-type" class="mbt-input">
 <option value="FLOAT" selected>FLOAT (32-bit IEEE-754)</option>

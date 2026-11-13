@@ -10,7 +10,7 @@ Type an address the way the device datasheet writes it — `40001`, `30010`,
 one, is read as Modicon notation by itself. Anything else — `16`, `0x10`,
 `10h` — is the zero-based protocol address; pick its table.
 
-<div class="mbt" markdown>
+<div class="mbt ym-hide-content" markdown>
 <label for="mbt-addr-in">Address</label>
 <div class="mbt-row">
 <input id="mbt-addr-in" class="mbt-input" type="text" value="40001" spellcheck="false" autocomplete="off">

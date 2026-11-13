@@ -10,14 +10,14 @@ checksum, or **with it** to check it. The decoding appears below: device
 address, function, address, count, data. A [Modbus TCP](../modbus/tcp.md)
 frame with an MBAP header is recognised and decoded too — it carries no CRC.
 
-<div class="mbt" markdown>
+<div class="mbt ym-hide-content" markdown>
 <label for="mbt-crc-in">Frame (hex)</label>
 <input id="mbt-crc-in" class="mbt-input" type="text" value="01 03 00 00 00 02" spellcheck="false" autocomplete="off">
 <div id="mbt-crc-out" class="mbt-out"></div>
 </div>
 
-Spaces, commas and `0x` are all fine; every byte is two digits. Everything
-is computed in your browser, nothing is sent anywhere.
+Spaces, commas and `0x` are all fine; every byte is two digits. The frame and checksum
+are processed locally in your browser.
 
 ## How the Modbus CRC is computed
 
