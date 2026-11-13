@@ -277,6 +277,32 @@ def test_the_empty_watch_window_wraps_its_text_inside(watch):
     watch.hide()
 
 
+def test_watch_rows_reorder_by_drag(watch):
+    """After adding, the order could only change through a menu."""
+    import time
+    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtCore import QPoint
+    for a in (0x10, 0x11, 0x12):
+        watch.add(a)
+    watch.resize(440, 400)
+    watch.show()
+    QApplication.processEvents()
+    first, second = watch.row_widget(0), watch.row_widget(1)
+    watch._drag_started(0x10)
+    assert first.property("dragging") == "true"
+    old = second.pos()
+    watch._drag_moved(0x10, second.mapToGlobal(second.rect().center()) + QPoint(0, 4))
+    assert [r.addr for r in watch._rows] == [0x11, 0x10, 0x12]
+    end = time.monotonic() + 1.0
+    while time.monotonic() < end and second.pos() == old:
+        QApplication.processEvents()
+    assert second.pos() != old                      # it glided up
+    watch._drag_dropped(0x10)
+    assert watch.ctx.settings["watch_list"] == [0x11, 0x10, 0x12]
+    assert first.property("dragging") == "false"
+    watch.hide()
+
+
 @pytest.fixture()
 def win(tmp_path, monkeypatch):
     from gui import main_window as gui_main

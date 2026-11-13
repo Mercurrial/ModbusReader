@@ -376,6 +376,10 @@ examples/      демо-проект
 [ARCHITECTURE.md](ARCHITECTURE.md) — карта модулей, стиль Descriptor+Registry,
 потоковая модель (COM-портом владеет один поток `ModbusCore`). История
 изменений — [CHANGELOG.md](CHANGELOG.md).
+
+[AI_GUIDE.md](AI_GUIDE.md) — для ИИ-ассистента: как по описанию прибора
+собрать карту регистров, дашборд и макрос; `tools/check_project.py`
+проверяет готовый проект.
 </details>
 
 ## Поддержать проект

@@ -1,6 +1,7 @@
 # gui/main_window.py
 
 import os
+import sys
 
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
@@ -53,7 +54,7 @@ def projects_dir() -> str:
     from app import projects
     return projects.projects_dir()
 from gui.dialogs import themed_info, themed_message, themed_input
-from gui.qt_utils import later, fit_on_screens
+from gui.qt_utils import later, fit_on_screens, TitleBarStyler
 from core import datatypes
 from core import formats
 from app import commands
@@ -75,6 +76,8 @@ class ModernScadaApp(QMainWindow):
         # translator, theme). self.settings / modbus_core / lang / t below are
         # read-through properties onto it — see the "SHARED SERVICES" block.
         self.ctx = AppContext(load_settings())
+        # Windows draws the title bars: keep them in the theme's colours.
+        self._title_bars = TitleBarStyler(QApplication.instance(), self.ctx.theme_tokens)
         self._restore_window_geometry()
         self.profile_data: list[dict] = []
         self.profile_path: str        = ""
@@ -123,7 +126,7 @@ class ModernScadaApp(QMainWindow):
             later(500, self, self._maybe_show_onboarding)
 
         # Updates: a quiet check right after start-up, then every few
-        # hours; one question when there is something new (gui/update.py).
+        # hours; what it finds shows in the status bar (gui/update.py).
         self._closing_for_update = False
         self.update_ctl = UpdateController(self)
         self.update_ctl.start()
@@ -315,6 +318,9 @@ class ModernScadaApp(QMainWindow):
         self.scanner_view = ScannerView(self.ctx)
         self.scanner_view.connect_requested.connect(
             lambda link: self.conn_card.open_below(self.main_toolbar.btn_link, link=link))
+        self.scanner_view.claim_link = self._claim_scan_link
+        self.scanner_view.get_registers = lambda: self.profile_data
+        self.scanner_view.release_link = self._release_scan_link
         self.content_stack.addWidget(self.scanner_view)
         self.sniffer_view = SnifferView(self.ctx)
         self.content_stack.addWidget(self.sniffer_view)
@@ -346,11 +352,18 @@ class ModernScadaApp(QMainWindow):
         self.macro_view = MacroWindow(self.ctx, lambda: self.profile_data,
                                       embedded=True)
         self.macro_window = self.macro_view          # historical name
+        # The open project's own folders (app/projects.py): its macros, and
+        # the tables they make.
+        from app import projects as _projects
+        self.macro_view.macros_dir = lambda: _projects.subfolder(self.project_path, _projects.MACROS)
+        self.macro_view.results_dir = lambda: _projects.subfolder(self.project_path, _projects.RESULTS)
         self.content_stack.addWidget(self.macro_view)
 
         # The watch window floats above the main window (built hidden, so
         # the picked registers keep their min/max even while it is closed).
         self.watch_window = WatchWindow(self.ctx, lambda: self.profile_data, self)
+        self.watch_window.visibility_changed.connect(
+            lambda on: self.nav_rail.set_window_open("watch", on))
         self.watch_window.write_requested.connect(self.register_table.request_write)
         self.watch_window.watch_changed.connect(self.register_table.set_watched)
         self.register_table.set_watched(self.watch_window.watched())
@@ -375,6 +388,8 @@ class ModernScadaApp(QMainWindow):
         # The connection card: the link chip in the header opens it.
         from gui.connection import ConnectionCard
         self.conn_card = ConnectionCard(self.ctx, lambda: self.profile_data, self)
+        # On the scanner's page the device's id is what is being looked for.
+        self.conn_card.hide_id = lambda: self._current_view == "view_scanner"
         self.conn_card.connect_requested.connect(self._connect_with)
         self.conn_card.disconnect_requested.connect(self._disconnect)
         self.conn_card.committed.connect(self._on_link_committed)
@@ -601,7 +616,42 @@ class ModernScadaApp(QMainWindow):
                 return
         core.setup_connection(self.settings, self.settings.get("slave_id", 10))
         core.update_profile(self.profile_data)
+        core.poll_paused = False
         core.start()
+
+    # ── the scanner borrows the line ──────────────────────────────────
+    def _claim_scan_link(self) -> bool:
+        """A device or register scan needs the line. An open link: the map
+        poll pauses (a missing device there cost a timeout per request,
+        and the probes waited behind each). A closed one: it opens for the
+        scan alone — the device's id is what the scan is looking for, so it
+        cannot be asked for first."""
+        from core import transports
+        core = self.modbus_core
+        if core.is_running:
+            core.poll_paused = True
+            self._scan_opened_link = False
+            return True
+        if core.isRunning():                 # still opening or closing
+            return False
+        if transports.is_network(self.settings) and not transports.host_value(self.settings):
+            self.conn_card.open_below(self.main_toolbar.btn_link)
+            return False
+        core.setup_connection(self.settings, self.settings.get("slave_id", 10))
+        core.update_profile(self.profile_data)
+        core.poll_paused = True
+        self._scan_opened_link = True
+        core.start()
+        return True
+
+    def _release_scan_link(self):
+        core = self.modbus_core
+        core.poll_paused = False
+        if getattr(self, "_scan_opened_link", False):
+            self._scan_opened_link = False
+            if core.is_running or core.isRunning():
+                core.stop()
+                core.wait(3000)
 
     # ── the connection card ───────────────────────────────────────────
     def _toggle_conn_card(self):
@@ -851,10 +901,12 @@ class ModernScadaApp(QMainWindow):
         self.main_toolbar.apply_theme(theme, accent)
         self.nav_rail.apply_theme(theme, accent)
         from gui import theme_manager
-        self.status_bar.apply_theme(theme_manager.get_theme(theme, accent))
+        tokens = theme_manager.get_theme(theme, accent)
+        self.status_bar.apply_theme(tokens)
         self.trends_manager.set_theme(theme)
         self.dash_view.apply_settings()
         self.register_table.apply_settings()
+        self._title_bars.restyle_all(tokens)
         self.update()
 
     def _on_settings_accepted(self, dlg):
@@ -1123,6 +1175,7 @@ class ModernScadaApp(QMainWindow):
                     app.setStyleSheet(qss)
                 self.trends_manager.set_theme(theme)
                 tok = self.ctx.theme_tokens()
+                self._title_bars.restyle_all(tok)
                 self._search_icon_lbl.setPixmap(icons.pixmap("search", tok["text_4"], 14))
                 self.btn_profile.setIcon(icons.icon("project", tok["text_2"], 15))
                 self.btn_profile.set_chevron_color(tok["text_3"])
@@ -1248,6 +1301,11 @@ class ModernScadaApp(QMainWindow):
         self.settings["last_project_name"] = self.project_name
         self._refresh_project_button()
         self._sync_simulation()
+        if self.project_path:
+            # The project's folder in the root, with its macros and results.
+            from app import projects
+            for which in (projects.MACROS, projects.RESULTS):
+                projects.subfolder(self.project_path, which)
 
     def _sync_simulation(self):
         """The demo project's made-up device (core/simulator.py) exists while
@@ -1323,6 +1381,7 @@ class ModernScadaApp(QMainWindow):
                  (self.t("cancel"), QMessageBox.ButtonRole.RejectRole, True)])
             if choice != 0:
                 return
+        self._reset_live_values()
         self._set_profile([], "")
         self.dash_view.load_boards([])
         self._set_project("", self.t("projectUntitled"))
@@ -1366,12 +1425,39 @@ class ModernScadaApp(QMainWindow):
         if not ok:
             return
         name = name.strip() or default
+        offer, made = self._offer_project_path(name)
         path, _ = QFileDialog.getSaveFileName(
-            self, self.t("projectSaveAs"), os.path.join(projects_dir(), f"{name}.mbproj"),
+            self, self.t("projectSaveAs"), offer,
             "ModbusReader project (*.mbproj)")
+        if made:
+            # Saved elsewhere, or not at all: the folder made for the offer
+            # is not left behind empty.
+            self._drop_if_empty(os.path.dirname(offer))
         if not path:
             return
         self._write_project(path, name)
+
+    def _offer_project_path(self, name: str):
+        """A new project goes into a folder of its own in the root (its
+        macros and results will sit beside it). The folder is made so the
+        dialog can open in it. Returns (path, whether the folder was made)."""
+        from app import projects
+        path = projects.new_project_path(name)
+        folder = os.path.dirname(path)
+        made = not os.path.isdir(folder)
+        try:
+            os.makedirs(folder, exist_ok=True)
+        except OSError:
+            return os.path.join(projects_dir(), f"{name}.mbproj"), False
+        return path, made
+
+    @staticmethod
+    def _drop_if_empty(folder: str):
+        try:
+            if os.path.isdir(folder) and not os.listdir(folder):
+                os.rmdir(folder)
+        except OSError:
+            pass
 
     def _write_project(self, path: str, name: str):
         from core import transports
@@ -1438,20 +1524,47 @@ class ModernScadaApp(QMainWindow):
         save_settings(self.settings)
         self._log("SYS", self.t("projectLoaded").format(path=path))
 
+    def _reset_live_values(self):
+        """Another project or map: nothing from the old one stays on screen
+        — the watch window's values and min/max, the charts' history."""
+        self.watch_window.reset_values()
+        self.trends_manager.reset_values()
+
+    def _drop_foreign_trends(self):
+        """Charts of registers the new map does not have are closed."""
+        from core import datatypes
+        ids = {datatypes.reg_id(datatypes.reg_key(r)) for r in self.profile_data
+               if isinstance(r, dict)}
+        for reg_id in list(self.trends_manager.active_trends):
+            if reg_id not in ids:
+                self.trends_manager.remove_trend(reg_id)
+
     def apply_project(self, proj: dict, persist: bool = True):
         """Restore a whole workspace: connection settings, the register map and
         every dashboard. The port is NOT reopened automatically — the operator
         decides when to connect."""
+        from core import transports
+        old_link = transports.link_of(self.settings)
         conn = proj.get("connection") or {}
         if conn:
             self.ctx.settings.update({k: v for k, v in conn.items() if v is not None})
             self.ctx.update({})          # codecs + appearance re-derived, saved
+        core = self.modbus_core
+        if (transports.link_of(self.settings) != old_link
+                and (core.is_running or core.isRunning())):
+            # Polling on with the old link under the new map showed the old
+            # device's values in the new project's rows.
+            core.stop()
+            core.wait(3000)
+            self._log("SYS", self.t("logProjectLinkChanged"))
+        self._reset_live_values()
         try:
             self.status_bar.set_slave_id(int(self.settings.get("slave_id", 10)))
         except (TypeError, ValueError):
             pass
         regs = (proj.get("profile") or {}).get("registers") or []
         self._set_profile(regs, "")
+        self._drop_foreign_trends()
         self.dash_view.load_boards(proj.get("dashboards") or [])
         layout = proj.get("layout") or {}
         if layout.get("pinned_views"):
@@ -1664,7 +1777,9 @@ class ModernScadaApp(QMainWindow):
                     reg["addr"] = 0
 
         try:
+            self._reset_live_values()
             self._set_profile(data, path)
+            self._drop_foreign_trends()
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -2044,9 +2159,42 @@ class ModernScadaApp(QMainWindow):
             self.modbus_core.wait(3000)
         for viewer in list(self._memory_viewers.values()):
             viewer.close()
-        self._save_window_geometry()
-        save_settings(self.settings)
+        if not getattr(self, "_settings_reset", False):
+            self._save_window_geometry()
+            save_settings(self.settings)
         super().closeEvent(event)
+
+    def factory_reset(self) -> bool:
+        """Settings → «Вернуть к заводским настройкам»: every setting back to
+        what the program shipped with, and a restart into them. Projects,
+        maps and macros in files are not touched; the demo is not copied
+        into the Projects folder again."""
+        import copy
+        from app.settings_manager import DEFAULT_SETTINGS
+        from core import updater
+        if self._overlay_page is not None:
+            self._overlay_page.reject()      # unsaved settings are moot now
+        if not self.macro_view.confirm_close():
+            return False
+        fresh = copy.deepcopy(DEFAULT_SETTINGS)
+        fresh["projects_seeded"] = bool(self.settings.get("projects_seeded"))
+        if getattr(sys, "frozen", False):
+            args = [sys.executable]
+        else:
+            from app.paths import ROOT
+            args = [sys.executable, os.path.join(ROOT, "main.py")]
+        # Written BEFORE the new copy starts (it reads them at once), and
+        # this window must not write the old ones back as it closes.
+        save_settings(fresh)
+        self._settings_reset = True
+        try:
+            updater.start_detached(args)
+        except OSError as e:
+            themed_info(self, self.ctx.theme, "error", self.t("errTitle"), str(e))
+        self._closing_for_update = True
+        self.close()
+        QApplication.quit()
+        return True
 
     def quit_for_update(self, args: list) -> bool:
         """Start the downloaded update (*args*, see updater.handover_args) and

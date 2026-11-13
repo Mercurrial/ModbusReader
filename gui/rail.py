@@ -87,7 +87,6 @@ class NavRail(QWidget):
     command_triggered = pyqtSignal(str)
     brand_clicked = pyqtSignal()
     collapsed_changed = pyqtSignal(bool)
-    update_clicked = pyqtSignal()           # «Обновить до …» (gui/update.py)
     position_changed = pyqtSignal(str)      # the right-click menu: «Расположение»
     hidden_changed = pyqtSignal(list)       # the right-click menu: pages listed
 
@@ -172,15 +171,6 @@ class NavRail(QWidget):
                     ids.append(cmd.cmd_id)
             self._groups.append((cap, self._sep(), ids))
 
-        # A new version installed in the background, waiting for a restart —
-        # like Telegram's «Update» at the bottom of its sidebar. Hidden
-        # otherwise.
-        self.btn_update = _RailButton()
-        self.btn_update.setParent(self)
-        self.btn_update.setProperty("attention", "true")
-        self.btn_update.clicked.connect(self.update_clicked.emit)
-        self.btn_update.hide()
-        self._update_text, self._update_tip = "", ""
         self._footer = [self._make(cmd) for cmd in commands.RAIL_FOOTER]
 
         self.btn_collapse = _RailButton()
@@ -243,14 +233,13 @@ class NavRail(QWidget):
             if not horiz:
                 lo.addSpacing(10)
         lo.addStretch(1)
-        lo.addWidget(self.btn_update)
         for btn in self._footer:
             lo.addWidget(btn)
         lo.addWidget(self.btn_collapse)
         # A bar has no room for «Свернуть»: icons only is in its menu.
         self.btn_collapse.setVisible(not horiz)
         policy = QSizePolicy.Policy.Fixed if horiz else QSizePolicy.Policy.Expanding
-        for btn in list(self._cmd_btns.values()) + [self.btn_update, self.btn_collapse]:
+        for btn in list(self._cmd_btns.values()) + [self.btn_collapse]:
             btn.setSizePolicy(policy, QSizePolicy.Policy.Fixed)
             btn.setProperty("horizontal", "true" if horiz else "false")
         self.setProperty("pos", self._position)
@@ -281,12 +270,24 @@ class NavRail(QWidget):
         """Highlight the page on screen (the map editor belongs to the map
         page)."""
         self._active = HOME if cmd_id == "view_map" else cmd_id
+        windows = getattr(self, "_window_open", {})
         for cid, btn in self._cmd_btns.items():
-            on = cid == self._active
+            on = cid == self._active or windows.get(cid, False)
             btn.setProperty("active", "true" if on else "false")
             self._repolish(btn)
         if self.horizontal and self._compact:
             self._apply_labels()          # the label follows the page on screen
+        self._paint_icons()
+
+    def set_window_open(self, cmd_id: str, is_open: bool):
+        """A rail entry that opens a window (the watch window) is lit while
+        that window is on screen — it is never "the page"."""
+        btn = self._view_btns.get(cmd_id)
+        if btn is None:
+            return
+        btn.setProperty("active", "true" if is_open else "false")
+        self._repolish(btn)
+        self._window_open = dict(getattr(self, "_window_open", {}), **{cmd_id: is_open})
         self._paint_icons()
 
     def set_busy(self, busy: dict):
@@ -364,9 +365,8 @@ class NavRail(QWidget):
             btn.setProperty("collapsed", "false" if self._shows_label(cid) else "true")
             self._repolish(btn)
         flag = "true" if self._icons_only() else "false"
-        for btn in (self.btn_collapse, self.btn_update):
-            btn.setProperty("collapsed", flag)
-            self._repolish(btn)
+        self.btn_collapse.setProperty("collapsed", flag)
+        self._repolish(self.btn_collapse)
         brand_text = not self._icons_only()
         self.lbl_name.setVisible(brand_text)
         self.lbl_ver.setVisible(brand_text)
@@ -379,8 +379,6 @@ class NavRail(QWidget):
     def _full_width(self) -> int:
         """What the bar needs with every label (a little generous: the page
         on screen is set in semibold)."""
-        bold = QFont(self.font())
-        bold.setWeight(QFont.Weight.DemiBold)
         need = 20 + 8 + 160                       # margins, gap, the brand
         for cid, btn in self._cmd_btns.items():
             if not btn.isVisibleTo(self):
@@ -391,8 +389,6 @@ class NavRail(QWidget):
             text = "   " + self.t(commands.BY_ID[cid].label_key)
             need += QFontMetrics(f).horizontalAdvance(text) + 16 + 20 + 6
         need += 13 * max(0, len(self._groups) - 1)      # separators
-        if self.btn_update.isVisibleTo(self):
-            need += QFontMetrics(bold).horizontalAdvance("   " + self._update_text) + 42
         return need + 24
 
     def _fit_bar(self):
@@ -469,23 +465,6 @@ class NavRail(QWidget):
     def contextMenuEvent(self, e):
         self.build_menu(self._page_at(e.pos())).exec(e.globalPos())
 
-    # ── «Обновить до …» ───────────────────────────────────────────────
-    def set_update(self, text: str, tip: str = ""):
-        """Show «Обновить до …» (text) or hide it (text == "")."""
-        self._update_text, self._update_tip = text, tip
-        self.btn_update.setVisible(bool(text))
-        self._render_update()
-        if self.horizontal:
-            self._fit_bar()
-
-    def _render_update(self):
-        b = self.btn_update
-        icons_only = self._icons_only()
-        b.setText("" if icons_only else "   " + self._update_text)
-        b.setToolTip(self._update_text + ("\n" + self._update_tip if self._update_tip else ""))
-        b.busy_color = QColor(self._c["ok"]) if icons_only and self._update_text else None
-        b.setIcon(icons.icon("download", self._c["ok"], 16))
-
     # ── text / theme ──────────────────────────────────────────────────
     def retranslate_ui(self, t):
         self.t = t
@@ -497,7 +476,6 @@ class NavRail(QWidget):
             btn.setText("   " + t(cmd.label_key) if self._shows_label(cid) else "")
         self.btn_collapse.setText(
             "" if self._collapsed else "   " + t("navCollapse"))
-        self._render_update()
         self.brand.setToolTip(t("backToMap"))
         self._refresh_tips()
         self._paint_icons()
@@ -516,8 +494,10 @@ class NavRail(QWidget):
 
     def _paint_icons(self):
         c = self._c
+        windows = getattr(self, "_window_open", {})
         for cid, btn in self._cmd_btns.items():
-            col = c["accent"] if cid == self._active else c["text_3"]
+            lit = cid == self._active or windows.get(cid, False)
+            col = c["accent"] if lit else c["text_3"]
             btn.setIcon(icons.icon(commands.BY_ID[cid].icon, col, 16))
         self.btn_collapse.setIcon(icons.icon("sidebar", c["text_4"], 16))
 
@@ -525,7 +505,6 @@ class NavRail(QWidget):
         self._theme, self._accent = theme, accent
         self._c = get_theme(theme, accent)
         self._paint_icons()
-        self._render_update()
         col = QColor(self._c["ok"])
         for cid, btn in self._view_btns.items():
             if btn.busy_color is not None:

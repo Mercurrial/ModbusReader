@@ -99,7 +99,57 @@ def test_the_window_puts_the_demo_there_and_the_dialogs_open_there(monkeypatch, 
         w._open_profile()
         w._save_project_as()
         assert asked[:2] == [str(folder), str(folder)]
-        assert asked[2] == os.path.join(str(folder), "plant.mbproj")
+        # A new project is offered a folder of its own; cancelled, the
+        # folder made for the offer is not left behind.
+        assert asked[2] == os.path.join(str(folder), "plant", "plant.mbproj")
+        assert not (folder / "plant").exists()
+    finally:
+        w.close()
+        w.deleteLater()
+        QApplication.processEvents()
+
+
+def test_a_project_has_a_home_in_the_root(fresh, monkeypatch, tmp_path):
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    root = projects.projects_dir()
+    # in a folder of its own name: that folder
+    own = os.path.join(root, "pump", "pump.mbproj")
+    assert projects.project_home(own) == os.path.join(root, "pump")
+    # loose in the root, or anywhere else: a folder by its name in the root
+    assert projects.project_home(os.path.join(root, "pump.mbproj")) == os.path.join(root, "pump")
+    assert projects.project_home(str(tmp_path / "work" / "boiler.mbproj"))         == os.path.join(root, "boiler")
+    # no project: the root
+    assert projects.project_home("") == root
+    m = projects.subfolder(own, projects.MACROS)
+    assert m == os.path.join(root, "pump", "macros") and os.path.isdir(m)
+    assert projects.new_project_path('a/b:c') == os.path.join(root, "abc", "abc.mbproj")
+
+
+def test_opening_a_project_makes_its_folders_and_the_macros_use_them(monkeypatch, tmp_path):
+    from PyQt6.QtWidgets import QFileDialog
+    from gui import main_window as gui_main
+    folder = tmp_path / "Projects"
+    monkeypatch.setattr(projects, "_cache", {"dir": str(folder)})
+    w = gui_main.ModernScadaApp()
+    try:
+        elsewhere = tmp_path / "work" / "boiler.mbproj"
+        elsewhere.parent.mkdir()
+        w._set_project(str(elsewhere), "boiler")
+        home = folder / "boiler"
+        assert (home / "macros").is_dir() and (home / "results").is_dir()
+        assert not (elsewhere.parent / "macros").exists()     # the project stays put
+
+        mv = w.macro_view
+        assert mv.macros_dir() == str(home / "macros")
+        assert os.path.dirname(mv._result_path("csv")) == str(home / "results")
+        asked = []
+        monkeypatch.setattr(QFileDialog, "getOpenFileName",
+                            lambda *a, **k: (asked.append(a[2]), ("", ""))[1])
+        monkeypatch.setattr(QFileDialog, "getSaveFileName",
+                            lambda *a, **k: (asked.append(a[2]), ("", ""))[1])
+        mv._open_script()
+        mv._save_script()
+        assert asked == [str(home / "macros"), str(home / "macros" / "macro.py")]
     finally:
         w.close()
         w.deleteLater()

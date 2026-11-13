@@ -32,7 +32,7 @@ from PyQt6.QtWidgets import (
 
 from core import datatypes
 from gui import icons
-from gui.widgets import EmptyState, Segmented
+from gui.widgets import EmptyState, Segmented, PortCombo
 from core import netscan, transports
 from gui.dialogs import themed_info
 from gui.qt_utils import set_state
@@ -86,9 +86,7 @@ class SlaveView(QWidget):
         bar = QHBoxLayout()
         bar.setSpacing(8)
         self.lbl_port = self._lbl()
-        self.combo_port = QComboBox()
-        self.combo_port.setObjectName("stInput")
-        self.combo_port.setEditable(True)
+        self.combo_port = PortCombo()
         self.combo_port.setFixedWidth(120)
         self._fill_ports()
         self.lbl_baud = self._lbl()
@@ -210,19 +208,12 @@ class SlaveView(QWidget):
         self.btn_reload.setIcon(icons.icon("table", c["text_2"], 14))
 
     def _fill_ports(self):
-        current = self.combo_port.currentText().strip() or \
+        """The field keeps its port; the list reads the system each time it
+        opens (gui.widgets.PortCombo)."""
+        current = self.combo_port.port() or \
             str(self.ctx.settings.get("slave_port", "") or "")
-        self.combo_port.clear()
-        try:
-            from serial.tools import list_ports
-            ports = sorted(p.device for p in list_ports.comports())
-        except Exception:
-            ports = []
-        if current and current not in ports:
-            ports.insert(0, current)
-        self.combo_port.addItems(ports or [str(self.ctx.settings.get("port", "COM1"))])
-        if current:
-            self.combo_port.setCurrentText(current)
+        self.combo_port.refresh()
+        self.combo_port.set_port(current or (self.combo_port.itemData(0) or ""))
 
     # ── how masters reach it ──────────────────────────────────────────
     @property
@@ -365,7 +356,7 @@ class SlaveView(QWidget):
             return
         t = self.ctx.t
         net = transports.get(self.mode).network
-        port, baud = self.combo_port.currentText().strip(), 0
+        port, baud = self.combo_port.port(), 0
         if not net:
             try:
                 baud = int(self.combo_baud.currentText())

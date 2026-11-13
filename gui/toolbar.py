@@ -125,13 +125,7 @@ class MainToolBar(QWidget):
         lo.addWidget(self.btn_connect)
         lo.addSpacing(14)
 
-        # Utilities.
-        wc = commands.BY_ID["watch"]
-        self.btn_watch = self._icon_btn(
-            wc.icon, lambda: self.command_triggered.emit(wc.cmd_id))
-        self._cmd_btns["watch"] = self.btn_watch
-        lo.addWidget(self.btn_watch)
-        lo.addSpacing(4)
+        # Utilities. (The watch window moved to the rail, among the tools.)
         self._build_lang_seg(lo)
         lo.addSpacing(4)
         self.btn_theme = self._icon_btn(self._theme_icon(), self._toggle_theme)

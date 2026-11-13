@@ -235,7 +235,9 @@ class TrendCard(QWidget):
     # ──────────────────────────── build
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
+        # 1 px all round: the plot used to cover the rounded border, which
+        # looked cut off — worst while the card was lifted for a drag.
+        root.setContentsMargins(1, 1, 1, 1)
         root.setSpacing(0)
 
         # ── Header: grip/dot · title · pause · expand · close ──
@@ -606,6 +608,20 @@ class TrendCard(QWidget):
         self._apply_state(self._state or "waiting")
 
     # ──────────────────────────── theme
+    def set_lifted(self, on: bool):
+        """Picked up for a drag: the whole card — the plot too — takes the
+        raised surface, not just its border."""
+        self._lifted = bool(on)
+        self.setProperty("dragging", "true" if on else "false")
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self._paint_surface()
+
+    def _paint_surface(self):
+        bg = self.theme["bg_3" if getattr(self, "_lifted", False) else "bg_2"]
+        self.last_dot.setPen(pg.mkPen(bg, width=1.5))
+        self.plot.setBackground(bg)
+
     def apply_theme(self, theme: dict, color: str | None = None):
         self.theme = theme
         if color:
@@ -613,8 +629,7 @@ class TrendCard(QWidget):
         self.curve.setPen(pg.mkPen(color=self.color, width=2.0))
         self.curve.setBrush(_gradient_brush(self.color))
         self.last_halo.setBrush(pg.mkBrush(self._alpha(self.color, 60)))
-        self.last_dot.setPen(pg.mkPen(theme["bg_2"], width=1.5))
-        self.plot.setBackground(theme["bg_2"])
+        self._paint_surface()
         self._style_axis()
         for btn, name in self._icon_btns:
             btn.setIcon(icons.icon(name, theme["text_3"], 14))
@@ -1018,9 +1033,7 @@ class TrendsManager(QWidget):
 
     def _on_card_drag_started(self, card):
         card.raise_()
-        card.setProperty("dragging", "true")
-        card.style().unpolish(card)
-        card.style().polish(card)
+        card.set_lifted(True)
 
     def _on_card_drag_moved(self, card, gpos):
         cards = self._ordered_cards()
@@ -1036,14 +1049,21 @@ class TrendsManager(QWidget):
                 cards[cur + 1].rect().center()).y():
             target = cur + 1
         if target != cur:
+            before = {c: c.pos() for c in cards}
             self.content_layout.removeWidget(card)
             self.content_layout.insertWidget(target, card)
             self._sync_order()
+            self._slide(before)
+
+    REFLOW_MS = 170
+
+    def _slide(self, before: dict):
+        """The cards that changed places glide to them (they used to jump)."""
+        from gui.qt_utils import slide_from
+        slide_from(before, self.content_layout, self, self.REFLOW_MS)
 
     def _on_card_drag_dropped(self, card):
-        card.setProperty("dragging", "false")
-        card.style().unpolish(card)
-        card.style().polish(card)
+        card.set_lifted(False)
         self._sync_order()
 
     def _sync_order(self):
@@ -1068,3 +1088,9 @@ class TrendsManager(QWidget):
     def clear_all(self):
         for reg_id in list(self.active_trends.keys()):
             self.remove_trend(reg_id)
+
+    def reset_values(self):
+        """Another project: the charts start empty (their history was the
+        old device's)."""
+        for card in self.active_trends.values():
+            card.clear()
