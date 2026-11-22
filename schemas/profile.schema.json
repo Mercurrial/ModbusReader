@@ -1,0 +1,127 @@
+{
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "modbusreader.profile"
+    },
+    "version": {
+      "const": 2
+    },
+    "name": {
+      "type": "string"
+    },
+    "registers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "addr": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name_en": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "BYTE",
+              "BOOL",
+              "SHORT",
+              "UINT16",
+              "BITS16",
+              "BCD16",
+              "LONG",
+              "UINT32",
+              "LONG1",
+              "BCD32",
+              "FLOAT",
+              "FLOAT1",
+              "FLOAT2",
+              "INT64",
+              "DOUBLE",
+              "STRING",
+              "ARR",
+              "STR_LEN",
+              "STR_PNTR",
+              "MANY_STR",
+              "DIBUS_ADR",
+              "DATE_TIME",
+              "UNUSED_AREA",
+              "MEMORY_AREA"
+            ]
+          },
+          "length": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "rw": {
+            "enum": [
+              "R",
+              "W",
+              "RW",
+              "RO",
+              "WO"
+            ]
+          },
+          "area": {
+            "enum": [
+              "holding",
+              "input",
+              "coil",
+              "discrete"
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "default": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "scale": {
+            "type": "number"
+          },
+          "offset": {
+            "type": "number"
+          },
+          "enum": {
+            "type": "object",
+            "propertyNames": {
+              "pattern": "^-?(0|[1-9][0-9]*)$"
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "addr",
+          "name",
+          "type",
+          "rw"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "registers"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModbusReader profile authoring contract"
+}

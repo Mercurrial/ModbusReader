@@ -35,7 +35,7 @@ import traceback
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
-from core import datatypes
+from core import datatypes, macro_api
 from app.i18n import get_translator
 
 # Modbus scalar register types the macro may read/write (from the registry).
@@ -71,25 +71,13 @@ def _reject_unsafe(code: str, t=None) -> None:
     import ast
     t = t or get_translator("ru")
     tree = ast.parse(code)                     # SyntaxError handled by caller
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            raise MacroRejected(t("macNoImport"))
-        name = None
-        if isinstance(node, ast.Attribute):
-            name = node.attr
-        elif isinstance(node, ast.Name):
-            name = node.id
-        if name and name.startswith("__") and name.endswith("__"):
-            raise MacroRejected(t("macNoDunder").format(name=name))
+    for _node, key, params in macro_api.policy_issues(tree):
+        raise MacroRejected(t(key).format(**params))
 
 
-# Whitelisted builtins exposed to the script namespace.
-_SAFE_BUILTIN_NAMES = [
-    "abs", "min", "max", "round", "sum", "len", "range", "enumerate", "zip",
-    "map", "filter", "sorted", "reversed", "int", "float", "str", "bool",
-    "list", "dict", "tuple", "set", "frozenset", "divmod", "pow", "bin", "hex",
-    "oct", "ord", "chr", "format", "repr", "any", "all", "isinstance",
-]
+# Compatibility alias: the pure contract owns the whitelist.
+_SAFE_BUILTIN_NAMES = macro_api.SAFE_BUILTIN_NAMES
+
 
 
 def _build_safe_builtins() -> dict:
@@ -297,24 +285,11 @@ class MacroRunner(QThread):
     # ──────────────────────────── namespace
 
     def _make_globals(self) -> dict:
-        return {
-            "__builtins__": _build_safe_builtins(),
-            # register access
-            "reg": self.api_reg,
-            "read": self.api_read,
-            "write": self.api_write,
-            "read_all": self.api_read_all,
-            # flow
-            "wait": self.api_wait,
-            "sleep": self.api_wait,
-            # output
-            "record": self.api_record,
-            "log": self.api_log,
-            "print": self.api_log,
-            # time
-            "now": time.time,
-            "timestamp": self.api_timestamp,
-        }
+        namespace = {"__builtins__": _build_safe_builtins()}
+        for spec in macro_api.FUNCTIONS:
+            namespace[spec.name] = (time.time if spec.target == "time.time"
+                                    else getattr(self, spec.target))
+        return namespace
 
     # ──────────────────────────── thread entry
 

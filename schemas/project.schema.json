@@ -1,0 +1,514 @@
+{
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "modbusreader.project"
+    },
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string"
+    },
+    "connection": {
+      "type": "object",
+      "properties": {
+        "transport": {
+          "enum": [
+            "serial",
+            "tcp",
+            "rtu_tcp",
+            "sim"
+          ]
+        },
+        "port": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "baudrate": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "pattern": "^[1-9][0-9]{0,6}$",
+          "minimum": 1,
+          "maximum": 4000000
+        },
+        "tcp_port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "parity": {
+          "enum": [
+            "N",
+            "E",
+            "O",
+            "M",
+            "S",
+            "None (N)",
+            "Even (E)",
+            "Odd (O)",
+            "Mark (M)",
+            "Space (S)",
+            "None",
+            "Even",
+            "Odd",
+            "Mark",
+            "Space"
+          ]
+        },
+        "stopbits": {
+          "enum": [
+            "1",
+            "1.5",
+            "2",
+            1,
+            1.5,
+            2
+          ]
+        },
+        "slave_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "timeout": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 5000
+        },
+        "poll_rate": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 5000
+        },
+        "interframe_delay": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "order_short": {
+          "enum": [
+            "AB",
+            "BA"
+          ]
+        },
+        "order_long": {
+          "enum": [
+            "ABCD",
+            "BADC",
+            "CDAB",
+            "DCBA"
+          ]
+        },
+        "order_float": {
+          "enum": [
+            "ABCD",
+            "BADC",
+            "CDAB",
+            "DCBA"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "modbusreader.profile"
+        },
+        "version": {
+          "const": 2
+        },
+        "name": {
+          "type": "string"
+        },
+        "registers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name_en": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "BYTE",
+                  "BOOL",
+                  "SHORT",
+                  "UINT16",
+                  "BITS16",
+                  "BCD16",
+                  "LONG",
+                  "UINT32",
+                  "LONG1",
+                  "BCD32",
+                  "FLOAT",
+                  "FLOAT1",
+                  "FLOAT2",
+                  "INT64",
+                  "DOUBLE",
+                  "STRING",
+                  "ARR",
+                  "STR_LEN",
+                  "STR_PNTR",
+                  "MANY_STR",
+                  "DIBUS_ADR",
+                  "DATE_TIME",
+                  "UNUSED_AREA",
+                  "MEMORY_AREA"
+                ]
+              },
+              "length": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "rw": {
+                "enum": [
+                  "R",
+                  "W",
+                  "RW",
+                  "RO",
+                  "WO"
+                ]
+              },
+              "area": {
+                "enum": [
+                  "holding",
+                  "input",
+                  "coil",
+                  "discrete"
+                ]
+              },
+              "unit": {
+                "type": "string"
+              },
+              "comment": {
+                "type": "string"
+              },
+              "default": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean"
+                ]
+              },
+              "scale": {
+                "type": "number"
+              },
+              "offset": {
+                "type": "number"
+              },
+              "enum": {
+                "type": "object",
+                "propertyNames": {
+                  "pattern": "^-?(0|[1-9][0-9]*)$"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "addr",
+              "name",
+              "type",
+              "rw"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "format",
+        "version",
+        "registers"
+      ],
+      "additionalProperties": false
+    },
+    "dashboards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "const": "modbusreader.dashboard"
+          },
+          "version": {
+            "const": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "widgets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "uid": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "kind": {
+                  "enum": [
+                    "value",
+                    "led",
+                    "bar",
+                    "gauge",
+                    "bits",
+                    "chart",
+                    "button",
+                    "input",
+                    "toggle",
+                    "slider",
+                    "select",
+                    "timer",
+                    "gate",
+                    "label"
+                  ]
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "w": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000000
+                },
+                "h": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000000
+                },
+                "reg_id": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{4,5}$"
+                },
+                "reg_type": {
+                  "enum": [
+                    "BYTE",
+                    "BOOL",
+                    "SHORT",
+                    "UINT16",
+                    "BITS16",
+                    "BCD16",
+                    "LONG",
+                    "UINT32",
+                    "LONG1",
+                    "BCD32",
+                    "FLOAT",
+                    "FLOAT1",
+                    "FLOAT2",
+                    "INT64",
+                    "DOUBLE",
+                    "STRING",
+                    "ARR",
+                    "STR_LEN",
+                    "STR_PNTR",
+                    "MANY_STR",
+                    "DIBUS_ADR",
+                    "DATE_TIME",
+                    "UNUSED_AREA",
+                    "MEMORY_AREA"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "vmin": {
+                  "type": "number"
+                },
+                "vmax": {
+                  "type": "number"
+                },
+                "thr": {
+                  "type": "number"
+                },
+                "invert": {
+                  "type": "boolean"
+                },
+                "alo": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "ahi": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "value_on": {
+                  "type": [
+                    "number",
+                    "string"
+                  ]
+                },
+                "value_off": {
+                  "type": [
+                    "number",
+                    "string"
+                  ]
+                },
+                "interval": {
+                  "type": "integer",
+                  "minimum": 50,
+                  "maximum": 2147483647
+                },
+                "autostart": {
+                  "type": "boolean"
+                },
+                "cond": {
+                  "enum": [
+                    "gt",
+                    "ge",
+                    "lt",
+                    "le",
+                    "eq",
+                    "ne"
+                  ]
+                },
+                "cmp": {
+                  "type": "number"
+                },
+                "step": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "live": {
+                  "type": "boolean"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                }
+              },
+              "required": [
+                "uid",
+                "kind"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "to": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "from",
+                "to"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "widgets",
+          "links"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "layout": {
+      "type": "object",
+      "properties": {
+        "pinned_views": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "last_view": {
+          "type": "string"
+        },
+        "log_height": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "show_log": {
+          "type": "boolean"
+        },
+        "graph_width": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "simulation": {
+      "enum": [
+        "thermo"
+      ]
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "connection",
+    "profile",
+    "dashboards"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ModbusReader project authoring contract"
+}

@@ -1,0 +1,23 @@
+{
+  "format": "modbusreader.profile",
+  "version": 2,
+  "name": "Example only",
+  "registers": [
+    {
+      "addr": 0,
+      "name": "Temperature",
+      "type": "SHORT",
+      "rw": "R",
+      "scale": 0.1,
+      "unit": "°C"
+    },
+    {
+      "addr": 1,
+      "name": "Setpoint",
+      "type": "SHORT",
+      "rw": "RW",
+      "scale": 0.1,
+      "unit": "°C"
+    }
+  ]
+}

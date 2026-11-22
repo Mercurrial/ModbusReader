@@ -1,0 +1,1438 @@
+{
+  "contract_version": 1,
+  "schemas": {
+    "profile": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "modbusreader.profile"
+        },
+        "version": {
+          "const": 2
+        },
+        "name": {
+          "type": "string"
+        },
+        "registers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "addr": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name_en": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "BYTE",
+                  "BOOL",
+                  "SHORT",
+                  "UINT16",
+                  "BITS16",
+                  "BCD16",
+                  "LONG",
+                  "UINT32",
+                  "LONG1",
+                  "BCD32",
+                  "FLOAT",
+                  "FLOAT1",
+                  "FLOAT2",
+                  "INT64",
+                  "DOUBLE",
+                  "STRING",
+                  "ARR",
+                  "STR_LEN",
+                  "STR_PNTR",
+                  "MANY_STR",
+                  "DIBUS_ADR",
+                  "DATE_TIME",
+                  "UNUSED_AREA",
+                  "MEMORY_AREA"
+                ]
+              },
+              "length": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "rw": {
+                "enum": [
+                  "R",
+                  "W",
+                  "RW",
+                  "RO",
+                  "WO"
+                ]
+              },
+              "area": {
+                "enum": [
+                  "holding",
+                  "input",
+                  "coil",
+                  "discrete"
+                ]
+              },
+              "unit": {
+                "type": "string"
+              },
+              "comment": {
+                "type": "string"
+              },
+              "default": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean"
+                ]
+              },
+              "scale": {
+                "type": "number"
+              },
+              "offset": {
+                "type": "number"
+              },
+              "enum": {
+                "type": "object",
+                "propertyNames": {
+                  "pattern": "^-?(0|[1-9][0-9]*)$"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "addr",
+              "name",
+              "type",
+              "rw"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "format",
+        "version",
+        "registers"
+      ],
+      "additionalProperties": false,
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "ModbusReader profile authoring contract"
+    },
+    "dashboard": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "modbusreader.dashboard"
+        },
+        "version": {
+          "const": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "widgets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "uid": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": [
+                  "value",
+                  "led",
+                  "bar",
+                  "gauge",
+                  "bits",
+                  "chart",
+                  "button",
+                  "input",
+                  "toggle",
+                  "slider",
+                  "select",
+                  "timer",
+                  "gate",
+                  "label"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "y": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              },
+              "w": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              "h": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              "reg_id": {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{4,5}$"
+              },
+              "reg_type": {
+                "enum": [
+                  "BYTE",
+                  "BOOL",
+                  "SHORT",
+                  "UINT16",
+                  "BITS16",
+                  "BCD16",
+                  "LONG",
+                  "UINT32",
+                  "LONG1",
+                  "BCD32",
+                  "FLOAT",
+                  "FLOAT1",
+                  "FLOAT2",
+                  "INT64",
+                  "DOUBLE",
+                  "STRING",
+                  "ARR",
+                  "STR_LEN",
+                  "STR_PNTR",
+                  "MANY_STR",
+                  "DIBUS_ADR",
+                  "DATE_TIME",
+                  "UNUSED_AREA",
+                  "MEMORY_AREA"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "vmin": {
+                "type": "number"
+              },
+              "vmax": {
+                "type": "number"
+              },
+              "thr": {
+                "type": "number"
+              },
+              "invert": {
+                "type": "boolean"
+              },
+              "alo": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "ahi": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "value_on": {
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "value_off": {
+                "type": [
+                  "number",
+                  "string"
+                ]
+              },
+              "interval": {
+                "type": "integer",
+                "minimum": 50,
+                "maximum": 2147483647
+              },
+              "autostart": {
+                "type": "boolean"
+              },
+              "cond": {
+                "enum": [
+                  "gt",
+                  "ge",
+                  "lt",
+                  "le",
+                  "eq",
+                  "ne"
+                ]
+              },
+              "cmp": {
+                "type": "number"
+              },
+              "step": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "live": {
+                "type": "boolean"
+              },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "prefixItems": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "items": false,
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              }
+            },
+            "required": [
+              "uid",
+              "kind"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "minLength": 1
+              },
+              "to": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "format",
+        "version",
+        "widgets",
+        "links"
+      ],
+      "additionalProperties": false,
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "ModbusReader dashboard authoring contract"
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "modbusreader.project"
+        },
+        "version": {
+          "const": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "connection": {
+          "type": "object",
+          "properties": {
+            "transport": {
+              "enum": [
+                "serial",
+                "tcp",
+                "rtu_tcp",
+                "sim"
+              ]
+            },
+            "port": {
+              "type": "string"
+            },
+            "host": {
+              "type": "string"
+            },
+            "baudrate": {
+              "type": [
+                "integer",
+                "string"
+              ],
+              "pattern": "^[1-9][0-9]{0,6}$",
+              "minimum": 1,
+              "maximum": 4000000
+            },
+            "tcp_port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "parity": {
+              "enum": [
+                "N",
+                "E",
+                "O",
+                "M",
+                "S",
+                "None (N)",
+                "Even (E)",
+                "Odd (O)",
+                "Mark (M)",
+                "Space (S)",
+                "None",
+                "Even",
+                "Odd",
+                "Mark",
+                "Space"
+              ]
+            },
+            "stopbits": {
+              "enum": [
+                "1",
+                "1.5",
+                "2",
+                1,
+                1.5,
+                2
+              ]
+            },
+            "slave_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 5000
+            },
+            "poll_rate": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 5000
+            },
+            "interframe_delay": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 500
+            },
+            "retry_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "order_short": {
+              "enum": [
+                "AB",
+                "BA"
+              ]
+            },
+            "order_long": {
+              "enum": [
+                "ABCD",
+                "BADC",
+                "CDAB",
+                "DCBA"
+              ]
+            },
+            "order_float": {
+              "enum": [
+                "ABCD",
+                "BADC",
+                "CDAB",
+                "DCBA"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "const": "modbusreader.profile"
+            },
+            "version": {
+              "const": 2
+            },
+            "name": {
+              "type": "string"
+            },
+            "registers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "addr": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name_en": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "enum": [
+                      "BYTE",
+                      "BOOL",
+                      "SHORT",
+                      "UINT16",
+                      "BITS16",
+                      "BCD16",
+                      "LONG",
+                      "UINT32",
+                      "LONG1",
+                      "BCD32",
+                      "FLOAT",
+                      "FLOAT1",
+                      "FLOAT2",
+                      "INT64",
+                      "DOUBLE",
+                      "STRING",
+                      "ARR",
+                      "STR_LEN",
+                      "STR_PNTR",
+                      "MANY_STR",
+                      "DIBUS_ADR",
+                      "DATE_TIME",
+                      "UNUSED_AREA",
+                      "MEMORY_AREA"
+                    ]
+                  },
+                  "length": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "rw": {
+                    "enum": [
+                      "R",
+                      "W",
+                      "RW",
+                      "RO",
+                      "WO"
+                    ]
+                  },
+                  "area": {
+                    "enum": [
+                      "holding",
+                      "input",
+                      "coil",
+                      "discrete"
+                    ]
+                  },
+                  "unit": {
+                    "type": "string"
+                  },
+                  "comment": {
+                    "type": "string"
+                  },
+                  "default": {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean"
+                    ]
+                  },
+                  "scale": {
+                    "type": "number"
+                  },
+                  "offset": {
+                    "type": "number"
+                  },
+                  "enum": {
+                    "type": "object",
+                    "propertyNames": {
+                      "pattern": "^-?(0|[1-9][0-9]*)$"
+                    },
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "addr",
+                  "name",
+                  "type",
+                  "rw"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "format",
+            "version",
+            "registers"
+          ],
+          "additionalProperties": false
+        },
+        "dashboards": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "format": {
+                "const": "modbusreader.dashboard"
+              },
+              "version": {
+                "const": 1
+              },
+              "name": {
+                "type": "string"
+              },
+              "widgets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "uid": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "kind": {
+                      "enum": [
+                        "value",
+                        "led",
+                        "bar",
+                        "gauge",
+                        "bits",
+                        "chart",
+                        "button",
+                        "input",
+                        "toggle",
+                        "slider",
+                        "select",
+                        "timer",
+                        "gate",
+                        "label"
+                      ]
+                    },
+                    "x": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1000000
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 1000000
+                    },
+                    "w": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000
+                    },
+                    "h": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000
+                    },
+                    "reg_id": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]{4,5}$"
+                    },
+                    "reg_type": {
+                      "enum": [
+                        "BYTE",
+                        "BOOL",
+                        "SHORT",
+                        "UINT16",
+                        "BITS16",
+                        "BCD16",
+                        "LONG",
+                        "UINT32",
+                        "LONG1",
+                        "BCD32",
+                        "FLOAT",
+                        "FLOAT1",
+                        "FLOAT2",
+                        "INT64",
+                        "DOUBLE",
+                        "STRING",
+                        "ARR",
+                        "STR_LEN",
+                        "STR_PNTR",
+                        "MANY_STR",
+                        "DIBUS_ADR",
+                        "DATE_TIME",
+                        "UNUSED_AREA",
+                        "MEMORY_AREA"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "unit": {
+                      "type": "string"
+                    },
+                    "vmin": {
+                      "type": "number"
+                    },
+                    "vmax": {
+                      "type": "number"
+                    },
+                    "thr": {
+                      "type": "number"
+                    },
+                    "invert": {
+                      "type": "boolean"
+                    },
+                    "alo": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "ahi": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "value_on": {
+                      "type": [
+                        "number",
+                        "string"
+                      ]
+                    },
+                    "value_off": {
+                      "type": [
+                        "number",
+                        "string"
+                      ]
+                    },
+                    "interval": {
+                      "type": "integer",
+                      "minimum": 50,
+                      "maximum": 2147483647
+                    },
+                    "autostart": {
+                      "type": "boolean"
+                    },
+                    "cond": {
+                      "enum": [
+                        "gt",
+                        "ge",
+                        "lt",
+                        "le",
+                        "eq",
+                        "ne"
+                      ]
+                    },
+                    "cmp": {
+                      "type": "number"
+                    },
+                    "step": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "live": {
+                      "type": "boolean"
+                    },
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "integer"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ],
+                        "items": false,
+                        "minItems": 2,
+                        "maxItems": 2
+                      }
+                    }
+                  },
+                  "required": [
+                    "uid",
+                    "kind"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "links": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "to": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "to"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "widgets",
+              "links"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "layout": {
+          "type": "object",
+          "properties": {
+            "pinned_views": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "last_view": {
+              "type": "string"
+            },
+            "log_height": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "show_log": {
+              "type": "boolean"
+            },
+            "graph_width": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "simulation": {
+          "enum": [
+            "thermo"
+          ]
+        }
+      },
+      "required": [
+        "format",
+        "version",
+        "connection",
+        "profile",
+        "dashboards"
+      ],
+      "additionalProperties": false,
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "ModbusReader project authoring contract"
+    }
+  },
+  "types": [
+    {
+      "key": "BYTE",
+      "span": 1,
+      "codec": false,
+      "text": false,
+      "service_area": false,
+      "hint": "Байт (1 байт → 1 адрес)"
+    },
+    {
+      "key": "BOOL",
+      "span": 1,
+      "codec": true,
+      "text": false,
+      "service_area": false,
+      "hint": "Бит 0/1 (coil, discrete input или флаг)"
+    },
+    {
+      "key": "SHORT",
+      "span": 1,
+      "codec": true,
+      "text": false,
+      "service_area": false,
+      "hint": "2 байта → 1 адрес"
+    },
+    {
+      "key": "UINT16",
+      "span": 1,
+      "codec": true,
+      "text": false,
+      "service_area": false,
+      "hint": "Целое без знака 0…65535 → 1 адрес"
+    },
+    {
+      "key": "BITS16",
+      "span": 1,
+      "codec": true,
+      "text": false,
+      "service_area": false,
+      "hint": "Битовое поле: 16 флагов → 1 адрес"
+    },
+    {
+      "key": "BCD16",
+      "span": 1,
+      "codec": true,
+      "text": false,
+      "service_area": false,
+      "hint": "BCD: 4 десятичные цифры → 1 адрес"
+    },
+    {
+      "key": "LONG",
+      "span": 2,
+      "codec": true,
+      "text": false,
+      "service_area": false,
+      "hint": "4 байта → 2 адреса (старшее слово первым)"
+    },
+    {
+      "key": "UINT32",
+      "span": 2,
+      "codec": true,
+      "text": false,
+      "service_area": false,
+      "hint": "Целое без знака 0…4 294 967 295 → 2 адреса"
+    },
+    {
+      "key": "LONG1",
+      "span": 2,
+      "codec": false,
+      "text": false,
+      "service_area": false,
+      "hint": "4 байта → 2 адреса (младшее слово первым)"
+    },
+    {
+      "key": "BCD32",
+      "span": 2,
+      "codec": true,
+      "text": false,
+      "service_area": false,
+      "hint": "BCD: 8 десятичных цифр → 2 адреса"
+    },
+    {
+      "key": "FLOAT",
+      "span": 2,
+      "codec": true,
+      "text": false,
+      "service_area": false,
+      "hint": "IEEE-754 Single, 4 байта → 2 адреса"
+    },
+    {
+      "key": "FLOAT1",
+      "span": 2,
+      "codec": false,
+      "text": false,
+      "service_area": false,
+      "hint": "IEEE-754 Single, порядок байт #1"
+    },
+    {
+      "key": "FLOAT2",
+      "span": 2,
+      "codec": false,
+      "text": false,
+      "service_area": false,
+      "hint": "IEEE-754 Single, порядок байт #2"
+    },
+    {
+      "key": "INT64",
+      "span": 4,
+      "codec": true,
+      "text": false,
+      "service_area": false,
+      "hint": "Целое со знаком, 8 байт → 4 адреса"
+    },
+    {
+      "key": "DOUBLE",
+      "span": 4,
+      "codec": true,
+      "text": false,
+      "service_area": false,
+      "hint": "IEEE-754 Double, 8 байт → 4 адреса"
+    },
+    {
+      "key": "STRING",
+      "span": null,
+      "codec": true,
+      "text": true,
+      "service_area": false,
+      "hint": "Строка: 2 символа на адрес (длина в адресах)"
+    },
+    {
+      "key": "ARR",
+      "span": null,
+      "codec": false,
+      "text": false,
+      "service_area": false,
+      "hint": "Массив байт (длина в адресах)"
+    },
+    {
+      "key": "STR_LEN",
+      "span": null,
+      "codec": false,
+      "text": false,
+      "service_area": false,
+      "hint": "Строка с длиной"
+    },
+    {
+      "key": "STR_PNTR",
+      "span": null,
+      "codec": false,
+      "text": false,
+      "service_area": false,
+      "hint": "Указатель на строку с длиной"
+    },
+    {
+      "key": "MANY_STR",
+      "span": null,
+      "codec": false,
+      "text": false,
+      "service_area": false,
+      "hint": "Несколько строк с длиной"
+    },
+    {
+      "key": "DIBUS_ADR",
+      "span": null,
+      "codec": false,
+      "text": false,
+      "service_area": false,
+      "hint": "DiBUS адрес"
+    },
+    {
+      "key": "DATE_TIME",
+      "span": null,
+      "codec": false,
+      "text": false,
+      "service_area": false,
+      "hint": "Дата/время"
+    },
+    {
+      "key": "UNUSED_AREA",
+      "span": null,
+      "codec": false,
+      "text": false,
+      "service_area": true,
+      "hint": "Неиспользуемая область (читаем 0, писать нельзя)"
+    },
+    {
+      "key": "MEMORY_AREA",
+      "span": null,
+      "codec": false,
+      "text": false,
+      "service_area": true,
+      "hint": "Область RAM, отображаемая на регистры MODBUS"
+    }
+  ],
+  "areas": [
+    {
+      "key": "holding",
+      "code": 0,
+      "prefix": "",
+      "modicon": 4,
+      "fc_read": 3,
+      "fc_write": 6,
+      "bits": false,
+      "label_key": "areaHolding"
+    },
+    {
+      "key": "input",
+      "code": 1,
+      "prefix": "IR",
+      "modicon": 3,
+      "fc_read": 4,
+      "fc_write": null,
+      "bits": false,
+      "label_key": "areaInput"
+    },
+    {
+      "key": "coil",
+      "code": 2,
+      "prefix": "CO",
+      "modicon": 0,
+      "fc_read": 1,
+      "fc_write": 5,
+      "bits": true,
+      "label_key": "areaCoil"
+    },
+    {
+      "key": "discrete",
+      "code": 3,
+      "prefix": "DI",
+      "modicon": 1,
+      "fc_read": 2,
+      "fc_write": null,
+      "bits": true,
+      "label_key": "areaDiscrete"
+    }
+  ],
+  "widgets": [
+    {
+      "key": "value",
+      "label_key": "dashKindValue",
+      "icon": "num",
+      "group": "display",
+      "bound": true,
+      "writes": false,
+      "has_in": false,
+      "has_out": true,
+      "default_w": 250,
+      "default_h": 150,
+      "min_w": 120,
+      "min_h": 70
+    },
+    {
+      "key": "led",
+      "label_key": "dashKindLed",
+      "icon": "focus",
+      "group": "display",
+      "bound": true,
+      "writes": false,
+      "has_in": false,
+      "has_out": true,
+      "default_w": 170,
+      "default_h": 150,
+      "min_w": 120,
+      "min_h": 70
+    },
+    {
+      "key": "bar",
+      "label_key": "dashKindBar",
+      "icon": "bars",
+      "group": "display",
+      "bound": true,
+      "writes": false,
+      "has_in": false,
+      "has_out": true,
+      "default_w": 250,
+      "default_h": 150,
+      "min_w": 120,
+      "min_h": 70
+    },
+    {
+      "key": "gauge",
+      "label_key": "dashKindGauge",
+      "icon": "gauge",
+      "group": "display",
+      "bound": true,
+      "writes": false,
+      "has_in": false,
+      "has_out": true,
+      "default_w": 250,
+      "default_h": 150,
+      "min_w": 120,
+      "min_h": 70
+    },
+    {
+      "key": "bits",
+      "label_key": "dashKindBits",
+      "icon": "bits",
+      "group": "display",
+      "bound": true,
+      "writes": false,
+      "has_in": false,
+      "has_out": true,
+      "default_w": 300,
+      "default_h": 130,
+      "min_w": 180,
+      "min_h": 90
+    },
+    {
+      "key": "chart",
+      "label_key": "dashKindChart",
+      "icon": "chart",
+      "group": "display",
+      "bound": true,
+      "writes": false,
+      "has_in": false,
+      "has_out": true,
+      "default_w": 330,
+      "default_h": 190,
+      "min_w": 180,
+      "min_h": 110
+    },
+    {
+      "key": "button",
+      "label_key": "dashKindButton",
+      "icon": "btn",
+      "group": "control",
+      "bound": true,
+      "writes": true,
+      "has_in": true,
+      "has_out": true,
+      "default_w": 180,
+      "default_h": 90,
+      "min_w": 120,
+      "min_h": 60
+    },
+    {
+      "key": "input",
+      "label_key": "dashKindInput",
+      "icon": "field",
+      "group": "control",
+      "bound": true,
+      "writes": true,
+      "has_in": true,
+      "has_out": true,
+      "default_w": 250,
+      "default_h": 110,
+      "min_w": 120,
+      "min_h": 90
+    },
+    {
+      "key": "toggle",
+      "label_key": "dashKindToggle",
+      "icon": "switch",
+      "group": "control",
+      "bound": true,
+      "writes": true,
+      "has_in": true,
+      "has_out": true,
+      "default_w": 180,
+      "default_h": 100,
+      "min_w": 120,
+      "min_h": 70
+    },
+    {
+      "key": "slider",
+      "label_key": "dashKindSlider",
+      "icon": "sliders",
+      "group": "control",
+      "bound": true,
+      "writes": true,
+      "has_in": true,
+      "has_out": true,
+      "default_w": 280,
+      "default_h": 115,
+      "min_w": 170,
+      "min_h": 95
+    },
+    {
+      "key": "select",
+      "label_key": "dashKindSelect",
+      "icon": "list",
+      "group": "control",
+      "bound": true,
+      "writes": true,
+      "has_in": true,
+      "has_out": true,
+      "default_w": 250,
+      "default_h": 115,
+      "min_w": 120,
+      "min_h": 95
+    },
+    {
+      "key": "timer",
+      "label_key": "dashKindTimer",
+      "icon": "clock",
+      "group": "logic",
+      "bound": false,
+      "writes": false,
+      "has_in": true,
+      "has_out": true,
+      "default_w": 180,
+      "default_h": 100,
+      "min_w": 120,
+      "min_h": 80
+    },
+    {
+      "key": "gate",
+      "label_key": "dashKindGate",
+      "icon": "gate",
+      "group": "logic",
+      "bound": true,
+      "writes": false,
+      "has_in": true,
+      "has_out": true,
+      "default_w": 230,
+      "default_h": 110,
+      "min_w": 120,
+      "min_h": 85
+    },
+    {
+      "key": "label",
+      "label_key": "dashKindLabel",
+      "icon": "text",
+      "group": "logic",
+      "bound": false,
+      "writes": false,
+      "has_in": false,
+      "has_out": false,
+      "default_w": 200,
+      "default_h": 70,
+      "min_w": 120,
+      "min_h": 40
+    }
+  ],
+  "macro_api": [
+    {
+      "name": "reg",
+      "parameters": "key, dtype=None",
+      "returns": "Register",
+      "target": "api_reg",
+      "ru": "Объект регистра: .read(), .write(value), .value (новое чтение), .addr, .type, .name.",
+      "en": "Register handle: .read(), .write(value), .value (a fresh read), .addr, .type, .name.",
+      "signature": "reg(key, dtype=None)"
+    },
+    {
+      "name": "read",
+      "parameters": "key, dtype=None",
+      "returns": "object",
+      "target": "api_read",
+      "ru": "Прочитать декодированное значение без scale/offset. Ключ: имя, адрес или строка IR/CO/DI.",
+      "en": "Read a decoded value before scale/offset. Key: map name, address, or IR/CO/DI address string.",
+      "signature": "read(key, dtype=None)"
+    },
+    {
+      "name": "write",
+      "parameters": "key, value, dtype=None",
+      "returns": "object",
+      "target": "api_write",
+      "ru": "Записать значение без scale/offset; вернуть переданное value. Учитывайте доступ регистра.",
+      "en": "Write a value before scale/offset; return the supplied value. Respect register access permissions.",
+      "signature": "write(key, value, dtype=None)"
+    },
+    {
+      "name": "read_all",
+      "parameters": "",
+      "returns": "dict",
+      "target": "api_read_all",
+      "ru": "Прочитать все типы с кодеками из карты, включая STRING; результат {имя: значение}.",
+      "en": "Read all codec-backed map entries, including STRING; return {name: value}.",
+      "signature": "read_all()"
+    },
+    {
+      "name": "wait",
+      "parameters": "seconds",
+      "returns": "None",
+      "target": "api_wait",
+      "ru": "Прерываемая пауза в секундах.",
+      "en": "Interruptible delay in seconds.",
+      "signature": "wait(seconds)"
+    },
+    {
+      "name": "sleep",
+      "parameters": "seconds",
+      "returns": "None",
+      "target": "api_wait",
+      "ru": "Псевдоним wait.",
+      "en": "Alias of wait.",
+      "signature": "sleep(seconds)"
+    },
+    {
+      "name": "record",
+      "parameters": "row=None, **kwargs",
+      "returns": "None",
+      "target": "api_record",
+      "ru": "Добавить строку результатов: словарь и/или именованные колонки; kwargs имеют приоритет.",
+      "en": "Append a result row: a dict and/or named columns; keyword columns override dict keys.",
+      "signature": "record(row=None, **kwargs)"
+    },
+    {
+      "name": "log",
+      "parameters": "*args",
+      "returns": "None",
+      "target": "api_log",
+      "ru": "Сообщение в журнал; аргументы разделены пробелами.",
+      "en": "Log arguments joined with spaces.",
+      "signature": "log(*args)"
+    },
+    {
+      "name": "print",
+      "parameters": "*args",
+      "returns": "None",
+      "target": "api_log",
+      "ru": "Псевдоним log; sep/end/file не поддерживаются.",
+      "en": "Alias of log; sep/end/file are not supported.",
+      "signature": "print(*args)"
+    },
+    {
+      "name": "now",
+      "parameters": "",
+      "returns": "float",
+      "target": "time.time",
+      "ru": "Unix-время в секундах, не монотонные часы.",
+      "en": "Unix time in seconds, not a monotonic clock.",
+      "signature": "now()"
+    },
+    {
+      "name": "timestamp",
+      "parameters": "",
+      "returns": "str",
+      "target": "api_timestamp",
+      "ru": "Локальное время: YYYY-MM-DD HH:MM:SS.",
+      "en": "Local time: YYYY-MM-DD HH:MM:SS.",
+      "signature": "timestamp()"
+    }
+  ],
+  "macro_builtins": [
+    "abs",
+    "min",
+    "max",
+    "round",
+    "sum",
+    "len",
+    "range",
+    "enumerate",
+    "zip",
+    "map",
+    "filter",
+    "sorted",
+    "reversed",
+    "int",
+    "float",
+    "str",
+    "bool",
+    "list",
+    "dict",
+    "tuple",
+    "set",
+    "frozenset",
+    "divmod",
+    "pow",
+    "bin",
+    "hex",
+    "oct",
+    "ord",
+    "chr",
+    "format",
+    "repr",
+    "any",
+    "all",
+    "isinstance"
+  ]
+}

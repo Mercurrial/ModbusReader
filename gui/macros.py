@@ -10,15 +10,17 @@ arrive here via signals and accumulate in the table for CSV / XLSX export.
 
 import csv
 import os
+import re
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QPlainTextEdit,
     QTableWidget, QTableWidgetItem, QSplitter, QFrame, QFileDialog,
-    QMessageBox, QAbstractItemView, QDialog, QTextBrowser, QHeaderView,
+    QMessageBox, QAbstractItemView, QDialog, QTextBrowser, QHeaderView, QCompleter,
 )
-from PyQt6.QtCore import Qt, QSize, QRect, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, QRect, QStringListModel, pyqtSignal
 from PyQt6.QtGui import QFont, QColor, QPainter, QTextOption, QTextCursor, QKeySequence, QShortcut
 
+from core import macro_api
 from core.macro_engine import MacroRunner
 from gui.dialogs import themed_message, themed_info
 from gui import icons
@@ -108,6 +110,57 @@ class CodeEditor(QPlainTextEdit):
         self.blockCountChanged.connect(lambda _: self._update_gutter_width())
         self.updateRequest.connect(self._update_gutter_area)
         self._update_gutter_width()
+        self.get_registers = lambda: ()
+        self._completion_start = 0
+        self._completion_quote = ""
+        self._completion_values = {}
+        self._completer = QCompleter(self)
+        self._completion_model = QStringListModel(self)
+        self._completer.setModel(self._completion_model)
+        self._completer.setWidget(self)
+        self._completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self._completer.activated[str].connect(self._insert_completion)
+
+    def _show_completions(self):
+        cursor = self.textCursor()
+        before = cursor.block().text().encode("utf-16-le")[:cursor.positionInBlock() * 2].decode("utf-16-le")
+        # First quoted argument to the three register APIs. Other contexts
+        # offer function names. No code is evaluated to obtain suggestions.
+        match = re.search(r'''\b(?:read|write|reg)\(\s*(["'])([^"']*)$''', before)
+        if match:
+            prefix = match.group(2)
+            kind = "register"
+            self._completion_quote = match.group(1)
+        else:
+            word = re.search(r"[A-Za-z_][A-Za-z_0-9]*$", before)
+            prefix = word.group() if word else ""
+            kind = "function"
+            self._completion_quote = ""
+        items = [item for item in macro_api.completion_items(self.get_registers() or ())
+                 if item["kind"] == kind]
+        self._completion_values = {item["label"]: item["insert_text"] for item in items}
+        self._completion_start = cursor.position() - len(prefix.encode("utf-16-le")) // 2
+        self._completion_model.setStringList(list(self._completion_values))
+        self._completer.setCompletionPrefix(prefix)
+        if not self._completer.completionCount():
+            self._completer.popup().hide()
+            return
+        popup = self._completer.popup()
+        rect = self.cursorRect()
+        rect.setWidth(popup.sizeHintForColumn(0) + popup.verticalScrollBar().sizeHint().width() + 8)
+        self._completer.complete(rect)
+
+    def _insert_completion(self, label):
+        value = self._completion_values.get(label)
+        if value is None:
+            return
+        if self._completion_quote:
+            value = (value.replace("\\", "\\\\").replace(self._completion_quote, "\\" + self._completion_quote)
+                     .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t"))
+        cursor = self.textCursor()
+        cursor.setPosition(self._completion_start, QTextCursor.MoveMode.KeepAnchor)
+        cursor.insertText(value)
+        self.setTextCursor(cursor)
 
     def gutter_width(self) -> int:
         digits = max(3, len(str(max(1, self.blockCount()))))
@@ -165,6 +218,15 @@ class CodeEditor(QPlainTextEdit):
             return
         if self.isReadOnly():
             return super().keyPressEvent(event)
+        if self._completer.popup().isVisible():
+            if key in (Qt.Key.Key_Enter, Qt.Key.Key_Return, Qt.Key.Key_Escape,
+                       Qt.Key.Key_Tab, Qt.Key.Key_Backtab):
+                event.ignore()
+                return
+            self._completer.popup().hide()
+        if key == Qt.Key.Key_Space and mods == Qt.KeyboardModifier.ControlModifier:
+            self._show_completions()
+            return
         if key == Qt.Key.Key_Backtab:
             return self._shift_lines(-1)
         if key == Qt.Key.Key_Tab and not ctrl:
@@ -392,6 +454,7 @@ class MacroWindow(QWidget):
         outer.setHandleWidth(1)
 
         self.editor = CodeEditor(self.c)
+        self.editor.get_registers = self.get_registers
         self.editor.save_requested.connect(self._save_script_here)
         ed_wrap = self._titled(self.L("Скрипт", "Script"), self.editor)
         outer.addWidget(ed_wrap)
@@ -885,50 +948,7 @@ class MacroWindow(QWidget):
 #  MACRO HELP / API REFERENCE
 # ════════════════════════════════════════════════════════════════════
 # Each entry: (signature, RU description, EN description).
-_MACRO_API = [
-    ("read(name)",
-     "Прочитать один регистр по имени из профиля или по адресу "
-     "(<code>read(0x10)</code>; coil, дискретный вход или input-регистр — "
-     "<code>read(\"CO 0x05\")</code>, <code>\"DI 3\"</code>, "
-     "<code>\"IR 0x10\"</code>). Возвращает число.",
-     "Read one register by its profile name or by address "
-     "(<code>read(0x10)</code>; a coil / discrete / input register — "
-     "<code>read(\"CO 0x05\")</code>, <code>\"DI 3\"</code>, "
-     "<code>\"IR 0x10\"</code>). Returns a number."),
-    ("write(name, value)",
-     "Записать значение в регистр. Регистр должен быть RW.",
-     "Write a value to a register. The register must be RW."),
-    ("read_all()",
-     "Прочитать все регистры профиля и вернуть словарь "
-     "<code>{имя: значение}</code>.",
-     "Read every register in the profile and return a "
-     "<code>{name: value}</code> dict."),
-    ("reg(name)",
-     "Получить объект регистра с методами <code>.read()</code> / "
-     "<code>.write(v)</code> — удобно при многократном обращении.",
-     "Get a register object with <code>.read()</code> / "
-     "<code>.write(v)</code> methods — handy for repeated access."),
-    ("wait(seconds)  ·  sleep(seconds)",
-     "Пауза на заданное число секунд (можно дробное).",
-     "Pause for the given number of seconds (fractions allowed)."),
-    ("record(row)",
-     "Добавить строку в таблицу результатов. <code>row</code> — словарь "
-     "<code>{колонка: значение}</code>; колонки создаются автоматически.",
-     "Append a row to the results table. <code>row</code> is a "
-     "<code>{column: value}</code> dict; columns are created automatically."),
-    ("log(*args)  ·  print(*args)",
-     "Вывести сообщение в журнал внизу окна.",
-     "Print a message to the log pane at the bottom of the window."),
-    ("now()",
-     "Текущее время в секундах (Unix-время, дробное) — для замеров "
-     "длительности.",
-     "Current time in seconds (Unix time, float) — for measuring durations."),
-    ("timestamp()",
-     "Текущие дата и время строкой <code>ГГГГ-ММ-ДД ЧЧ:ММ:СС</code> — удобно "
-     "как колонка.",
-     "Current date and time as a <code>YYYY-MM-DD HH:MM:SS</code> string — "
-     "handy as a column."),
-]
+_MACRO_API = [(f.signature, f.ru, f.en) for f in macro_api.FUNCTIONS]
 
 
 class _MacroHelpDialog(QDialog):

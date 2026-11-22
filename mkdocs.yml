@@ -215,6 +215,7 @@ nav:
       - tools/converter.md
       - tools/address.md
   - Помощь:
+      - ai-authoring.md
       - troubleshooting.md
       - contributing.md
       - code-signing.md
