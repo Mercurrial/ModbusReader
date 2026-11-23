@@ -43,8 +43,9 @@ packet = frame + bytes([crc & 0xFF, crc >> 8])   # 01 03 00 00 00 02 C4 0B
 
 Прибор молча отбрасывает кадр с неверной CRC — поэтому ошибка в одном байте
 выглядит как «прибор не отвечает». Структура кадра разобрана в разделе
-[Что такое Modbus RTU](../modbus/index.md), коды функций и исключений — в
-[Функции и ошибки](../modbus/functions.md).
+[Modbus RTU](../modbus/rtu.md), алгоритм CRC с кодом на C, Python и
+JavaScript — в [CRC-16 Modbus](../modbus/crc.md), коды функций и
+исключений — в [Функции и ошибки](../modbus/functions/index.md).
 
 ## В программе
 

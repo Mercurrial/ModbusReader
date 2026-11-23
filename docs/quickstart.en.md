@@ -117,7 +117,7 @@ Testing a master over a COM port, and testing a SCADA:
 
 ## Next
 
-- [Modbus basics](modbus/index.md) — if 40001 addresses, byte order and
+- [The Modbus protocol](modbus/index.md) — if 40001 addresses, byte order and
   function codes still sound mysterious.
 - [User guide](guide/index.md) — every page of the app in order.
 - [Examples](examples/index.md) — ready-made macros and scenarios.

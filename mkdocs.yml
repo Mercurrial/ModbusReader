@@ -27,6 +27,10 @@ copyright: >-
 # notes stay out of the site.
 exclude_docs: |
   engineering-notes.md
+  site-plan.md
+  # Draft, not published yet: EN index, 04 and 06 pages and the menu entry
+  # are missing (docs/site-plan.md, 3.6). Remove this line when complete.
+  modbus/exceptions/
 
 hooks:
   - tools/mkdocs_hooks.py
@@ -98,6 +102,13 @@ extra:
 
 plugins:
   - search
+  # Fonts and other third-party files are downloaded at build time and
+  # served from the site itself: faster (no extra connection to Google, which
+  # is slow from Russia) and no visitor data sent to it. Yandex Metrika
+  # stays on Yandex — it only works from there.
+  - privacy:
+      assets_exclude:
+        - mc.yandex.ru/*
   - i18n:
       docs_structure: suffix
       fallback_to_default: true
@@ -142,7 +153,8 @@ plugins:
           nav_translations:
             Главная: Home
             Начало работы: Getting started
-            Основы Modbus: Modbus basics
+            Протокол Modbus: Modbus protocol
+            Функции: Functions
             Руководство: User guide
             Примеры: Examples
             Онлайн-инструменты: Online tools
@@ -180,13 +192,24 @@ nav:
       - quickstart.md
       - connect.md
       - compare.md
-  - Основы Modbus:
+  - Протокол Modbus:
       - modbus/index.md
-      - modbus/addressing.md
-      - modbus/data-types.md
-      - modbus/functions.md
+      - modbus/rtu.md
+      - modbus/crc.md
       - modbus/tcp.md
       - modbus/rtu-over-tcp.md
+      - modbus/addressing.md
+      - modbus/data-types.md
+      - Функции:
+          - modbus/functions/index.md
+          - modbus/functions/01-read-coils.md
+          - modbus/functions/02-read-discrete-inputs.md
+          - modbus/functions/03-read-holding-registers.md
+          - modbus/functions/04-read-input-registers.md
+          - modbus/functions/05-write-single-coil.md
+          - modbus/functions/06-write-single-register.md
+          - modbus/functions/15-write-multiple-coils.md
+          - modbus/functions/16-write-multiple-registers.md
   - Руководство:
       - guide/index.md
       - guide/register-map.md

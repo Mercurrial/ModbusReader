@@ -37,6 +37,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # page dates come from git (tools/mkdocs_hooks.py)
 
       - uses: actions/setup-python@v7
         with:
@@ -53,6 +55,13 @@ jobs:
           path: ${{ runner.temp }}/webp
           key: webp-${{ hashFiles('docs/images/**', 'tools/mkdocs_hooks.py') }}
           restore-keys: webp-
+
+      # Fonts the privacy plugin downloads to serve from the site itself.
+      - uses: actions/cache@v6
+        with:
+          path: .cache/plugin/privacy
+          key: privacy-${{ hashFiles('requirements-docs.txt', 'mkdocs.yml') }}
+          restore-keys: privacy-
 
       - run: mkdocs build --strict
         env:

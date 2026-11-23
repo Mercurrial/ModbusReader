@@ -32,7 +32,7 @@ with CRC errors.
 |---|---|
 | Time | When the frame arrived |
 | ID | Device address |
-| Function | Read Holding, Write Register… — see [function codes](../modbus/functions.md) |
+| Function | Read Holding, Write Register… — see [function codes](../modbus/functions/index.md) |
 | Kind | Request, response, exception or junk |
 | Data | Decoding: address, count, values |
 | CRC | OK or BAD |

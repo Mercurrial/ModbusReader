@@ -56,11 +56,12 @@ hide:
 
     [:octicons-arrow-right-24: Подключить](connect.md)
 
--   :material-school:{ .lg .middle } **Основы Modbus**
+-   :material-school:{ .lg .middle } **Протокол Modbus**
 
     ---
 
-    Кадр RTU, адреса 40001 и 0x0000, порядок байт FLOAT, коды функций и ошибок.
+    Справочник: RTU и TCP, адреса 40001 и 0x0000, порядок байт FLOAT, коды
+    функций и ошибок.
 
     [:octicons-arrow-right-24: Разобраться](modbus/index.md)
 

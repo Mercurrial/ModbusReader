@@ -8,17 +8,19 @@ description: Modbus function reference — reading coils, discrete inputs, holdi
 ## Function codes
 
 The function code in the second byte of a frame tells the device what to do.
+Each main function has its own page: the request and response byte by
+byte, an example frame with CRC, exceptions and pitfalls.
 
 | Code | Hex | Function | Table |
 |:---:|:---:|---|---|
-| 1 | `01` | Read Coils | Coils |
-| 2 | `02` | Read Discrete Inputs | Discrete inputs |
-| 3 | `03` | Read Holding Registers | Holding |
-| 4 | `04` | Read Input Registers | Input |
-| 5 | `05` | Write Single Coil | Coils |
-| 6 | `06` | Write Single Register | Holding |
-| 15 | `0F` | Write Multiple Coils | Coils |
-| 16 | `10` | Write Multiple Registers | Holding |
+| 1 | `01` | [Read Coils](01-read-coils.md) | Coils |
+| 2 | `02` | [Read Discrete Inputs](02-read-discrete-inputs.md) | Discrete inputs |
+| 3 | `03` | [Read Holding Registers](03-read-holding-registers.md) | Holding |
+| 4 | `04` | [Read Input Registers](04-read-input-registers.md) | Input |
+| 5 | `05` | [Write Single Coil](05-write-single-coil.md) | Coils |
+| 6 | `06` | [Write Single Register](06-write-single-register.md) | Holding |
+| 15 | `0F` | [Write Multiple Coils](15-write-multiple-coils.md) | Coils |
+| 16 | `10` | [Write Multiple Registers](16-write-multiple-registers.md) | Holding |
 | 8 | `08` | Diagnostics | — |
 | 22 | `16` | Mask Write Register | Holding |
 | 23 | `17` | Read/Write Multiple Registers | Holding |
@@ -30,16 +32,16 @@ Function 05 writes `FF 00` to turn a coil on and `00 00` to turn it off.
 | Mode | Functions |
 |---|---|
 | Polling (master) | read — 01, 02, 03, 04; write — 05 (coils) and 06 (registers) |
-| [Emulator](../guide/slave.md) | answers 01, 02, 03, 04, 05, 06, 15, 16; anything else gets exception 01 |
-| [Sniffer](../guide/sniffer.md) | decodes 01–06, 08, 15, 16, 22, 23; shows the rest as bytes |
-| [Console](../guide/console.md) | any frame you type |
+| [Emulator](../../guide/slave.md) | answers 01, 02, 03, 04, 05, 06, 15, 16; anything else gets exception 01 |
+| [Sniffer](../../guide/sniffer.md) | decodes 01–06, 08, 15, 16, 22, 23; shows the rest as bytes |
+| [Console](../../guide/console.md) | any frame you type |
 
 !!! note "Writing 32-bit values"
     The master writes FLOAT, LONG and other multi-register values **one
     word at a time with function 06**, one after another with a pause in
     between. Most devices accept this. If your device only accepts such
     values as a whole with function 16, send the frame from the
-    [console](../guide/console.md), for example:
+    [console](../../guide/console.md), for example:
     `01 10 00 02 00 02 04 41 C8 00 00` — write FLOAT 25.0 to registers
     0x0002–0x0003 of device 1 (the console adds the CRC).
 
@@ -67,16 +69,16 @@ bit set (`03` → `83`, `06` → `86`) and a one-byte error code.
 
 An exception is good news: **the link works**, the device hears you and
 answers. The problem is the request, not the wires. No answer at all is a
-[timeout](../troubleshooting.md#timeout).
+[timeout](../../troubleshooting.md#timeout).
 
 ### Where ModbusReader shows exceptions
 
 - In the transaction log — an error line with the decoded frame.
 - In the line statistics (bottom right) — the **Modbus exceptions** counter.
-- In the [scanner](../guide/scanner.md) a device that answered with an
+- In the [scanner](../../guide/scanner.md) a device that answered with an
   exception is marked **Alive (exception)**: it is on the line, it just did
   not serve register 0.
-- In the [sniffer](../guide/sniffer.md) exception frames are highlighted.
+- In the [sniffer](../../guide/sniffer.md) exception frames are highlighted.
 
 ## No answer and CRC errors
 
@@ -88,4 +90,4 @@ Not every problem is an exception:
 | **CRC error** — answer corrupted | Noise, no common ground or terminator, wrong parity, two masters on the line |
 | **Exception** — device refused | The address, function or value does not fit |
 
-Every case is covered in [Troubleshooting](../troubleshooting.md).
+Every case is covered in [Troubleshooting](../../troubleshooting.md).

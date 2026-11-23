@@ -54,8 +54,8 @@ Device 1; the console adds the CRC:
 | Write FLOAT 25.0 (ABCD) to registers 2–3 in one request | `01 10 00 02 00 02 04 41 C8 00 00` |
 | The same for device 10 | `0A 10 00 02 00 02 04 41 C8 00 00` |
 
-The frame structure is in [What is Modbus RTU](../modbus/index.md), the
-function codes in [Functions and errors](../modbus/functions.md).
+The frame structure is in [Modbus RTU](../modbus/rtu.md), the
+function codes in [Functions and errors](../modbus/functions/index.md).
 
 ## Transaction log
 

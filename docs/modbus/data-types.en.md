@@ -139,4 +139,4 @@ Mode and state registers can have value labels — one per line:
 Then the table shows **Run** instead of `1`, and the dashboard **Select**
 widget offers the list of modes.
 
-Next: [Function and exception codes](functions.md).
+Next: [Function and exception codes](functions/index.md).

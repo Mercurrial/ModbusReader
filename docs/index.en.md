@@ -57,12 +57,12 @@ free · open source (GPL-3.0) · English and Russian UI</p>
 
     [:octicons-arrow-right-24: Connect](connect.md)
 
--   :material-school:{ .lg .middle } **Modbus basics**
+-   :material-school:{ .lg .middle } **The Modbus protocol**
 
     ---
 
-    The RTU frame, addresses 40001 vs 0x0000, FLOAT byte order, function
-    and exception codes.
+    A reference: RTU and TCP, addresses 40001 vs 0x0000, FLOAT byte order,
+    function and exception codes.
 
     [:octicons-arrow-right-24: Learn](modbus/index.md)
 
