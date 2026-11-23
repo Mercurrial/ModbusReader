@@ -37,6 +37,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # page dates come from git (tools/mkdocs_hooks.py)
 
       - uses: actions/setup-python@v7
         with:

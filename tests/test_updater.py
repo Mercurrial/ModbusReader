@@ -719,6 +719,25 @@ def test_project_site_takes_the_version_from_the_app(tmp_path):
                                     "release_date": RELEASE_DATE}
 
 
+def test_project_site_dates_pages_by_their_last_commit(tmp_path):
+    """The sitemap and the "updated" line carry a page's last commit, not
+    the build day; without git the build keeps going on the build date."""
+    import importlib.util
+    import os
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "tools", "mkdocs_hooks.py")
+    spec = importlib.util.spec_from_file_location("mkdocs_hooks_dates", path)
+    hooks = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hooks)
+    assert hooks.human_date("2026-11-03", "ru") == "3 ноября 2026"
+    assert hooks.human_date("2026-11-03", "en") == "November 3, 2026"
+    dates = hooks.git_dates()
+    if dates:                       # a checkout with history
+        created, updated = dates["docs/index.md"]
+        assert created <= updated
+    assert hooks.git_dates(str(tmp_path)) == {}       # not a repository
+
+
 def test_release_tool_moves_the_one_release_to_the_new_tag():
     """A tag per version, ONE release: the printed steps tag the version,
     replace the release's files and only then move it to the new tag — so a
