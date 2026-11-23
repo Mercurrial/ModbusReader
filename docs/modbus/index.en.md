@@ -86,14 +86,14 @@ of a frame. The most used:
 
 | Code | Function | What it does |
 |:---:|---|---|
-| 01 | Read Coils | Reads bits (coils) |
-| 02 | Read Discrete Inputs | Reads discrete inputs |
-| 03 | Read Holding Registers | Reads holding registers — the most common function |
-| 04 | Read Input Registers | Reads input registers |
-| 05 | Write Single Coil | Turns one bit on or off |
-| 06 | Write Single Register | Writes one register |
-| 15 (0F) | Write Multiple Coils | Writes several bits |
-| 16 (10) | Write Multiple Registers | Writes several registers |
+| 01 | [Read Coils](functions/01-read-coils.md) | Reads bits (coils) |
+| 02 | [Read Discrete Inputs](functions/02-read-discrete-inputs.md) | Reads discrete inputs |
+| 03 | [Read Holding Registers](functions/03-read-holding-registers.md) | Reads holding registers — the most common function |
+| 04 | [Read Input Registers](functions/04-read-input-registers.md) | Reads input registers |
+| 05 | [Write Single Coil](functions/05-write-single-coil.md) | Turns one bit on or off |
+| 06 | [Write Single Register](functions/06-write-single-register.md) | Writes one register |
+| 15 (0F) | [Write Multiple Coils](functions/15-write-multiple-coils.md) | Writes several bits |
+| 16 (10) | [Write Multiple Registers](functions/16-write-multiple-registers.md) | Writes several registers |
 | 23 (17) | Read/Write Multiple Registers | Writes and reads in one request |
 | 43/14 (2B/0E) | Read Device Identification | Vendor, model, firmware version |
 

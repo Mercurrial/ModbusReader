@@ -8,17 +8,19 @@ description: Modbus function reference — reading coils, discrete inputs, holdi
 ## Function codes
 
 The function code in the second byte of a frame tells the device what to do.
+Each main function has its own page: the request and response byte by
+byte, an example frame with CRC, exceptions and pitfalls.
 
 | Code | Hex | Function | Table |
 |:---:|:---:|---|---|
-| 1 | `01` | Read Coils | Coils |
-| 2 | `02` | Read Discrete Inputs | Discrete inputs |
-| 3 | `03` | Read Holding Registers | Holding |
-| 4 | `04` | Read Input Registers | Input |
-| 5 | `05` | Write Single Coil | Coils |
-| 6 | `06` | Write Single Register | Holding |
-| 15 | `0F` | Write Multiple Coils | Coils |
-| 16 | `10` | Write Multiple Registers | Holding |
+| 1 | `01` | [Read Coils](01-read-coils.md) | Coils |
+| 2 | `02` | [Read Discrete Inputs](02-read-discrete-inputs.md) | Discrete inputs |
+| 3 | `03` | [Read Holding Registers](03-read-holding-registers.md) | Holding |
+| 4 | `04` | [Read Input Registers](04-read-input-registers.md) | Input |
+| 5 | `05` | [Write Single Coil](05-write-single-coil.md) | Coils |
+| 6 | `06` | [Write Single Register](06-write-single-register.md) | Holding |
+| 15 | `0F` | [Write Multiple Coils](15-write-multiple-coils.md) | Coils |
+| 16 | `10` | [Write Multiple Registers](16-write-multiple-registers.md) | Holding |
 | 8 | `08` | Diagnostics | — |
 | 22 | `16` | Mask Write Register | Holding |
 | 23 | `17` | Read/Write Multiple Registers | Holding |

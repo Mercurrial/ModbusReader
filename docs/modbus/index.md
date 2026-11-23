@@ -91,14 +91,14 @@ Modbus построен по схеме **«запрос — ответ»**. О�
 
 | Код | Функция | Что делает |
 |:---:|---|---|
-| 01 | Read Coils | Читает биты (coils) |
-| 02 | Read Discrete Inputs | Читает дискретные входы |
-| 03 | Read Holding Registers | Читает holding-регистры — самая частая функция |
-| 04 | Read Input Registers | Читает input-регистры |
-| 05 | Write Single Coil | Включает или выключает один бит |
-| 06 | Write Single Register | Записывает один регистр |
-| 15 (0F) | Write Multiple Coils | Записывает несколько битов |
-| 16 (10) | Write Multiple Registers | Записывает несколько регистров |
+| 01 | [Read Coils](functions/01-read-coils.md) | Читает биты (coils) |
+| 02 | [Read Discrete Inputs](functions/02-read-discrete-inputs.md) | Читает дискретные входы |
+| 03 | [Read Holding Registers](functions/03-read-holding-registers.md) | Читает holding-регистры — самая частая функция |
+| 04 | [Read Input Registers](functions/04-read-input-registers.md) | Читает input-регистры |
+| 05 | [Write Single Coil](functions/05-write-single-coil.md) | Включает или выключает один бит |
+| 06 | [Write Single Register](functions/06-write-single-register.md) | Записывает один регистр |
+| 15 (0F) | [Write Multiple Coils](functions/15-write-multiple-coils.md) | Записывает несколько битов |
+| 16 (10) | [Write Multiple Registers](functions/16-write-multiple-registers.md) | Записывает несколько регистров |
 | 23 (17) | Read/Write Multiple Registers | Пишет и читает за один запрос |
 | 43/14 (2B/0E) | Read Device Identification | Производитель, модель, версия прибора |
 

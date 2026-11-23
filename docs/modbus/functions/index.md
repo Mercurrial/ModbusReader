@@ -7,18 +7,20 @@ description: Справочник функций Modbus — чтение coils, 
 
 ## Коды функций
 
-Код функции во втором байте кадра говорит прибору, что сделать.
+Код функции во втором байте кадра говорит прибору, что сделать. По каждой
+основной функции есть отдельная страница: формат запроса и ответа по
+байтам, пример кадра с CRC, исключения и подводные камни.
 
 | Код | Hex | Функция | Таблица |
 |:---:|:---:|---|---|
-| 1 | `01` | Read Coils — чтение битов | Coils |
-| 2 | `02` | Read Discrete Inputs — чтение входов | Discrete inputs |
-| 3 | `03` | Read Holding Registers — чтение регистров | Holding |
-| 4 | `04` | Read Input Registers — чтение входных регистров | Input |
-| 5 | `05` | Write Single Coil — запись одного бита | Coils |
-| 6 | `06` | Write Single Register — запись одного регистра | Holding |
-| 15 | `0F` | Write Multiple Coils — запись нескольких битов | Coils |
-| 16 | `10` | Write Multiple Registers — запись нескольких регистров | Holding |
+| 1 | `01` | [Read Coils](01-read-coils.md) — чтение битов | Coils |
+| 2 | `02` | [Read Discrete Inputs](02-read-discrete-inputs.md) — чтение входов | Discrete inputs |
+| 3 | `03` | [Read Holding Registers](03-read-holding-registers.md) — чтение регистров | Holding |
+| 4 | `04` | [Read Input Registers](04-read-input-registers.md) — чтение входных регистров | Input |
+| 5 | `05` | [Write Single Coil](05-write-single-coil.md) — запись одного бита | Coils |
+| 6 | `06` | [Write Single Register](06-write-single-register.md) — запись одного регистра | Holding |
+| 15 | `0F` | [Write Multiple Coils](15-write-multiple-coils.md) — запись нескольких битов | Coils |
+| 16 | `10` | [Write Multiple Registers](16-write-multiple-registers.md) — запись нескольких регистров | Holding |
 | 8 | `08` | Diagnostics — диагностика линии | — |
 | 22 | `16` | Mask Write Register — запись по маске | Holding |
 | 23 | `17` | Read/Write Multiple Registers | Holding |

@@ -151,6 +151,7 @@ plugins:
             Главная: Home
             Начало работы: Getting started
             Протокол Modbus: Modbus protocol
+            Функции: Functions
             Руководство: User guide
             Примеры: Examples
             Онлайн-инструменты: Online tools
@@ -191,11 +192,20 @@ nav:
   - Протокол Modbus:
       - modbus/index.md
       - modbus/rtu.md
-      - modbus/addressing.md
-      - modbus/data-types.md
-      - modbus/functions/index.md
       - modbus/tcp.md
       - modbus/rtu-over-tcp.md
+      - modbus/addressing.md
+      - modbus/data-types.md
+      - Функции:
+          - modbus/functions/index.md
+          - modbus/functions/01-read-coils.md
+          - modbus/functions/02-read-discrete-inputs.md
+          - modbus/functions/03-read-holding-registers.md
+          - modbus/functions/04-read-input-registers.md
+          - modbus/functions/05-write-single-coil.md
+          - modbus/functions/06-write-single-register.md
+          - modbus/functions/15-write-multiple-coils.md
+          - modbus/functions/16-write-multiple-registers.md
   - Руководство:
       - guide/index.md
       - guide/register-map.md
