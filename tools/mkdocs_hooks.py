@@ -18,6 +18,7 @@ change daily is one search engines learn to ignore). CI checks out the full
 history for this (docs.yml → fetch-depth: 0).
 """
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -105,12 +106,58 @@ def on_page_markdown(markdown, page, config, **_kwargs):
     return markdown.replace("{{ app_version }}", config.extra["app_version"])
 
 
-def on_page_context(context, page, **_kwargs):
+def on_page_context(context, page, config, **_kwargs):
     """The home pages are the product's front door, not documentation: no
-    "edit this page" pencil there."""
+    "edit this page" pencil there. Every page gets its schema.org data."""
     if page.url in ("", "en/"):
         page.edit_url = None
+    page.meta["json_ld"] = json_ld(page, config)
     return context
+
+
+def json_ld(page, config) -> str:
+    """schema.org data for search engines: on an article, its breadcrumbs
+    (home → section → page) and the article itself with its dates; on the
+    home page, the site. (The home page's SoftwareApplication is written by
+    overrides/main.html.) Ready to put inside <script>."""
+    en = page.url.startswith("en/")
+    lang = "en" if en else "ru"
+    home = config.site_url + ("en/" if en else "")
+    site = {"@type": "WebSite", "@id": home + "#website", "name": "ModbusReader",
+            "url": home, "inLanguage": lang}
+    if page.url in ("", "en/"):
+        site["description"] = page.meta.get("description") or config.site_description
+        graph = [site]
+    else:
+        crumbs = [("ModbusReader", home)]
+        for section in reversed(page.ancestors):       # outermost first
+            index = next((c for c in section.children
+                          if c.is_page and c.file.name.split(".")[0] == "index"), None)
+            if index is not None and index is not page:
+                crumbs.append((section.title, index.canonical_url))
+        crumbs.append((page.title, page.canonical_url))
+        author = {"@type": "Person", "name": "Mercurrial",
+                  "url": "https://github.com/Mercurrial"}
+        graph = [
+            {"@type": "BreadcrumbList", "itemListElement": [
+                {"@type": "ListItem", "position": i, "name": name, "item": url}
+                for i, (name, url) in enumerate(crumbs, 1)]},
+            {"@type": "TechArticle",
+             "headline": (page.meta.get("seo_title") or page.title)[:110],
+             "description": page.meta.get("description") or config.site_description,
+             "inLanguage": lang,
+             "url": page.canonical_url,
+             "mainEntityOfPage": page.canonical_url,
+             "datePublished": page.meta.get("date_created"),
+             "dateModified": page.meta.get("date_updated"),
+             "image": config.site_url + "images/" + ("en/" if en else "") + "social.png",
+             "author": author,
+             "publisher": author,
+             "isPartOf": {"@id": home + "#website"}},
+        ]
+    data = json.dumps({"@context": "https://schema.org", "@graph": graph},
+                      ensure_ascii=False, indent=1)
+    return data.replace("</", "<\\/")             # never closes the <script>
 
 
 def _sitemap_without_changefreq(site_dir: str) -> None:

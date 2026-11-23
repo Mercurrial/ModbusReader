@@ -1,6 +1,7 @@
 {#- The project site's additions to the Material theme: link previews
-    (Open Graph) on every page, and on the home page the schema.org data
-    that tells search engines this is a free Windows application. -#}
+    (Open Graph) and schema.org data on every page (breadcrumbs and the
+    article, built by tools/mkdocs_hooks.py → json_ld), and on the home page
+    the schema.org data that tells search engines this is a free application. -#}
 {% extends "base.html" %}
 
 {% block header %}
@@ -89,6 +90,9 @@
   <meta property="og:image:width" content="1280">
   <meta property="og:image:height" content="640">
   <meta name="twitter:card" content="summary_large_image">
+  {%- if page and page.meta and page.meta.json_ld %}
+  <script type="application/ld+json">{{ page.meta.json_ld }}</script>
+  {%- endif %}
   {%- if page and page.is_homepage or (page and page.url in ("", "en/")) %}
   <script type="application/ld+json">
   {

@@ -30,7 +30,7 @@
 
 - [x] 1.1 Настоящий `lastmod` в sitemap из git, без `changefreq: daily`;
       дата «Обновлено» на странице
-- [ ] 1.2 schema.org: `BreadcrumbList` и `TechArticle` на всех страницах,
+- [x] 1.2 schema.org: `BreadcrumbList` и `TechArticle` на всех страницах,
       `WebSite` на главной
 - [ ] 1.3 Шрифты с самого сайта (плагин `privacy` Material), Метрика — как была
 - [ ] 1.4 Яндекс.Вебмастер и Search Console: «Мониторинг запросов» —
