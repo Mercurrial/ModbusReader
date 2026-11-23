@@ -27,6 +27,7 @@ copyright: >-
 # notes stay out of the site.
 exclude_docs: |
   engineering-notes.md
+  site-plan.md
 
 hooks:
   - tools/mkdocs_hooks.py
