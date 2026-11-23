@@ -28,6 +28,9 @@ copyright: >-
 exclude_docs: |
   engineering-notes.md
   site-plan.md
+  # Draft, not published yet: EN index, 04 and 06 pages and the menu entry
+  # are missing (docs/site-plan.md, 3.6). Remove this line when complete.
+  modbus/exceptions/
 
 hooks:
   - tools/mkdocs_hooks.py
