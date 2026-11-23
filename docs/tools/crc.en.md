@@ -42,8 +42,9 @@ packet = frame + bytes([crc & 0xFF, crc >> 8])   # 01 03 00 00 00 02 C4 0B
 
 A device silently drops a frame with a bad CRC — so one wrong byte looks
 like "the device does not answer". The frame structure is in
-[Modbus RTU](../modbus/rtu.md), function and exception codes in
-[Functions and errors](../modbus/functions/index.md).
+[Modbus RTU](../modbus/rtu.md), the CRC algorithm with code in C, Python
+and JavaScript in [Modbus CRC-16](../modbus/crc.md), function and
+exception codes in [Functions and errors](../modbus/functions/index.md).
 
 ## In the app
 

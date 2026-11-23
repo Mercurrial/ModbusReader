@@ -192,6 +192,7 @@ nav:
   - Протокол Modbus:
       - modbus/index.md
       - modbus/rtu.md
+      - modbus/crc.md
       - modbus/tcp.md
       - modbus/rtu-over-tcp.md
       - modbus/addressing.md

@@ -307,6 +307,7 @@ Modbus TCP, on Windows, Linux and macOS.
 ## Reference sections { #reference }
 
 - [Modbus RTU](rtu.md) — the frame, timing, CRC16, serial settings.
+- [Modbus CRC-16](crc.md) — the algorithm and code in C, Python, JavaScript.
 - [Modbus TCP](tcp.md) — port 502, the MBAP header, the Unit ID.
 - [RTU over TCP and converters](rtu-over-tcp.md) — RS-485 devices over a
   network.

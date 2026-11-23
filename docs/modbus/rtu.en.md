@@ -41,8 +41,9 @@ Every request and answer is one frame:
 - **Data** — the first register's address, the count, the values; what is
   there depends on the function.
 - **CRC16** — the checksum of all the bytes before it, **low byte first**. A
-  device silently drops a frame with a bad CRC. Compute the CRC of any frame
-  with the [CRC calculator](../tools/crc.md).
+  device silently drops a frame with a bad CRC. How it is computed —
+  [Modbus CRC-16](crc.md); the CRC of any frame — the
+  [CRC calculator](../tools/crc.md).
 
 A whole frame is at most **256 bytes**. That is where the per-request limits
 come from: at most 125 registers in one read and 123 in one write.

@@ -310,6 +310,7 @@ Modbus выбирают, когда нужно просто и дёшево св
 ## Разделы справочника { #reference }
 
 - [Modbus RTU](rtu.md) — кадр, паузы, CRC16, параметры порта.
+- [CRC-16 Modbus](crc.md) — алгоритм и код на C, Python, JavaScript.
 - [Modbus TCP](tcp.md) — порт 502, заголовок MBAP, Unit ID.
 - [RTU по TCP и преобразователи](rtu-over-tcp.md) — приборы RS-485 через
   сеть.
