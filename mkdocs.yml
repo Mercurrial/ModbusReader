@@ -193,7 +193,7 @@ nav:
       - modbus/rtu.md
       - modbus/addressing.md
       - modbus/data-types.md
-      - modbus/functions.md
+      - modbus/functions/index.md
       - modbus/tcp.md
       - modbus/rtu-over-tcp.md
   - Руководство:

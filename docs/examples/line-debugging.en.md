@@ -66,7 +66,7 @@ Check in order — simplest first:
 
 The device is on the line and refuses particular requests. Click the green
 dot next to a register — the log then shows that register's frames — and
-check the [exception table](../modbus/functions.md#exceptions):
+check the [exception table](../modbus/functions/index.md#exceptions):
 
 - **02** — no such address: off-by-one, the wrong table (FC 03 instead of
   04), a FLOAT running past the device's last register;

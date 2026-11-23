@@ -55,7 +55,7 @@ Device 1; the console adds the CRC:
 | The same for device 10 | `0A 10 00 02 00 02 04 41 C8 00 00` |
 
 The frame structure is in [Modbus RTU](../modbus/rtu.md), the
-function codes in [Functions and errors](../modbus/functions.md).
+function codes in [Functions and errors](../modbus/functions/index.md).
 
 ## Transaction log
 

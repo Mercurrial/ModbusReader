@@ -31,7 +31,7 @@ description: Как подслушать обмен между SCADA или ко
 |---|---|
 | Время | Когда пришёл кадр |
 | ID | Адрес прибора |
-| Функция | Read Holding, Write Register… — см. [коды функций](../modbus/functions.md) |
+| Функция | Read Holding, Write Register… — см. [коды функций](../modbus/functions/index.md) |
 | Тип | Запрос, ответ, исключение или мусор |
 | Данные | Расшифровка: адрес, количество, значения |
 | CRC | OK или BAD |

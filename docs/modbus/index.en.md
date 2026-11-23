@@ -99,7 +99,7 @@ of a frame. The most used:
 
 Codes 65–72 and 100–110 are left to vendors for their own functions. The
 full reference with request formats is in
-[Function and exception codes](functions.md).
+[Function and exception codes](functions/index.md).
 
 **How much at once.** One request reads up to 125 registers or 2000 bits and
 writes up to 123 registers or 1968 bits. More takes several requests.
@@ -123,7 +123,7 @@ bad checksum), it **stays silent**, and the master gets a timeout.
 | 0A | Gateway Path Unavailable | The gateway cannot reach the network behind it |
 | 0B | Gateway Target Device Failed to Respond | The device behind the gateway did not answer |
 
-What to check for each — [Exceptions](functions.md#exceptions) and
+What to check for each — [Exceptions](functions/index.md#exceptions) and
 [Troubleshooting](../troubleshooting.md).
 
 ## Modbus variants { #variants }
@@ -302,7 +302,7 @@ Modbus TCP, on Windows, Linux and macOS.
     The device got the request, but has no register at that address — or the
     requested block runs past the end of its registers. Most often the
     address is off by one or taken from the 3x table instead of 4x. More in
-    [Exceptions](functions.md#exceptions).
+    [Exceptions](functions/index.md#exceptions).
 
 ## Reference sections { #reference }
 
@@ -312,7 +312,7 @@ Modbus TCP, on Windows, Linux and macOS.
   network.
 - [Tables and addresses](addressing.md) — 40001, 0x0000 and the off-by-one.
 - [Data types and byte order](data-types.md) — FLOAT, LONG, ABCD and CDAB.
-- [Function and exception codes](functions.md) — every function and
+- [Function and exception codes](functions/index.md) — every function and
   exception code.
 - [Troubleshooting](../troubleshooting.md) — timeouts, CRC errors, odd values.
 - [Online tools](../tools/index.md) — CRC calculator, FLOAT converter,

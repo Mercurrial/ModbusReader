@@ -94,7 +94,7 @@ address. A device on the network is found by its IP address anyway, so:
 | Speed | 9600–115200 baud | 10/100 Mbit/s, the device is the limit |
 
 Registers, [addressing](addressing.md), [data types and byte
-order](data-types.md) and [exception codes](functions.md) are exactly the
+order](data-types.md) and [exception codes](functions/index.md) are exactly the
 same over TCP: a device's register map does not depend on how you connect to
 it.
 
@@ -105,7 +105,7 @@ it.
 | **Connection refused** | The IP is right but the port is closed: another port number, or Modbus TCP is disabled in the device |
 | **Connect timeout** | Wrong IP, the device is in another subnet, a firewall is in the way |
 | Connected, **no answer** | Wrong Unit ID; behind a gateway — wrong RS-485 baud rate or parity |
-| An **exception** in the answer | The link is fine; wrong register address or function — see [exception codes](functions.md) |
+| An **exception** in the answer | The link is fine; wrong register address or function — see [exception codes](functions/index.md) |
 | An answer that is "not Modbus" | Another protocol on that port — e.g. a converter in [RTU over TCP](rtu-over-tcp.md) mode |
 
 Many devices accept only **one or two connections**: if a SCADA is already

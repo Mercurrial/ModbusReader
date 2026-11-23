@@ -37,7 +37,7 @@ Every request and answer is one frame:
 - **Address** — who the request is for; in the answer the device puts its
   own address.
 - **Function code** — what to do: read holding registers (03), write one
-  register (06) and so on. The list is in [Functions and errors](functions.md).
+  register (06) and so on. The list is in [Functions and errors](functions/index.md).
 - **Data** — the first register's address, the count, the values; what is
   there depends on the function.
 - **CRC16** — the checksum of all the bytes before it, **low byte first**. A
@@ -153,7 +153,7 @@ function code with its top bit set (`0x03` → `0x83`) and an error code:
 ```
 
 All exception codes and what to do about them are in
-[Functions and errors](functions.md#exceptions).
+[Functions and errors](functions/index.md#exceptions).
 
 ## RTU, ASCII and TCP
 
@@ -185,6 +185,6 @@ else's traffic without taking part.
 - [Tables and addresses](addressing.md) — why register 40001 is address 0.
 - [Data types and byte order](data-types.md) — FLOAT, LONG and "swapped"
   words.
-- [Function and exception codes](functions.md) — 03, 06, 16 and what
+- [Function and exception codes](functions/index.md) — 03, 06, 16 and what
   exception 02 means.
 - [The Modbus protocol](index.md) — an overview of the whole protocol.
