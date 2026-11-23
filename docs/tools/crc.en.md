@@ -42,7 +42,7 @@ packet = frame + bytes([crc & 0xFF, crc >> 8])   # 01 03 00 00 00 02 C4 0B
 
 A device silently drops a frame with a bad CRC — so one wrong byte looks
 like "the device does not answer". The frame structure is in
-[What is Modbus RTU](../modbus/index.md), function and exception codes in
+[Modbus RTU](../modbus/rtu.md), function and exception codes in
 [Functions and errors](../modbus/functions.md).
 
 ## In the app

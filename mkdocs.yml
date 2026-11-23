@@ -150,7 +150,7 @@ plugins:
           nav_translations:
             Главная: Home
             Начало работы: Getting started
-            Основы Modbus: Modbus basics
+            Протокол Modbus: Modbus protocol
             Руководство: User guide
             Примеры: Examples
             Онлайн-инструменты: Online tools
@@ -188,8 +188,9 @@ nav:
       - quickstart.md
       - connect.md
       - compare.md
-  - Основы Modbus:
+  - Протокол Modbus:
       - modbus/index.md
+      - modbus/rtu.md
       - modbus/addressing.md
       - modbus/data-types.md
       - modbus/functions.md

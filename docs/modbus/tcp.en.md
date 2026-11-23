@@ -6,7 +6,7 @@ description: Modbus TCP in plain words — port 502, the MBAP header (transactio
 # Modbus TCP
 
 **Modbus TCP** is the same Modbus over Ethernet: registers, functions and
-exception codes are those of [Modbus RTU](index.md); only the "wrapping"
+exception codes are those of [Modbus RTU](rtu.md); only the "wrapping"
 changes. PLCs, meters, drives with a network card and RS-485 ↔ Ethernet
 gateways support it.
 
