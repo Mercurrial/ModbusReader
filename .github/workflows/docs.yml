@@ -56,6 +56,13 @@ jobs:
           key: webp-${{ hashFiles('docs/images/**', 'tools/mkdocs_hooks.py') }}
           restore-keys: webp-
 
+      # Fonts the privacy plugin downloads to serve from the site itself.
+      - uses: actions/cache@v6
+        with:
+          path: .cache/plugin/privacy
+          key: privacy-${{ hashFiles('requirements-docs.txt', 'mkdocs.yml') }}
+          restore-keys: privacy-
+
       - run: mkdocs build --strict
         env:
           MKDOCS_WEBP_CACHE: ${{ runner.temp }}/webp

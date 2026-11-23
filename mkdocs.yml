@@ -99,6 +99,13 @@ extra:
 
 plugins:
   - search
+  # Fonts and other third-party files are downloaded at build time and
+  # served from the site itself: faster (no extra connection to Google, which
+  # is slow from Russia) and no visitor data sent to it. Yandex Metrika
+  # stays on Yandex — it only works from there.
+  - privacy:
+      assets_exclude:
+        - mc.yandex.ru/*
   - i18n:
       docs_structure: suffix
       fallback_to_default: true
