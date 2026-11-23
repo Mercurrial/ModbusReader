@@ -32,6 +32,8 @@ WEBP_QUALITY = 82
 # Encoded pictures are kept between builds (CI restores this folder too).
 _CACHE = os.environ.get("MKDOCS_WEBP_CACHE") or os.path.join(
     tempfile.gettempdir(), "modbusreader-site-webp")
+# A collapsible FAQ entry: `??? question "Q"` and its indented answer.
+_FAQ = re.compile(r'^\?\?\?\+? question "([^"\n]+)"\n((?:(?: {4}.*)?\n)+)', re.M)
 _IMG = re.compile(r"<img\b[^>]*>")
 _SRC = re.compile(r'\bsrc="([^"]+\.png)"')
 
@@ -99,6 +101,7 @@ def on_page_markdown(markdown, page, config, **_kwargs):
     page.update_date = updated                     # → sitemap <lastmod>
     page.meta["date_created"] = created            # → schema.org
     page.meta["date_updated"] = updated
+    page.meta["faq"] = faq_entries(markdown)
     if page.url not in ("", "en/"):                # the home page is no article
         lang = "en" if page.file.src_uri.endswith(".en.md") else "ru"
         word = "Updated" if lang == "en" else "Обновлено"
@@ -115,11 +118,26 @@ def on_page_context(context, page, config, **_kwargs):
     return context
 
 
+def plain(markdown: str) -> str:
+    """Markdown of an FAQ answer as plain text: links keep their words,
+    emphasis and code marks go, lines join."""
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", markdown)
+    text = re.sub(r"\*\*|`|\+\+", "", text)
+    return " ".join(text.split())
+
+
+def faq_entries(markdown: str) -> list:
+    """[(question, answer)] of a page's `??? question` blocks — they become
+    its schema.org FAQPage, which search engines may show as a rich answer."""
+    return [(q.strip(), plain(a)) for q, a in _FAQ.findall(markdown)]
+
+
 def json_ld(page, config) -> str:
     """schema.org data for search engines: on an article, its breadcrumbs
     (home → section → page) and the article itself with its dates; on the
     home page, the site. (The home page's SoftwareApplication is written by
-    overrides/main.html.) Ready to put inside <script>."""
+    overrides/main.html.) A page with `??? question` blocks also gets its
+    FAQPage. Ready to put inside <script>."""
     en = page.url.startswith("en/")
     lang = "en" if en else "ru"
     home = config.site_url + ("en/" if en else "")
@@ -155,6 +173,11 @@ def json_ld(page, config) -> str:
              "publisher": author,
              "isPartOf": {"@id": home + "#website"}},
         ]
+    if page.meta.get("faq"):
+        graph.append({"@type": "FAQPage", "mainEntity": [
+            {"@type": "Question", "name": q,
+             "acceptedAnswer": {"@type": "Answer", "text": a}}
+            for q, a in page.meta["faq"]]})
     data = json.dumps({"@context": "https://schema.org", "@graph": graph},
                       ensure_ascii=False, indent=1)
     return data.replace("</", "<\\/")             # never closes the <script>

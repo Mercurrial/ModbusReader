@@ -738,6 +738,25 @@ def test_project_site_dates_pages_by_their_last_commit(tmp_path):
     assert hooks.git_dates(str(tmp_path)) == {}       # not a repository
 
 
+def test_project_site_faq_blocks_become_plain_questions_and_answers():
+    """`??? question` blocks feed the page's schema.org FAQPage: the answer
+    as plain text, links reduced to their words."""
+    import importlib.util
+    import os
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "tools", "mkdocs_hooks.py")
+    spec = importlib.util.spec_from_file_location("mkdocs_hooks_faq", path)
+    hooks = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hooks)
+    md = ('# Page\n\n??? question "Is it free?"\n    Yes. See **the'
+          ' [licence](license.md)** and `GPL`.\n\n    Second paragraph.\n\n'
+          '??? question "Second?"\n    No.\n\n## After\n')
+    assert hooks.faq_entries(md) == [
+        ("Is it free?", "Yes. See the licence and GPL. Second paragraph."),
+        ("Second?", "No.")]
+    assert hooks.faq_entries("# No questions\n") == []
+
+
 def test_release_tool_moves_the_one_release_to_the_new_tag():
     """A tag per version, ONE release: the printed steps tag the version,
     replace the release's files and only then move it to the new tag — so a
